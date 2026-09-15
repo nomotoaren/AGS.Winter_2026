@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <ProjectOutputs>
+    <ProjectOutput>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\x64\Debug\BaseProject.exe</FullPath>
+    </ProjectOutput>
+  </ProjectOutputs>
+  <ContentFiles>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\LensDistortion.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\Monotone.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\ScanLine.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\Vignette.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\MetalModelPS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\stagePS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\StdModelPS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\StdModelVS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\MetaModelVS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\TimeStopPS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\WaterPS.cso</FullPath>
+    </ContentFile>
+    <ContentFile>
+      <FullPath>C:\Users\2416008\Desktop\KIKAKU\Data\Shader\WaterVS.cso</FullPath>
+    </ContentFile>
+  </ContentFiles>
+  <SatelliteDlls />
+  <NonRecipeFileRefs />
+</Project>
