@@ -41,6 +41,10 @@ public:
 	static constexpr float KAMEHAME_BEAM_RADIUS = 25.0f;
 	static constexpr float KAMEHAME_TRANSITION_TIME = 0.12f;
 
+	// ãC
+	static constexpr float MAX_KI = 100.0f;
+	static constexpr float KI_CHARGE_SPEED = 20.0f;
+
 	// èÛë‘
 	enum class STATE
 	{
@@ -287,4 +291,7 @@ private:
 	int kamehameLightHandle_;
 	int kamehameChargeModel_;
 	int kamehameBeamModel_;
+
+	// ãC
+	float ki_;
 };

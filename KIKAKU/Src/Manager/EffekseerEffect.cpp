@@ -7,6 +7,8 @@ EffekseerEffect::EffekseerEffect(void)
 {
     hitEffectId_ = -1;
     playHitEffectHandle_ = -1;
+    chargeEffectId_ = -1;
+    playChargeEffectHandle_ = -1;
 }
 
 EffekseerEffect::~EffekseerEffect(void)
@@ -92,6 +94,20 @@ void EffekseerEffect::Init(void)
         MessageBoxA(
             NULL,
             "Hit.efkefcの読み込みに失敗しました。",
+            "エラー",
+            MB_OK
+        );
+    }
+
+    chargeEffectId_ = LoadEffekseerEffect(
+        (Application::PATH_EFFECT + "MagicTornade.efkefc").c_str()
+    );
+
+    if (chargeEffectId_ == -1)
+    {
+        MessageBoxA(
+            NULL,
+            "MagicTornade.efkefcの読み込みに失敗しました。",
             "エラー",
             MB_OK
         );
@@ -362,4 +378,74 @@ void EffekseerEffect::PlayHitEffect(
         playHitEffectHandle_,
         1.0f
     );
+}
+
+void EffekseerEffect::PlayChargeEffect(
+    const VECTOR& pos
+)
+{
+    if (chargeEffectId_ == -1)
+    {
+        return;
+    }
+
+    if (playChargeEffectHandle_ != -1)
+    {
+        return;
+    }
+
+    playChargeEffectHandle_ =
+        PlayEffekseer3DEffect(
+            chargeEffectId_
+        );
+
+    if (playChargeEffectHandle_ == -1)
+    {
+        return;
+    }
+
+    SetPosPlayingEffekseer3DEffect(
+        playChargeEffectHandle_,
+        pos.x,
+        pos.y,
+        pos.z
+    );
+
+    SetScalePlayingEffekseer3DEffect(
+        playChargeEffectHandle_,
+        10.0f,
+        10.0f,
+        10.0f
+    );
+}
+
+void EffekseerEffect::UpdateChargeEffect(
+    const VECTOR& pos
+)
+{
+    if (playChargeEffectHandle_ == -1)
+    {
+        return;
+    }
+
+    SetPosPlayingEffekseer3DEffect(
+        playChargeEffectHandle_,
+        pos.x,
+        pos.y,
+        pos.z
+    );
+}
+
+void EffekseerEffect::StopChargeEffect(void)
+{
+    if (playChargeEffectHandle_ == -1)
+    {
+        return;
+    }
+
+    StopEffekseer3DEffect(
+        playChargeEffectHandle_
+    );
+
+    playChargeEffectHandle_ = -1;
 }

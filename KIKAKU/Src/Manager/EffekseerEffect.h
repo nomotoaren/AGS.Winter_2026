@@ -70,6 +70,12 @@ public:
         float rotY
     );
 
+    void PlayChargeEffect(const VECTOR& pos);
+
+    void UpdateChargeEffect(const VECTOR& pos);
+
+    void StopChargeEffect(void);
+
 private:
     int shalshutEffectId_;
 
@@ -112,4 +118,6 @@ private:
     int hitEffectId_;
     int playHitEffectHandle_;
 
+    int chargeEffectId_;
+    int playChargeEffectHandle_;
 };

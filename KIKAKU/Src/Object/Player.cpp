@@ -10,6 +10,7 @@
 #include "Common/Collider.h"
 #include "Planet.h"
 #include "Player.h"
+#include "../Manager/EffekseerEffect.h"
 
 Player::Player(void)
 {
@@ -50,6 +51,7 @@ Player::Player(void)
 	// 気を溜める
 	isCharging_ = false;
 	isChargeEnding_ = false;
+	ki_ = 0.0f;
 
 	attackTimer_ = 0.0f;
 	hasAttackHit_ = false;
@@ -168,6 +170,15 @@ void Player::Update(void)
 
 void Player::Draw(void)
 {
+	DrawFormatString(
+		10,
+		100,
+		GetColor(255, 255, 255),
+		"KI : %.1f / %.1f",
+		ki_,
+		MAX_KI
+	);
+
 	MV1DrawModel(transform_.modelId);
 
 	DrawKamehame();
@@ -206,7 +217,7 @@ void Player::InitAnimation(void)
 	animationController_->Add((int)ANIM_TYPE::ATTACK03,path + "Attack03.mv1",45.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK04,path + "Attack04.mv1",45.0f);
 	animationController_->Add((int)ANIM_TYPE::KAMEHAME, path + "かめはめ波.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::CHARGE, path + "pawer.mv1", 20.0f);
+	animationController_->Add((int)ANIM_TYPE::CHARGE, path + "pawer.mv1", 40.0f);
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 
 }
@@ -252,7 +263,7 @@ void Player::UpdatePlay(void)
 		movePow_ =
 			AsoUtility::VECTOR_ZERO;
 
-		// 0から45まで再生
+		// 気溜めアニメーション開始
 		animationController_->Play(
 			(int)ANIM_TYPE::CHARGE,
 			true,
@@ -266,6 +277,10 @@ void Player::UpdatePlay(void)
 			45.0f,
 			5.0f
 		);
+
+		// 気溜めエフェクト開始
+		EffekseerEffect::GetInstance()->
+			PlayChargeEffect(transform_.pos);
 	}
 
 	// 気溜め中
@@ -274,16 +289,30 @@ void Player::UpdatePlay(void)
 		movePow_ =
 			AsoUtility::VECTOR_ZERO;
 
-		// Tを離したら
-		if (!ins.IsNew(KEY_INPUT_T))
+		EffekseerEffect::GetInstance()->
+			UpdateChargeEffect(transform_.pos);
+
+		// 気を溜める
+		ki_ +=
+			KI_CHARGE_SPEED *
+			scnMng_.GetDeltaTime();
+		ki_ +=
+			KI_CHARGE_SPEED *
+			scnMng_.GetDeltaTime();
+
+		if (ki_ >= MAX_KI)
 		{
+			ki_ = MAX_KI;
+
 			isCharging_ = false;
 			isChargeEnding_ = true;
 
-			// 40～45ループを解除
+			EffekseerEffect::GetInstance()->
+				StopChargeEffect();
+
 			animationController_->ClearEndLoop();
 
-			// 45以降を再生
+			// 気溜め終了モーション
 			animationController_->Play(
 				(int)ANIM_TYPE::CHARGE,
 				false,
@@ -296,32 +325,58 @@ void Player::UpdatePlay(void)
 			return;
 		}
 
-		// Tを押している間はここで止める
-		return;
-	}
+		// 他の操作をしたら気溜めキャンセル
+		bool cancelCharge =
+			ins.IsNew(KEY_INPUT_W) ||
+			ins.IsNew(KEY_INPUT_A) ||
+			ins.IsNew(KEY_INPUT_S) ||
+			ins.IsNew(KEY_INPUT_D) ||
+			ins.IsNew(KEY_INPUT_RSHIFT) ||
+			ins.IsTrgDown(KEY_INPUT_F) ||
+			ins.IsTrgDown(KEY_INPUT_R) ||
+			ins.IsNew(KEY_INPUT_BACKSLASH);
 
-	// 気溜め終了モーション
-	if (isChargeEnding_)
-	{
-		movePow_ =
-			AsoUtility::VECTOR_ZERO;
-
-		// 45～70が終わった
-		if (animationController_->IsEnd())
+		if (cancelCharge)
 		{
+			isCharging_ = false;
 			isChargeEnding_ = false;
 
+			animationController_->ClearEndLoop();
+
+			EffekseerEffect::GetInstance()->
+				StopChargeEffect();
+
 			animationController_->Play(
-				(int)ANIM_TYPE::IDLE,
-				true,
-				0.0f,
-				-1.0f,
+				(int)ANIM_TYPE::IDLE
+			);
+		}
+		else if (!ins.IsNew(KEY_INPUT_T))
+		{
+			isCharging_ = false;
+			isChargeEnding_ = true;
+
+			EffekseerEffect::GetInstance()->
+				StopChargeEffect();
+
+			animationController_->ClearEndLoop();
+
+			// 気溜め終了モーション
+			animationController_->Play(
+				(int)ANIM_TYPE::CHARGE,
+				false,
+				45.0f,
+				70.0f,
 				false,
 				true
 			);
-		}
 
-		return;
+			return;
+		}
+		else
+		{
+			// まだTだけを押している
+			return;
+		}
 	}
 
 	if (isChargeEnding_)
