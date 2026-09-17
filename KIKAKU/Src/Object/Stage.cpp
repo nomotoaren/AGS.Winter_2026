@@ -4,11 +4,9 @@
 #include "../Utility/AsoUtility.h"
 #include "../Manager/SceneManager.h"
 #include "../Manager/ResourceManager.h"
-#include "WarpStar.h"
 #include "Player.h"
 #include "Planet.h"
 #include "Metal.h"
-#include "Water.h"
 #include "Common/Collider.h"
 #include "Common/Transform.h"
 #include "Stage.h"
@@ -22,27 +20,17 @@ Stage::Stage(Player& player)
 
 Stage::~Stage(void)
 {
-	
-	// ワープスター
-	warpStars_.clear();
-	
 	// 惑星
 	planets_.clear();
 
 	// Metal
 	matels_.clear();
-
-	// Water
-	waters_.clear();
-
 }
 
 void Stage::Init(void)
 {
 	MakeMainStage();
-	MakeWarpStar();
 	MakeMatel();
-	MakeWater();
 
 	step_ = -1.0f;
 }
@@ -155,27 +143,6 @@ void Stage::MakeMainStage(void)
 	//------------------------------------------------------------------------------
 }
 
-void Stage::MakeWarpStar(void)
-{
-	Transform trans;
-	std::unique_ptr<WarpStar> star;
-
-	// 落とし穴惑星へのワープスター
-	//------------------------------------------------------------------------------
-	trans.pos = { -910.0f, 200.0f, 894.0f };
-	trans.scl = { 0.6f, 0.6f, 0.6f };
-	trans.quaRot = Quaternion::Euler(
-		AsoUtility::Deg2RadF(-25.0f),
-		AsoUtility::Deg2RadF(-50.0f),
-		AsoUtility::Deg2RadF(0.0f)
-	);
-
-	star = std::make_unique<WarpStar>(player_, trans);
-	star->Init();
-	warpStars_.push_back(std::move(star));
-	//------------------------------------------------------------------------------
-}
-
 void Stage::MakeMatel(void)
 {
 	Transform trans;
@@ -194,26 +161,5 @@ void Stage::MakeMatel(void)
 	metal = std::make_unique<Metal>(player_, trans);
 	metal->Init();
 	matels_.push_back(std::move(metal));
-	//------------------------------------------------------------------------------
-}
-
-void Stage::MakeWater(void)
-{
-	Transform trans;
-	std::unique_ptr<Water> wataer;
-
-	// 水
-	//------------------------------------------------------------------------------
-	trans.pos = { -600.0f, 0.0f,-350.0f };
-	trans.scl = { 3.0f, 1.0f,3.0f };
-	trans.quaRot = Quaternion::Euler(
-		AsoUtility::Deg2RadF(0.0f),
-		AsoUtility::Deg2RadF(0.0f),
-		AsoUtility::Deg2RadF(0.0f)
-	);
-
-	wataer = std::make_unique<Water>(player_, trans);
-	wataer->Init();
-	waters_.push_back(std::move(wataer));
 	//------------------------------------------------------------------------------
 }

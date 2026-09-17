@@ -5,6 +5,8 @@
 #include <functional>
 #include <DxLib.h>
 #include "ActorBase.h"
+#include "KiBlast.h"
+
 class AnimationController;
 class Collider;
 class Capsule;
@@ -77,6 +79,7 @@ public:
 		ATTACK06,
 		ATTACK07,
 		ATTACK08,
+		KI_BLAST,
 		KAMEHAME,
 		CHARGE,
 	};
@@ -164,10 +167,21 @@ public:
 
 	bool UseKi(float amount);
 
+	const std::vector<std::unique_ptr<KiBlast>>&
+		GetKiBlasts(void) const;
+
+	void SetLockOn(bool lockOn);
+	bool IsLockOn(void) const;
+
+	void LookAtTarget(VECTOR targetPos);
+
 private:
 
 	// アニメーション
 	std::unique_ptr<AnimationController> animationController_;
+
+	// 気弾
+	std::vector<std::unique_ptr<KiBlast>> kiBlasts_;
 
 	// 状態管理
 	STATE state_;
@@ -274,6 +288,7 @@ private:
 	
 	// 描画系
 	void DrawShadow(void);
+	void DrawKiBlast(void);
 
 	// 操作
 	void ProcessMove(void);
@@ -296,6 +311,13 @@ private:
 
 	void RecordPlayerState(void);
 
+	// 攻撃関連
+	void UpdateAttack(void);
+	void UpdateKiBlast(void);
+	void UpdateKamehame(void);
+	void UpdateCharge(void);
+	void UpdateChase(void);
+
 	float attackEndTimer_;
 
 	// かめはめ波
@@ -310,4 +332,16 @@ private:
 
 	// 気
 	float ki_;
+
+	// 気弾
+	bool isKiBlast_;
+	bool isKiBlastShot_;
+	float kiBlastTimer_;
+
+	// 残像
+	int afterImageAttachNo_;
+	MATRIX afterImageMatrix_;
+
+	// ロックオン
+	bool isLockOn_;
 };

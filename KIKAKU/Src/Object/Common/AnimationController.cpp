@@ -194,6 +194,39 @@ int AnimationController::GetPlayType(void) const
 	return playType_;
 }
 
+int AnimationController::CopyPose(int modelId)
+{
+	if (playType_ == -1)
+	{
+		return -1;
+	}
+
+	Animation anim =
+		animations_[playType_];
+
+	int animIdx = 0;
+
+	if (MV1GetAnimNum(anim.model) > 1)
+	{
+		animIdx = 1;
+	}
+
+	int attachNo =
+		MV1AttachAnim(
+			modelId,
+			animIdx,
+			anim.model
+		);
+
+	MV1SetAttachAnimTime(
+		modelId,
+		attachNo,
+		playAnim_.step
+	);
+
+	return attachNo;
+}
+
 bool AnimationController::IsEnd(void) const
 {
 

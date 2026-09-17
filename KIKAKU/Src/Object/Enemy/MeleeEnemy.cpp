@@ -3,33 +3,24 @@
 #include "MeleeEnemy.h"
 #include "../../Application.h"
 #include "../Player.h"
-#include "../GhostPlayer.h"
 #include "../../Manager/ResourceManager.h"
 #include "../../Manager/SceneManager.h"
 #include "../../Utility/AsoUtility.h"
 
-MeleeEnemy::MeleeEnemy(
-    Player& player,
-    GhostPlayer& ghostPlayer
-)
+MeleeEnemy::MeleeEnemy(Player& player)
     :
     player_(player),
-    ghostPlayer_(ghostPlayer),
-    showSurprise_(false),
-    surpriseTimer_(0.0f),
-    surpriseHandle_(-1),
     moveSpeed_(2.0f),
     searchRange_(500.0f),
     stopRange_(80.0f),
     isAttack_(false),
     attackTimer_(0.0f),
     attackCoolTimer_(0.0f),
-    hasAttackHit_(false),
-    isTargetGhost_(false),
-    targetLockTimer_(0.0f)
+    hasAttackHit_(false)
 {
     hp_ = 100;
     hitRadius_ = 50.0f;
+
     isDamage_ = false;
     damageTimer_ = 0.0f;
 }
@@ -48,11 +39,6 @@ void MeleeEnemy::Init(void)
     );
 
     InitAnimation();
-
-    surpriseHandle_ =
-        LoadGraph(
-            "Data/Image/Surprise.png"
-        );
 
     // 初期位置
     transform_.pos =
@@ -112,90 +98,9 @@ void MeleeEnemy::Update(void)
 
     animationController_->Update();
 
-    UpdateSyncWindow(deltaTime);
+    VECTOR targetPos =
+        player_.GetTransform().pos;
 
-    // ターゲットを決める
-    // ターゲット固定時間を減らす
-    if (targetLockTimer_ > 0.0f)
-    {
-        targetLockTimer_ -= deltaTime;
-
-        if (targetLockTimer_ < 0.0f)
-        {
-            targetLockTimer_ = 0.0f;
-        }
-    }
-
-    if (targetLockTimer_ <= 0.0f)
-    {
-        // 前回Ghostを狙っていたか
-        bool wasTargetGhost =
-            isTargetGhost_;
-
-        // 基本はPlayer
-        bool nextTargetGhost =
-            false;
-
-        // Ghostを最優先
-        if (ghostPlayer_.IsTargetable())
-        {
-            VECTOR ghostPos =
-                ghostPlayer_.GetTransform().pos;
-
-            VECTOR toGhost =
-                VSub(
-                    ghostPos,
-                    transform_.pos
-                );
-
-            toGhost.y = 0.0f;
-
-            float ghostDistance =
-                VSize(toGhost);
-
-            // Ghostが索敵範囲内なら
-            // Playerとの距離に関係なくGhostを狙う
-            if (ghostDistance <= searchRange_)
-            {
-                nextTargetGhost = true;
-            }
-        }
-
-        // Player → Ghostへ変わった瞬間
-        if (!wasTargetGhost &&
-            nextTargetGhost)
-        {
-            showSurprise_ = true;
-            surpriseTimer_ = 0.0f;
-        }
-
-        isTargetGhost_ =
-            nextTargetGhost;
-
-        // 一定時間ターゲット固定
-        targetLockTimer_ =
-            TARGET_LOCK_TIME;
-    }
-
-    VECTOR targetPos;
-
-    // Ghostを狙っていて、Ghostがまだ存在する
-    if (isTargetGhost_ &&
-        ghostPlayer_.IsTargetable())
-    {
-        targetPos =
-            ghostPlayer_.GetTransform().pos;
-    }
-    else
-    {
-        // Ghostが消えた場合などはPlayerへ戻す
-        isTargetGhost_ = false;
-
-        targetPos =
-            player_.GetTransform().pos;
-    }
-
-    // ターゲットまでの方向・距離
     VECTOR toTarget =
         VSub(
             targetPos,
@@ -222,17 +127,18 @@ void MeleeEnemy::Update(void)
                 0.85f
             );
 
-        isDamage_ = true;
-        damageTimer_ = 0.5f;
+        if (!isDamage_)
+        {
+            isDamage_ = true;
+            damageTimer_ = 0.5f;
 
-        animationController_->Play(
-            (int)ANIM_TYPE::DAMAGE,
-            false
-        );
+            animationController_->Play(
+                (int)ANIM_TYPE::DAMAGE,
+                false
+            );
+        }
 
         transform_.Update();
-
-        return;
 
         return;
     }
@@ -242,6 +148,7 @@ void MeleeEnemy::Update(void)
             AsoUtility::VECTOR_ZERO;
     }
 
+    // ダメージモーション
     if (isDamage_)
     {
         if (animationController_->IsEnd())
@@ -255,18 +162,8 @@ void MeleeEnemy::Update(void)
         else
         {
             transform_.Update();
+
             return;
-        }
-    }
-
-    if (showSurprise_)
-    {
-        surpriseTimer_ += deltaTime;
-
-        if (surpriseTimer_ >= SURPRISE_TIME)
-        {
-            surpriseTimer_ = 0.0f;
-            showSurprise_ = false;
         }
     }
 
@@ -280,12 +177,16 @@ void MeleeEnemy::Update(void)
             isAttack_ = false;
             attackTimer_ = 0.0f;
 
-            // 攻撃後の待ち時間
             attackCoolTimer_ =
                 ATTACK_COOL_TIME;
+
+            animationController_->Play(
+                (int)ANIM_TYPE::IDLE
+            );
         }
 
         transform_.Update();
+
         return;
     }
 
@@ -300,7 +201,7 @@ void MeleeEnemy::Update(void)
         }
     }
 
-    // 索敵範囲
+    // 索敵範囲内
     if (distance <= searchRange_)
     {
         VECTOR dir =
@@ -308,7 +209,8 @@ void MeleeEnemy::Update(void)
 
         if (distance > 0.001f)
         {
-            dir = VNorm(toTarget);
+            dir =
+                VNorm(toTarget);
         }
 
         // Playerの方向を向く
@@ -318,6 +220,7 @@ void MeleeEnemy::Update(void)
                 Quaternion::LookRotation(dir);
         }
 
+        // Playerへ近づく
         if (distance > stopRange_)
         {
             transform_.pos =
@@ -328,6 +231,10 @@ void MeleeEnemy::Update(void)
                         moveSpeed_
                     )
                 );
+
+            animationController_->Play(
+                (int)ANIM_TYPE::RUN
+            );
         }
         else
         {
@@ -335,10 +242,26 @@ void MeleeEnemy::Update(void)
             {
                 isAttack_ = true;
                 attackTimer_ = 0.0f;
-
                 hasAttackHit_ = false;
+
+                animationController_->Play(
+                    (int)ANIM_TYPE::ATTACK01,
+                    false
+                );
+            }
+            else
+            {
+                animationController_->Play(
+                    (int)ANIM_TYPE::IDLE
+                );
             }
         }
+    }
+    else
+    {
+        animationController_->Play(
+            (int)ANIM_TYPE::IDLE
+        );
     }
 
     transform_.Update();
@@ -351,87 +274,14 @@ void MeleeEnemy::Draw(void)
         return;
     }
 
+    // プレイヤー本体
+    SetUseLighting(FALSE);
+
     MV1DrawModel(
         transform_.modelId
     );
 
-    // SYNC中だけ足元リング
-    DrawSyncRing();
-
-    if (showSurprise_ &&
-        surpriseHandle_ != -1)
-    {
-        VECTOR markPos =
-            transform_.pos;
-
-        markPos.y += 150.0f;
-
-        VECTOR screenPos =
-            ConvWorldPosToScreenPos(
-                markPos
-            );
-
-        if (screenPos.z >= 0.0f &&
-            screenPos.z <= 1.0f)
-        {
-            float rate =
-                surpriseTimer_ /
-                SURPRISE_TIME;
-
-            if (rate > 1.0f)
-            {
-                rate = 1.0f;
-            }
-
-            float scale;
-
-            if (rate < 0.2f)
-            {
-                // 0.0 → 0.2 の間で急拡大
-                float appearRate =
-                    rate / 0.2f;
-
-                scale =
-                    0.05f +
-                    0.10f * appearRate;
-            }
-            else
-            {
-                // その後少し縮む
-                float disappearRate =
-                    (rate - 0.2f) / 0.8f;
-
-                scale =
-                    0.15f -
-                    0.04f * disappearRate;
-            }
-
-            // 透明度
-            int alpha =
-                static_cast<int>(
-                    255.0f * (1.0f - rate)
-                    );
-
-            SetDrawBlendMode(
-                DX_BLENDMODE_ALPHA,
-                alpha
-            );
-
-            DrawRotaGraph(
-                static_cast<int>(screenPos.x),
-                static_cast<int>(screenPos.y),
-                scale,
-                0.0,
-                surpriseHandle_,
-                true
-            );
-
-            SetDrawBlendMode(
-                DX_BLENDMODE_NOBLEND,
-                255
-            );
-        }
-    }
+    SetUseLighting(TRUE);
 
     DrawFormatString(
         20,
@@ -465,11 +315,6 @@ bool MeleeEnemy::HasAttackHit(void) const
 void MeleeEnemy::SetAttackHit(void)
 {
     hasAttackHit_ = true;
-}
-
-bool MeleeEnemy::IsTargetGhost(void) const
-{
-    return isTargetGhost_;
 }
 
 void MeleeEnemy::DrawSyncRing(void)

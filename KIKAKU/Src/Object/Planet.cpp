@@ -2,7 +2,6 @@
 #include "../Utility/AsoUtility.h"
 #include "../Manager/SceneManager.h"
 #include "Common/Transform.h"
-#include "WarpStar.h"
 #include "Planet.h"
 #include "../Renderer/ModelMaterial.h"
 #include "../Renderer/ModelRenderer.h"

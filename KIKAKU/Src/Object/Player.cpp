@@ -59,6 +59,16 @@ Player::Player(void)
 	isChargeEnding_ = false;
 	ki_ = 0.0f;
 
+	// 気弾
+	isKiBlast_ = false;
+	isKiBlastShot_ = false;
+	kiBlastTimer_ = 0.0f;
+
+	// ロックオン
+	isLockOn_ = false;
+
+	// 残像
+	afterImageAttachNo_ = -1;
 	attackTimer_ = 0.0f;
 	hasAttackHit_ = false;
 	attackTrigger_ = false;
@@ -210,21 +220,48 @@ void Player::Draw(void)
 		attackTimer_
 	);
 
-
-	if (isAfterImage_ &&
-		afterImageModel_ != -1)
+	if (isAfterImage_)
 	{
+		MATRIX playerMatrix =
+			MV1GetMatrix(
+				transform_.modelId
+			);
+
+		MV1SetMatrix(
+			transform_.modelId,
+			afterImageMatrix_
+		);
+
 		MV1SetOpacityRate(
-			afterImageModel_,
+			transform_.modelId,
 			0.35f
 		);
 
 		MV1DrawModel(
-			afterImageModel_
+			transform_.modelId
+		);
+
+		MV1SetMatrix(
+			transform_.modelId,
+			playerMatrix
+		);
+
+		MV1SetOpacityRate(
+			transform_.modelId,
+			1.0f
 		);
 	}
 
-	MV1DrawModel(transform_.modelId);
+	// プレイヤー本体
+	SetUseLighting(FALSE);
+
+	MV1DrawModel(
+		transform_.modelId
+	);
+
+	SetUseLighting(TRUE);
+
+	DrawKiBlast();
 
 	DrawKamehame();
 }
@@ -269,6 +306,7 @@ void Player::InitAnimation(void)
 	animationController_->Add((int)ANIM_TYPE::ATTACK06, path + "Attack01.mv1", 45.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK07, path + "Attack07.mv1", 40.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK08, path + "Attack08.mv1", 60.0f);
+	animationController_->Add((int)ANIM_TYPE::KI_BLAST, path + "KiBlast.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::KAMEHAME, path + "かめはめ波.mv1", 20.0f);
 	animationController_->Add((int)ANIM_TYPE::CHARGE, path + "pawer.mv1", 40.0f);
 	animationController_->Play((int)ANIM_TYPE::IDLE);
@@ -306,807 +344,30 @@ void Player::UpdatePlay(void)
 
 	attackTrigger_ = false;
 	
-	// 気溜め開始
-	if (!isCharging_ &&
-		!isChargeEnding_ &&
-		ins.IsTrgDown(KEY_INPUT_T))
+	// 気溜め
+	UpdateChase();
+
+	// 気溜め中は他の処理をしない
+	if (isCharging_ ||
+		isChargeEnding_)
 	{
-		isCharging_ = true;
-
-		movePow_ =
-			AsoUtility::VECTOR_ZERO;
-
-		// 気溜めアニメーション開始
-		animationController_->Play(
-			(int)ANIM_TYPE::CHARGE,
-			true,
-			0.0f,
-			45.0f
-		);
-
-		// 40～45だけ繰り返す
-		animationController_->SetEndLoop(
-			40.0f,
-			45.0f,
-			5.0f
-		);
-
-		// 気溜めエフェクト開始
-		EffekseerEffect::GetInstance()->
-			PlayChargeEffect(transform_.pos);
-	}
-
-	// 気溜め中
-	if (isCharging_)
-	{
-		movePow_ =
-			AsoUtility::VECTOR_ZERO;
-
-		EffekseerEffect::GetInstance()->
-			UpdateChargeEffect(transform_.pos);
-
-		// 気を溜める
-		ki_ +=
-			KI_CHARGE_SPEED *
-			scnMng_.GetDeltaTime();
-		ki_ +=
-			KI_CHARGE_SPEED *
-			scnMng_.GetDeltaTime();
-
-		if (ki_ >= MAX_KI)
-		{
-			ki_ = MAX_KI;
-
-			isCharging_ = false;
-			isChargeEnding_ = true;
-
-			EffekseerEffect::GetInstance()->
-				StopChargeEffect();
-
-			animationController_->ClearEndLoop();
-
-			// 気溜め終了モーション
-			animationController_->Play(
-				(int)ANIM_TYPE::CHARGE,
-				false,
-				45.0f,
-				70.0f,
-				false,
-				true
-			);
-
-			return;
-		}
-
-		// 他の操作をしたら気溜めキャンセル
-		bool cancelCharge =
-			ins.IsNew(KEY_INPUT_W) ||
-			ins.IsNew(KEY_INPUT_A) ||
-			ins.IsNew(KEY_INPUT_S) ||
-			ins.IsNew(KEY_INPUT_D) ||
-			ins.IsNew(KEY_INPUT_RSHIFT) ||
-			ins.IsTrgDown(KEY_INPUT_F) ||
-			ins.IsTrgDown(KEY_INPUT_R) ||
-			ins.IsNew(KEY_INPUT_BACKSLASH);
-
-		if (cancelCharge)
-		{
-			isCharging_ = false;
-			isChargeEnding_ = false;
-
-			animationController_->ClearEndLoop();
-
-			EffekseerEffect::GetInstance()->
-				StopChargeEffect();
-
-			animationController_->Play(
-				(int)ANIM_TYPE::IDLE
-			);
-		}
-		else if (!ins.IsNew(KEY_INPUT_T))
-		{
-			isCharging_ = false;
-			isChargeEnding_ = true;
-
-			EffekseerEffect::GetInstance()->
-				StopChargeEffect();
-
-			animationController_->ClearEndLoop();
-
-			// 気溜め終了モーション
-			animationController_->Play(
-				(int)ANIM_TYPE::CHARGE,
-				false,
-				45.0f,
-				70.0f,
-				false,
-				true
-			);
-
-			return;
-		}
-		else
-		{
-			// まだTだけを押している
-			return;
-		}
-	}
-
-	if (isChargeEnding_)
-	{
-		movePow_ =
-			AsoUtility::VECTOR_ZERO;
-
-		if (animationController_->IsEnd())
-		{
-			isChargeEnding_ = false;
-
-			animationController_->Play(
-				(int)ANIM_TYPE::IDLE
-			);
-		}
-
 		return;
 	}
 
-	if (canChase_ &&
-		!isAttack_ &&
-		ins.IsTrgDown(KEY_INPUT_F))
-	{
-		isChasing_ = true;
-		canChase_ = false;
-	}
+	// 気弾
+	UpdateKiBlast();
 
-	// 攻撃開始 
-	if (!isKamehame_ &&
-		!isChasing_ &&
-		ins.IsTrgDown(KEY_INPUT_F))
-	{
-		if (!isAttack_)
-		{
-			isAttack_ = true;
-			combo_ = 1;
-			nextAttack_ = false;
+	// 攻撃処理
+	UpdateAttack();
 
-			attackTimer_ = 0.0f;
-			hasAttackHit_ = false;
-			attackTrigger_ = true;
+	// かめはめ波
+	UpdateKamehame();
 
-			animationController_->Play(
-				(int)ANIM_TYPE::ATTACK01,
-				false
-			);
-		}
-		else
-		{
-			nextAttack_ = true;
-		}
-	}
-
-	// 攻撃中
-	if (isAttack_)
-	{
-		attackTimer_ +=
-			scnMng_.GetDeltaTime();
-
-		movePow_ =
-			AsoUtility::VECTOR_ZERO;
-
-		if (hasAttackTarget_)
-		{
-			VECTOR dir =
-				VSub(
-					attackTargetPos_,
-					transform_.pos
-				);
-
-			dir.y = 0.0f;
-
-			float distance =
-				VSize(dir);
-
-			if (distance > 0.001f)
-			{
-				dir = VNorm(dir);
-
-				playerRotY_ =
-					Quaternion::LookRotation(dir);
-
-				goalQuaRot_ =
-					playerRotY_;
-
-				float stopDistance = 55.0f;
-				float chaseSpeed = 9.0f;
-
-				switch (combo_)
-				{
-				case 1:
-					stopDistance = 70.0f;
-					chaseSpeed = 9.0f;
-					break;
-
-				case 2:
-					break;
-
-				case 3:
-					stopDistance = 70.0f;
-					chaseSpeed = 18.0f;
-					break;
-				}
-
-				if (combo_ != 2 &&
-					combo_ < 4 &&
-					distance > stopDistance &&
-					distance < 300.0f)
-				{
-					float moveDistance =
-						distance - stopDistance;
-
-					if (moveDistance > chaseSpeed)
-					{
-						moveDistance = chaseSpeed;
-					}
-
-					movePow_ =
-						VScale(
-							dir,
-							moveDistance
-						);
-				}
-			}
-		}
-
-		if (animationController_->IsEnd())
-		{
-			if (nextAttack_ &&
-				combo_ < 8)
-			{
-				combo_++;
-				nextAttack_ = false;
-
-				attackTimer_ = 0.0f;
-				hasAttackHit_ = false;
-				attackTrigger_ = true;
-
-				switch (combo_)
-				{
-				case 2:
-				{
-					if (hasAttackTarget_)
-					{
-						VECTOR enemyPos =
-							attackTargetPos_;
-
-						VECTOR dir =
-							VSub(
-								enemyPos,
-								transform_.pos
-							);
-
-						dir.y = 0.0f;
-
-						if (VSize(dir) > 0.001f)
-						{
-							dir = VNorm(dir);
-
-							// 移動前の姿を残す
-							MV1SetMatrix(
-								afterImageModel_,
-								MV1GetMatrix(transform_.modelId)
-							);
-
-							isAfterImage_ = true;
-							afterImageTimer_ = 0.10f;
-
-							// 敵の後ろへ移動
-							transform_.pos =
-								VAdd(
-									enemyPos,
-									VScale(
-										dir,
-										70.0f
-									)
-								);
-
-							// 敵の方を向く
-							VECTOR lookDir =
-								VSub(
-									enemyPos,
-									transform_.pos
-								);
-
-							lookDir.y = 0.0f;
-
-							if (VSize(lookDir) > 0.001f)
-							{
-								lookDir =
-									VNorm(lookDir);
-
-								playerRotY_ =
-									Quaternion::LookRotation(
-										lookDir
-									);
-
-								goalQuaRot_ =
-									playerRotY_;
-							}
-						}
-					}
-
-					movePow_ =
-						AsoUtility::VECTOR_ZERO;
-
-					animationController_->Play(
-						(int)ANIM_TYPE::ATTACK02,
-						false
-					);
-
-					break;
-				}
-				case 3:
-					animationController_->Play(
-						(int)ANIM_TYPE::ATTACK03,
-						false
-					);
-					break;
-
-				case 4:
-				{
-					if (hasAttackTarget_)
-					{
-						VECTOR enemyPos =
-							attackTargetPos_;
-
-						VECTOR toEnemy =
-							VSub(
-								enemyPos,
-								transform_.pos
-							);
-
-						toEnemy.y = 0.0f;
-
-						if (VSize(toEnemy) > 0.001f)
-						{
-							VECTOR dir =
-								VNorm(toEnemy);
-
-							VECTOR sideDir =
-								VGet(
-									-dir.z,
-									0.0f,
-									dir.x
-								);
-
-							// 移動前の位置を残す
-							afterImagePos_ =
-								transform_.pos;
-
-							MV1SetMatrix(
-								afterImageModel_,
-								MV1GetMatrix(transform_.modelId)
-							);
-
-							isAfterImage_ = true;
-							afterImageTimer_ = 0.10f;
-
-							// 4発目の攻撃時は敵の横に移動する
-							transform_.pos =
-								VAdd(
-									enemyPos,
-									VScale(
-										sideDir,
-										70.0f
-									)
-								);
-
-							VECTOR lookDir =
-								VSub(
-									enemyPos,
-									transform_.pos
-								);
-
-							lookDir.y = 0.0f;
-
-							if (VSize(lookDir) > 0.001f)
-							{
-								lookDir =
-									VNorm(lookDir);
-
-								playerRotY_ =
-									Quaternion::LookRotation(
-										lookDir
-									);
-
-								goalQuaRot_ =
-									playerRotY_;
-							}
-						}
-					}
-
-					movePow_ =
-						AsoUtility::VECTOR_ZERO;
-
-					animationController_->Play(
-						(int)ANIM_TYPE::ATTACK04,
-						false
-					);
-
-					break;
-				}
-				case 5:
-					animationController_->Play(
-						(int)ANIM_TYPE::ATTACK05,
-						false
-					);
-					break;
-
-				case 6:
-				{
-					if (hasAttackTarget_)
-					{
-						VECTOR enemyPos =
-							attackTargetPos_;
-
-						VECTOR toEnemy =
-							VSub(
-								enemyPos,
-								transform_.pos
-							);
-
-						toEnemy.y = 0.0f;
-
-						if (VSize(toEnemy) > 0.001f)
-						{
-							VECTOR dir =
-								VNorm(toEnemy);
-
-							VECTOR sideDir =
-								VGet(
-									dir.z,
-									0.0f,
-									-dir.x
-								);
-
-							// 移動前の姿を残す
-							MV1SetMatrix(
-								afterImageModel_,
-								MV1GetMatrix(transform_.modelId)
-							);
-
-							isAfterImage_ = true;
-							afterImageTimer_ = 0.10f;
-
-							// 敵の反対側へ移動
-							transform_.pos =
-								VAdd(
-									enemyPos,
-									VScale(
-										sideDir,
-										70.0f
-									)
-								);
-
-							// 敵の方を向く
-							VECTOR lookDir =
-								VSub(
-									enemyPos,
-									transform_.pos
-								);
-
-							lookDir.y = 0.0f;
-
-							if (VSize(lookDir) > 0.001f)
-							{
-								lookDir =
-									VNorm(lookDir);
-
-								playerRotY_ =
-									Quaternion::LookRotation(
-										lookDir
-									);
-
-								goalQuaRot_ =
-									playerRotY_;
-							}
-						}
-					}
-
-					movePow_ =
-						AsoUtility::VECTOR_ZERO;
-
-					animationController_->Play(
-						(int)ANIM_TYPE::ATTACK06,
-						false
-					);
-
-					break;
-				}
-				case 7:
-				{
-					if (hasAttackTarget_)
-					{
-						VECTOR enemyPos =
-							attackTargetPos_;
-
-						VECTOR dir =
-							VSub(
-								enemyPos,
-								transform_.pos
-							);
-
-						dir.y = 0.0f;
-
-						if (VSize(dir) > 0.001f)
-						{
-							dir = VNorm(dir);
-
-							// 移動前の姿を残す
-							MV1SetMatrix(
-								afterImageModel_,
-								MV1GetMatrix(transform_.modelId)
-							);
-
-							isAfterImage_ = true;
-							afterImageTimer_ = 0.10f;
-
-							// 敵の後ろへ移動
-							transform_.pos =
-								VAdd(
-									enemyPos,
-									VScale(
-										dir,
-										70.0f
-									)
-								);
-
-							VECTOR lookDir =
-								VSub(
-									enemyPos,
-									transform_.pos
-								);
-
-							lookDir.y = 0.0f;
-
-							if (VSize(lookDir) > 0.001f)
-							{
-								lookDir = VNorm(lookDir);
-
-								playerRotY_ =
-									Quaternion::LookRotation(
-										lookDir
-									);
-
-								goalQuaRot_ =
-									playerRotY_;
-							}
-						}
-					}
-
-					movePow_ =
-						AsoUtility::VECTOR_ZERO;
-
-					animationController_->Play(
-						(int)ANIM_TYPE::ATTACK07,
-						false
-					);
-
-					break;
-				}
-				case 8:
-				{
-					if (hasAttackTarget_)
-					{
-						VECTOR enemyPos =
-							attackTargetPos_;
-
-						// 今いる位置から敵への方向
-						VECTOR dir =
-							VSub(
-								enemyPos,
-								transform_.pos
-							);
-
-						dir.y = 0.0f;
-
-						if (VSize(dir) > 0.001f)
-						{
-							dir = VNorm(dir);
-
-							// 移動前の姿を残す
-							MV1SetMatrix(
-								afterImageModel_,
-								MV1GetMatrix(transform_.modelId)
-							);
-
-							isAfterImage_ = true;
-							afterImageTimer_ = 0.10f;
-
-							// 敵を挟んで反対側へ移動
-							transform_.pos =
-								VAdd(
-									enemyPos,
-									VScale(
-										dir,
-										70.0f
-									)
-								);
-
-							// 敵の方を向く
-							VECTOR lookDir =
-								VSub(
-									enemyPos,
-									transform_.pos
-								);
-
-							lookDir.y = 0.0f;
-
-							if (VSize(lookDir) > 0.001f)
-							{
-								lookDir = VNorm(lookDir);
-
-								playerRotY_ =
-									Quaternion::LookRotation(
-										lookDir
-									);
-
-								goalQuaRot_ =
-									playerRotY_;
-							}
-						}
-					}
-
-					movePow_ =
-						AsoUtility::VECTOR_ZERO;
-
-					animationController_->Play(
-						(int)ANIM_TYPE::ATTACK08,
-						false
-					);
-
-					break;
-				}
-				}
-
-			}
-			else
-			{
-				isAttack_ = false;
-				nextAttack_ = false;
-				combo_ = 0;
-
-				attackTimer_ = 0.0f;
-				hasAttackHit_ = false;
-
-				isAttack04Move_ = false;
-				attack04MoveTimer_ = 0.0f;
-
-				animationController_->Play(
-					(int)ANIM_TYPE::IDLE
-				);
-			}
-		}
-	}
-
-	if (attackEndTimer_ > 0.0f)
-	{
-		attackEndTimer_ -=
-			scnMng_.GetDeltaTime();
-
-		if (attackEndTimer_ < 0.0f)
-		{
-			attackEndTimer_ = 0.0f;
-		}
-	}
-
-	// かめはめ波開始
-	if (!isAttack_ &&
-		!isKamehame_ &&
-		!isJump_ &&
-		ins.IsTrgDown(KEY_INPUT_R))
-	{
-		if (UseKi(KAMEHAME_KI_COST))
-		{
-			isKamehame_ = true;
-			isKamehameBeam_ = false;
-
-			kamehameTimer_ = 0.0f;
-
-			movePow_ =
-				AsoUtility::VECTOR_ZERO;
-
-			animationController_->Play(
-				(int)ANIM_TYPE::KAMEHAME,
-				false
-			);
-		}
-	}
-
-	if (isKamehame_)
-	{
-		kamehameTimer_ += scnMng_.GetDeltaTime();
-
-		if (kamehameTimer_ >= KAMEHAME_SHOT_TIME)
-		{
-			isKamehameBeam_ = true;
-		}
-
-		if (kamehameTimer_ >= KAMEHAME_END_TIME)
-		{
-			isKamehame_ = false;
-			isKamehameBeam_ = false;
-			kamehameTimer_ = 0.0f;
-
-			animationController_->Play(
-				(int)ANIM_TYPE::IDLE
-			);
-		}
-	}
 	// 移動処理
 	ProcessMove();
 
 	// 高速追撃
-	if (isChasing_)
-	{
-		if (hasAttackTarget_)
-		{
-			VECTOR dir =
-				VSub(
-					attackTargetPos_,
-					transform_.pos
-				);
-
-			dir.y = 0.0f;
-
-			float distance =
-				VSize(dir);
-
-			if (distance > 60.0f)
-			{
-				dir =
-					VNorm(dir);
-
-				playerRotY_ =
-					Quaternion::LookRotation(dir);
-
-				goalQuaRot_ =
-					playerRotY_;
-
-				movePow_ =
-					VScale(
-						dir,
-						45.0f
-					);
-			}
-			else
-			{
-				movePow_ =
-					AsoUtility::VECTOR_ZERO;
-
-				isChasing_ = false;
-				canChase_ = false;
-
-				isAttack_ = true;
-				combo_ = 1;
-				nextAttack_ = false;
-
-				attackTimer_ = 0.0f;
-				hasAttackHit_ = false;
-				attackTrigger_ = true;
-
-				animationController_->Play(
-					(int)ANIM_TYPE::ATTACK01,
-					false
-				);
-			}
-		}
-		else
-		{
-			movePow_ =
-				AsoUtility::VECTOR_ZERO;
-
-			isChasing_ = false;
-		}
-	}
+	UpdateCharge();
 
 	// ジャンプ処理
 	ProcessJump();
@@ -1224,9 +485,18 @@ void Player::DrawShadow(void)
 
 }
 
+void Player::DrawKiBlast(void)
+{
+	for (auto& blast : kiBlasts_)
+	{
+		blast->Draw();
+	}
+}
+
 void Player::ProcessMove(void)
 {
-	auto& ins = InputManager::GetInstance();
+	auto& ins =
+		InputManager::GetInstance();
 
 	if (isKamehame_)
 	{
@@ -1241,95 +511,162 @@ void Player::ProcessMove(void)
 		return;
 	}
 
-	// 移動入力があるか
-	bool isMoveInput =
-		ins.IsNew(KEY_INPUT_W) ||
-		ins.IsNew(KEY_INPUT_A) ||
-		ins.IsNew(KEY_INPUT_S) ||
-		ins.IsNew(KEY_INPUT_D);
-
-	// 攻撃中の処理
-	if (isAttack_)
-	{
-		// 移動入力が無い
-		if (!isMoveInput)
-		{
-			movePow_ = AsoUtility::VECTOR_ZERO;
-			return;
-		}
-
-		// 移動入力がある
-		isAttack_ = false;
-		attackTimer_ = 0.0f;
-
-		// 攻撃判定も終了させる
-		hasAttackHit_ = true;
-	}
-
-	movePow_ = AsoUtility::VECTOR_ZERO;
+	movePow_ =
+		AsoUtility::VECTOR_ZERO;
 
 	Quaternion cameraRot =
 		mainCamera.GetQuaRotOutX();
 
-	double rotRad = 0;
-
 	VECTOR dir =
 		AsoUtility::VECTOR_ZERO;
 
-	// 前
+	VECTOR forward =
+		AsoUtility::VECTOR_ZERO;
+
+	VECTOR right =
+		AsoUtility::VECTOR_ZERO;
+
+
+	// ロックオン中
+	if (isLockOn_ &&
+		hasAttackTarget_)
+	{
+		// プレイヤー → 敵
+		forward =
+			VSub(
+				attackTargetPos_,
+				transform_.pos
+			);
+
+		forward.y = 0.0f;
+
+		if (VSize(forward) > 0.001f)
+		{
+			forward =
+				VNorm(forward);
+		}
+
+		// 右方向
+		right =
+			VGet(
+				forward.z,
+				0.0f,
+				-forward.x
+			);
+	}
+	else
+	{
+		// 通常時
+		forward =
+			cameraRot.GetForward();
+
+		right =
+			cameraRot.GetRight();
+
+		forward.y = 0.0f;
+		right.y = 0.0f;
+
+		if (VSize(forward) > 0.001f)
+		{
+			forward =
+				VNorm(forward);
+		}
+
+		if (VSize(right) > 0.001f)
+		{
+			right =
+				VNorm(right);
+		}
+	}
+
+
+	// 上下方向は移動に使わない
+	forward.y = 0.0f;
+	right.y = 0.0f;
+
+	if (VSize(forward) > 0.001f)
+	{
+		forward =
+			VNorm(forward);
+	}
+
+	if (VSize(right) > 0.001f)
+	{
+		right =
+			VNorm(right);
+	}
+
+
+	// W：前
 	if (ins.IsNew(KEY_INPUT_W))
 	{
-		rotRad =
-			AsoUtility::Deg2RadD(0.0);
-
 		dir =
-			cameraRot.GetForward();
+			VAdd(
+				dir,
+				forward
+			);
 	}
 
-	// 後ろ
+	// S：後ろ
 	if (ins.IsNew(KEY_INPUT_S))
 	{
-		rotRad =
-			AsoUtility::Deg2RadD(180.0);
-
 		dir =
-			cameraRot.GetBack();
+			VSub(
+				dir,
+				forward
+			);
 	}
 
-	// 右
+	// D：右
 	if (ins.IsNew(KEY_INPUT_D))
 	{
-		rotRad =
-			AsoUtility::Deg2RadD(90.0);
-
 		dir =
-			cameraRot.GetRight();
+			VAdd(
+				dir,
+				right
+			);
 	}
 
-	// 左
+	// A：左
 	if (ins.IsNew(KEY_INPUT_A))
 	{
-		rotRad =
-			AsoUtility::Deg2RadD(270.0);
-
 		dir =
-			cameraRot.GetLeft();
+			VSub(
+				dir,
+				right
+			);
 	}
 
-	// 移動
+	if (VSize(dir) > 0.001f)
+	{
+		dir =
+			VNorm(dir);
+	}
 
+	// 斜め移動の速度を揃える
+	if (VSize(dir) > 0.001f)
+	{
+		dir =
+			VNorm(dir);
+	}
+
+
+	// 移動
 	if (!AsoUtility::EqualsVZero(dir) &&
 		(isJump_ || IsEndLanding()))
 	{
-		speed_ = SPEED_MOVE;
+		speed_ =
+			SPEED_MOVE;
 
 		// ダッシュ
 		if (ins.IsNew(KEY_INPUT_RSHIFT))
 		{
-			speed_ = SPEED_RUN;
+			speed_ =
+				SPEED_RUN;
 		}
 
-		moveDir_ = dir;
+		moveDir_ =
+			dir;
 
 		movePow_ =
 			VScale(
@@ -1337,12 +674,22 @@ void Player::ProcessMove(void)
 				speed_
 			);
 
-		// 向きを変える
-		SetGoalRotate(rotRad);
+
+		// 通常時は移動方向を向く
+		if (!isLockOn_)
+		{
+			playerRotY_ =
+				Quaternion::LookRotation(dir);
+
+			goalQuaRot_ =
+				playerRotY_;
+		}
+
 
 		// 移動アニメーション
 		if (!isJump_ &&
-			IsEndLanding())
+			IsEndLanding() &&
+			!isKiBlast_)
 		{
 			if (ins.IsNew(KEY_INPUT_RSHIFT))
 			{
@@ -1362,7 +709,8 @@ void Player::ProcessMove(void)
 	{
 		if (!isJump_ &&
 			IsEndLanding() &&
-			attackEndTimer_ <= 0.0f)
+			attackEndTimer_ <= 0.0f &&
+			!isKiBlast_)
 		{
 			animationController_->Play(
 				(int)ANIM_TYPE::IDLE
@@ -1672,6 +1020,12 @@ float Player::GetRecordRate(void) const
 	return rate;
 }
 
+const std::vector<std::unique_ptr<KiBlast>>&
+Player::GetKiBlasts(void) const
+{
+	return kiBlasts_;
+}
+
 bool Player::IsAttack(void) const
 {
 	return isAttack_;
@@ -1774,6 +1128,41 @@ int Player::GetHp(void) const
 bool Player::IsRecording(void) const
 {
 	return isRecording_;
+}
+
+void Player::SetLockOn(bool lockOn)
+{
+	isLockOn_ = lockOn;
+}
+
+bool Player::IsLockOn(void) const
+{
+	return isLockOn_;
+}
+
+void Player::LookAtTarget(VECTOR targetPos)
+{
+	VECTOR dir =
+		VSub(
+			targetPos,
+			transform_.pos
+		);
+
+	dir.y = 0.0f;
+
+	if (VSize(dir) <= 0.001f)
+	{
+		return;
+	}
+
+	dir =
+		VNorm(dir);
+
+	playerRotY_ =
+		Quaternion::LookRotation(dir);
+
+	goalQuaRot_ =
+		playerRotY_;
 }
 
 void Player::DrawKamehame(void)
@@ -2142,4 +1531,941 @@ bool Player::UseKi(float amount)
 	ki_ -= amount;
 
 	return true;
+}
+
+void Player::UpdateAttack(void)
+{
+	auto& ins =
+		InputManager::GetInstance();
+
+	if (canChase_ &&
+		!isAttack_ &&
+		ins.IsTrgDown(KEY_INPUT_F))
+	{
+		isChasing_ = true;
+		canChase_ = false;
+	}
+
+	// 攻撃開始
+	if (!isKamehame_ &&
+		!isChasing_ &&
+		ins.IsTrgDown(KEY_INPUT_F))
+	{
+		if (!isAttack_)
+		{
+			isAttack_ = true;
+			combo_ = 1;
+			nextAttack_ = false;
+
+			attackTimer_ = 0.0f;
+			hasAttackHit_ = false;
+			attackTrigger_ = true;
+
+			animationController_->Play(
+				(int)ANIM_TYPE::ATTACK01,
+				false
+			);
+		}
+		else
+		{
+			nextAttack_ = true;
+		}
+	}
+
+	// 攻撃中
+	if (isAttack_)
+	{
+		attackTimer_ +=
+			scnMng_.GetDeltaTime();
+
+		movePow_ =
+			AsoUtility::VECTOR_ZERO;
+
+		if (hasAttackTarget_)
+		{
+			VECTOR dir =
+				VSub(
+					attackTargetPos_,
+					transform_.pos
+				);
+
+			dir.y = 0.0f;
+
+			float distance =
+				VSize(dir);
+
+			if (distance > 0.001f)
+			{
+				dir = VNorm(dir);
+
+				playerRotY_ =
+					Quaternion::LookRotation(dir);
+
+				goalQuaRot_ =
+					playerRotY_;
+
+				float stopDistance = 55.0f;
+				float chaseSpeed = 9.0f;
+
+				switch (combo_)
+				{
+				case 1:
+					stopDistance = 70.0f;
+					chaseSpeed = 9.0f;
+					break;
+
+				case 2:
+					break;
+
+				case 3:
+					stopDistance = 70.0f;
+					chaseSpeed = 18.0f;
+					break;
+				}
+
+				if (combo_ != 2 &&
+					combo_ < 4 &&
+					distance > stopDistance &&
+					distance < 300.0f)
+				{
+					float moveDistance =
+						distance - stopDistance;
+
+					if (moveDistance > chaseSpeed)
+					{
+						moveDistance = chaseSpeed;
+					}
+
+					movePow_ =
+						VScale(
+							dir,
+							moveDistance
+						);
+				}
+			}
+		}
+
+		if (animationController_->IsEnd())
+		{
+			if (nextAttack_ &&
+				combo_ < 8)
+			{
+				combo_++;
+				nextAttack_ = false;
+
+				attackTimer_ = 0.0f;
+				hasAttackHit_ = false;
+				attackTrigger_ = true;
+
+				switch (combo_)
+				{
+				case 2:
+				{
+					if (hasAttackTarget_)
+					{
+						VECTOR enemyPos =
+							attackTargetPos_;
+
+						VECTOR dir =
+							VSub(
+								enemyPos,
+								transform_.pos
+							);
+
+						dir.y = 0.0f;
+
+						if (VSize(dir) > 0.001f)
+						{
+							dir = VNorm(dir);
+
+							// 移動前の姿を残す
+							afterImageMatrix_ =
+								MV1GetMatrix(
+									transform_.modelId
+								);
+
+							isAfterImage_ = true;
+							afterImageTimer_ = 0.10f;
+
+							// 敵の後ろへ移動
+							transform_.pos =
+								VAdd(
+									enemyPos,
+									VScale(
+										dir,
+										70.0f
+									)
+								);
+
+							// 敵の方を向く
+							VECTOR lookDir =
+								VSub(
+									enemyPos,
+									transform_.pos
+								);
+
+							lookDir.y = 0.0f;
+
+							if (VSize(lookDir) > 0.001f)
+							{
+								lookDir =
+									VNorm(lookDir);
+
+								playerRotY_ =
+									Quaternion::LookRotation(
+										lookDir
+									);
+
+								goalQuaRot_ =
+									playerRotY_;
+							}
+						}
+					}
+
+					movePow_ =
+						AsoUtility::VECTOR_ZERO;
+
+					animationController_->Play(
+						(int)ANIM_TYPE::ATTACK02,
+						false
+					);
+
+					break;
+				}
+				case 3:
+					animationController_->Play(
+						(int)ANIM_TYPE::ATTACK03,
+						false
+					);
+					break;
+
+				case 4:
+				{
+					if (hasAttackTarget_)
+					{
+						VECTOR enemyPos =
+							attackTargetPos_;
+
+						VECTOR toEnemy =
+							VSub(
+								enemyPos,
+								transform_.pos
+							);
+
+						toEnemy.y = 0.0f;
+
+						if (VSize(toEnemy) > 0.001f)
+						{
+							VECTOR dir =
+								VNorm(toEnemy);
+
+							VECTOR sideDir =
+								VGet(
+									-dir.z,
+									0.0f,
+									dir.x
+								);
+
+							// 移動前の位置を残す
+							afterImagePos_ =
+								transform_.pos;
+
+							afterImageMatrix_ =
+								MV1GetMatrix(
+									transform_.modelId
+								);
+
+							isAfterImage_ = true;
+							afterImageTimer_ = 0.10f;
+
+							// 4発目の攻撃時は敵の横に移動する
+							transform_.pos =
+								VAdd(
+									enemyPos,
+									VScale(
+										sideDir,
+										70.0f
+									)
+								);
+
+							VECTOR lookDir =
+								VSub(
+									enemyPos,
+									transform_.pos
+								);
+
+							lookDir.y = 0.0f;
+
+							if (VSize(lookDir) > 0.001f)
+							{
+								lookDir =
+									VNorm(lookDir);
+
+								playerRotY_ =
+									Quaternion::LookRotation(
+										lookDir
+									);
+
+								goalQuaRot_ =
+									playerRotY_;
+							}
+						}
+					}
+
+					movePow_ =
+						AsoUtility::VECTOR_ZERO;
+
+					animationController_->Play(
+						(int)ANIM_TYPE::ATTACK04,
+						false
+					);
+
+					break;
+				}
+				case 5:
+					animationController_->Play(
+						(int)ANIM_TYPE::ATTACK05,
+						false
+					);
+					break;
+
+				case 6:
+				{
+					if (hasAttackTarget_)
+					{
+						VECTOR enemyPos =
+							attackTargetPos_;
+
+						VECTOR toEnemy =
+							VSub(
+								enemyPos,
+								transform_.pos
+							);
+
+						toEnemy.y = 0.0f;
+
+						if (VSize(toEnemy) > 0.001f)
+						{
+							VECTOR dir =
+								VNorm(toEnemy);
+
+							VECTOR sideDir =
+								VGet(
+									dir.z,
+									0.0f,
+									-dir.x
+								);
+
+							// 移動前の姿を残す
+							afterImageMatrix_ =
+								MV1GetMatrix(
+									transform_.modelId
+								);
+
+							isAfterImage_ = true;
+							afterImageTimer_ = 0.10f;
+
+							// 敵の反対側へ移動
+							transform_.pos =
+								VAdd(
+									enemyPos,
+									VScale(
+										sideDir,
+										70.0f
+									)
+								);
+
+							// 敵の方を向く
+							VECTOR lookDir =
+								VSub(
+									enemyPos,
+									transform_.pos
+								);
+
+							lookDir.y = 0.0f;
+
+							if (VSize(lookDir) > 0.001f)
+							{
+								lookDir =
+									VNorm(lookDir);
+
+								playerRotY_ =
+									Quaternion::LookRotation(
+										lookDir
+									);
+
+								goalQuaRot_ =
+									playerRotY_;
+							}
+						}
+					}
+
+					movePow_ =
+						AsoUtility::VECTOR_ZERO;
+
+					animationController_->Play(
+						(int)ANIM_TYPE::ATTACK06,
+						false
+					);
+
+					break;
+				}
+				case 7:
+				{
+					if (hasAttackTarget_)
+					{
+						VECTOR enemyPos =
+							attackTargetPos_;
+
+						VECTOR dir =
+							VSub(
+								enemyPos,
+								transform_.pos
+							);
+
+						dir.y = 0.0f;
+
+						if (VSize(dir) > 0.001f)
+						{
+							dir = VNorm(dir);
+
+							// 移動前の姿を残す
+							afterImageMatrix_ =
+								MV1GetMatrix(
+									transform_.modelId
+								);
+
+							isAfterImage_ = true;
+							afterImageTimer_ = 0.10f;
+
+							// 敵の後ろへ移動
+							transform_.pos =
+								VAdd(
+									enemyPos,
+									VScale(
+										dir,
+										70.0f
+									)
+								);
+
+							VECTOR lookDir =
+								VSub(
+									enemyPos,
+									transform_.pos
+								);
+
+							lookDir.y = 0.0f;
+
+							if (VSize(lookDir) > 0.001f)
+							{
+								lookDir = VNorm(lookDir);
+
+								playerRotY_ =
+									Quaternion::LookRotation(
+										lookDir
+									);
+
+								goalQuaRot_ =
+									playerRotY_;
+							}
+						}
+					}
+
+					movePow_ =
+						AsoUtility::VECTOR_ZERO;
+
+					animationController_->Play(
+						(int)ANIM_TYPE::ATTACK07,
+						false
+					);
+
+					break;
+				}
+				case 8:
+				{
+					if (hasAttackTarget_)
+					{
+						VECTOR enemyPos =
+							attackTargetPos_;
+
+						// 今いる位置から敵への方向
+						VECTOR dir =
+							VSub(
+								enemyPos,
+								transform_.pos
+							);
+
+						dir.y = 0.0f;
+
+						if (VSize(dir) > 0.001f)
+						{
+							dir = VNorm(dir);
+
+							// 移動前の姿を残す
+							afterImageMatrix_ =
+								MV1GetMatrix(
+									transform_.modelId
+								);
+
+							isAfterImage_ = true;
+							afterImageTimer_ = 0.10f;
+
+							// 敵を挟んで反対側へ移動
+							transform_.pos =
+								VAdd(
+									enemyPos,
+									VScale(
+										dir,
+										70.0f
+									)
+								);
+
+							// 敵の方を向く
+							VECTOR lookDir =
+								VSub(
+									enemyPos,
+									transform_.pos
+								);
+
+							lookDir.y = 0.0f;
+
+							if (VSize(lookDir) > 0.001f)
+							{
+								lookDir = VNorm(lookDir);
+
+								playerRotY_ =
+									Quaternion::LookRotation(
+										lookDir
+									);
+
+								goalQuaRot_ =
+									playerRotY_;
+							}
+						}
+					}
+
+					movePow_ =
+						AsoUtility::VECTOR_ZERO;
+
+					animationController_->Play(
+						(int)ANIM_TYPE::ATTACK08,
+						false
+					);
+
+					break;
+				}
+				}
+
+			}
+			else
+			{
+				isAttack_ = false;
+				nextAttack_ = false;
+				combo_ = 0;
+
+				attackTimer_ = 0.0f;
+				hasAttackHit_ = false;
+
+				isAttack04Move_ = false;
+				attack04MoveTimer_ = 0.0f;
+
+				animationController_->Play(
+					(int)ANIM_TYPE::IDLE
+				);
+			}
+		}
+	}
+
+	if (attackEndTimer_ > 0.0f)
+	{
+		attackEndTimer_ -=
+			scnMng_.GetDeltaTime();
+
+		if (attackEndTimer_ < 0.0f)
+		{
+			attackEndTimer_ = 0.0f;
+		}
+	}
+}
+
+void Player::UpdateKamehame(void)
+{
+	auto& ins =
+		InputManager::GetInstance();
+
+	// かめはめ波開始
+	if (!isAttack_ &&
+		!isKamehame_ &&
+		!isJump_ &&
+		ins.IsTrgDown(KEY_INPUT_R))
+	{
+		if (UseKi(KAMEHAME_KI_COST))
+		{
+			isKamehame_ = true;
+			isKamehameBeam_ = false;
+
+			kamehameTimer_ = 0.0f;
+
+			movePow_ =
+				AsoUtility::VECTOR_ZERO;
+
+			animationController_->Play(
+				(int)ANIM_TYPE::KAMEHAME,
+				false
+			);
+		}
+	}
+
+	if (isKamehame_)
+	{
+		kamehameTimer_ +=
+			scnMng_.GetDeltaTime();
+
+		if (kamehameTimer_ >=
+			KAMEHAME_SHOT_TIME)
+		{
+			isKamehameBeam_ = true;
+		}
+
+		if (kamehameTimer_ >=
+			KAMEHAME_END_TIME)
+		{
+			isKamehame_ = false;
+			isKamehameBeam_ = false;
+			kamehameTimer_ = 0.0f;
+
+			animationController_->Play(
+				(int)ANIM_TYPE::IDLE
+			);
+		}
+	}
+}
+
+void Player::UpdateChase(void)
+{
+	auto& ins =
+		InputManager::GetInstance();
+
+	// 気溜め開始
+	if (!isCharging_ &&
+		!isChargeEnding_ &&
+		ins.IsTrgDown(KEY_INPUT_T))
+	{
+		isCharging_ = true;
+
+		movePow_ =
+			AsoUtility::VECTOR_ZERO;
+
+		animationController_->Play(
+			(int)ANIM_TYPE::CHARGE,
+			true,
+			0.0f,
+			45.0f
+		);
+
+		animationController_->SetEndLoop(
+			40.0f,
+			45.0f,
+			5.0f
+		);
+
+		EffekseerEffect::GetInstance()->
+			PlayChargeEffect(
+				transform_.pos
+			);
+	}
+
+	// 気溜め中
+	if (isCharging_)
+	{
+		movePow_ =
+			AsoUtility::VECTOR_ZERO;
+
+		EffekseerEffect::GetInstance()->
+			UpdateChargeEffect(
+				transform_.pos
+			);
+
+		ki_ +=
+			KI_CHARGE_SPEED *
+			scnMng_.GetDeltaTime();
+
+		if (ki_ >= MAX_KI)
+		{
+			ki_ = MAX_KI;
+
+			isCharging_ = false;
+			isChargeEnding_ = true;
+
+			EffekseerEffect::GetInstance()->
+				StopChargeEffect();
+
+			animationController_->
+				ClearEndLoop();
+
+			animationController_->Play(
+				(int)ANIM_TYPE::CHARGE,
+				false,
+				45.0f,
+				70.0f,
+				false,
+				true
+			);
+
+			return;
+		}
+
+		bool cancelCharge =
+			ins.IsNew(KEY_INPUT_W) ||
+			ins.IsNew(KEY_INPUT_A) ||
+			ins.IsNew(KEY_INPUT_S) ||
+			ins.IsNew(KEY_INPUT_D) ||
+			ins.IsNew(KEY_INPUT_RSHIFT) ||
+			ins.IsTrgDown(KEY_INPUT_F) ||
+			ins.IsTrgDown(KEY_INPUT_R) ||
+			ins.IsNew(KEY_INPUT_BACKSLASH);
+
+		if (cancelCharge)
+		{
+			isCharging_ = false;
+			isChargeEnding_ = false;
+
+			animationController_->
+				ClearEndLoop();
+
+			EffekseerEffect::GetInstance()->
+				StopChargeEffect();
+
+			animationController_->Play(
+				(int)ANIM_TYPE::IDLE
+			);
+		}
+		else if (!ins.IsNew(KEY_INPUT_T))
+		{
+			isCharging_ = false;
+			isChargeEnding_ = true;
+
+			EffekseerEffect::GetInstance()->
+				StopChargeEffect();
+
+			animationController_->
+				ClearEndLoop();
+
+			animationController_->Play(
+				(int)ANIM_TYPE::CHARGE,
+				false,
+				45.0f,
+				70.0f,
+				false,
+				true
+			);
+
+			return;
+		}
+		else
+		{
+			return;
+		}
+	}
+
+	// 気溜め終了
+	if (isChargeEnding_)
+	{
+		movePow_ =
+			AsoUtility::VECTOR_ZERO;
+
+		if (animationController_->IsEnd())
+		{
+			isChargeEnding_ = false;
+
+			animationController_->Play(
+				(int)ANIM_TYPE::IDLE
+			);
+		}
+
+		return;
+	}
+}
+
+void Player::UpdateCharge(void)
+{
+	if (isChasing_)
+	{
+		if (hasAttackTarget_)
+		{
+			VECTOR dir =
+				VSub(
+					attackTargetPos_,
+					transform_.pos
+				);
+
+			dir.y = 0.0f;
+
+			float distance =
+				VSize(dir);
+
+			if (distance > 60.0f)
+			{
+				dir =
+					VNorm(dir);
+
+				playerRotY_ =
+					Quaternion::LookRotation(dir);
+
+				goalQuaRot_ =
+					playerRotY_;
+
+				movePow_ =
+					VScale(
+						dir,
+						45.0f
+					);
+			}
+			else
+			{
+				movePow_ =
+					AsoUtility::VECTOR_ZERO;
+
+				isChasing_ = false;
+				canChase_ = false;
+
+				isAttack_ = true;
+				combo_ = 1;
+				nextAttack_ = false;
+
+				attackTimer_ = 0.0f;
+				hasAttackHit_ = false;
+				attackTrigger_ = true;
+
+				animationController_->Play(
+					(int)ANIM_TYPE::ATTACK01,
+					false
+				);
+			}
+		}
+		else
+		{
+			movePow_ =
+				AsoUtility::VECTOR_ZERO;
+
+			isChasing_ = false;
+		}
+	}
+}
+
+void Player::UpdateKiBlast(void)
+{
+	auto& ins =
+		InputManager::GetInstance();
+
+	// 気弾開始
+	if (!isKiBlast_ &&
+		!isAttack_ &&
+		!isKamehame_ &&
+		!isCharging_ &&
+		!isChargeEnding_ &&
+		ins.IsTrgDown(KEY_INPUT_U))
+	{
+		isKiBlast_ = true;
+		isKiBlastShot_ = false;
+		kiBlastTimer_ = 0.0f;
+
+		animationController_->Play(
+			(int)ANIM_TYPE::KI_BLAST,
+			false
+		);
+	}
+
+	// 気弾モーション中
+	if (isKiBlast_)
+	{
+		kiBlastTimer_ +=
+			scnMng_.GetDeltaTime();
+
+		// 手を前に出したあたりで発射
+		if (!isKiBlastShot_ &&
+			kiBlastTimer_ >= 0.20f)
+		{
+			VECTOR shotPos =
+				transform_.pos;
+
+			if (rightHandFrame_ != -1)
+			{
+				shotPos =
+					MV1GetFramePosition(
+						transform_.modelId,
+						rightHandFrame_
+					);
+			}
+
+			VECTOR shotDir =
+				GetForward();
+
+			// ロックオンしている敵がいる場合
+			if (isLockOn_ &&
+				hasAttackTarget_)
+			{
+				shotDir =
+					VSub(
+						attackTargetPos_,
+						shotPos
+					);
+
+				if (VSize(shotDir) > 0.001f)
+				{
+					shotDir =
+						VNorm(shotDir);
+				}
+			}
+
+			kiBlasts_.push_back(
+				std::make_unique<KiBlast>(
+					shotPos,
+					shotDir
+				)
+			);
+
+			isKiBlastShot_ = true;
+		}
+
+		// 気弾終了
+		if (kiBlastTimer_ >= 0.45f)
+		{
+			isKiBlast_ = false;
+			isKiBlastShot_ = false;
+			kiBlastTimer_ = 0.0f;
+
+			// 移動していない時だけIDLE
+			if (!ins.IsNew(KEY_INPUT_W) &&
+				!ins.IsNew(KEY_INPUT_A) &&
+				!ins.IsNew(KEY_INPUT_S) &&
+				!ins.IsNew(KEY_INPUT_D))
+			{
+				animationController_->Play(
+					(int)ANIM_TYPE::IDLE
+				);
+			}
+		}
+	}
+
+	// 飛んでいる気弾を更新
+	for (auto& blast : kiBlasts_)
+	{
+		blast->Update();
+	}
+
+	// 消えた気弾を削除
+	for (auto it = kiBlasts_.begin();
+		it != kiBlasts_.end();)
+	{
+		if ((*it)->IsDead())
+		{
+			it =
+				kiBlasts_.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
 }

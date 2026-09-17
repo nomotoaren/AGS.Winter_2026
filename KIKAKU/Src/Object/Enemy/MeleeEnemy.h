@@ -4,7 +4,6 @@
 #include "../Common/AnimationController.h"
 
 class Player;
-class GhostPlayer;
 
 class MeleeEnemy : public EnemyBase
 {
@@ -35,9 +34,9 @@ public:
     };
 
     MeleeEnemy(
-        Player& player,
-        GhostPlayer& ghostPlayer
+        Player& player
     );
+
     ~MeleeEnemy(void);
 
     void Init(void) override;
@@ -58,7 +57,6 @@ private:
 
     // 追跡対象
     Player& player_;
-    GhostPlayer& ghostPlayer_;
 
     std::unique_ptr<AnimationController> animationController_;
 
@@ -89,7 +87,6 @@ private:
 
     // プレイヤーに当たったか
     bool hasAttackHit_;
-    bool isTargetGhost_;
 
     // ターゲット固定時間
     float targetLockTimer_;

@@ -39,6 +39,7 @@ public:
 		NONE,
 		FIXED_POINT,
 		FOLLOW,
+		LOCK_ON,
 		SELF_SHOT,
 		KAMEHAME,
 		KAMEHAME_SHOT,
@@ -73,6 +74,10 @@ public:
 	// 追従対象の設定
 	void SetFollow(const Transform* follow);
 
+	void SetLockOnTarget(
+		const Transform* target
+	);
+
 	// カメラ揺れ
 	void StartShake(
 		float time,
@@ -83,6 +88,8 @@ private:
 
 	// カメラが追従対象とするTransform
 	const Transform* followTransform_;
+
+	const Transform* lockOnTransform_;
 
 	// カメラモード
 	MODE mode_;
@@ -126,6 +133,7 @@ private:
 	void SetBeforeDrawSelfShot(void);
 	void SetBeforeDrawKamehame(void);
 	void SetBeforeDrawKamehameShot(void);
+	void SetBeforeDrawLockOn(void);
 
 	// カメラ揺れ
 	bool isShake_;

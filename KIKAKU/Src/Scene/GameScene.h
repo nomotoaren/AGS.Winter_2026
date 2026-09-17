@@ -6,15 +6,10 @@ class Stage;
 class SkyDome;
 class Player;
 class EnemyBase;
-class GhostPlayer;
 class PixelMaterial;
 class PixelRenderer;
 class ModelMaterial;
 class ModelRenderer;
-class FloorSwitch;
-class Door;
-class Goal;
-class TimeStopController;
 
 class GameScene : public SceneBase
 {
@@ -81,29 +76,6 @@ private:
 	// 敵
 	std::vector<std::unique_ptr<EnemyBase>> enemies_;
 
-	// 過去のプレイヤー
-	std::unique_ptr<GhostPlayer> ghostPlayer_;
-	SHIFT_STATE shiftState_;
-
-	// 床スイッチ
-	// STAGE1用
-	std::unique_ptr<FloorSwitch> floorSwitch_;
-
-	// STAGE2用
-	std::unique_ptr<FloorSwitch> floorSwitch1_;
-	std::unique_ptr<FloorSwitch> floorSwitch2_;
-
-	// 扉
-	std::unique_ptr<Door> door_;
-	std::unique_ptr<Door> door1_;
-	std::unique_ptr<Door> door2_;
-
-	// ゴール
-	std::unique_ptr<Goal> goal_;
-
-	// 時
-	std::unique_ptr<TimeStopController> timeStop_;
-
 	// ポストエフェクトモード
 	MODE mode_;
 
@@ -130,22 +102,6 @@ private:
 	std::unique_ptr<ModelMaterial> modelMaterial_;
 	std::unique_ptr<ModelRenderer> vertextRenderer_;
 
-	int timeStopScreen_;
-
-	// ------------------------------
-	// SHIFT関連---------------------
-	// ------------------------------
-	// SHIFT UI
-	void DrawShiftUI(void);
-
-	// SHIFT UI画像
-	int shiftIdleImage_;
-	int shiftRecordingImage_;
-	int shiftPlayingImage_;
-
-	int drawImage;
-	//------------------------------
-
 	// ゲームの状態
 	GAME_STATE gameState_;
 	float clearTimer_;
@@ -162,6 +118,10 @@ private:
 	// ヒットストップ
 	bool isHitStop_;
 	float hitStopTimer_;
+
+	// ロックオン
+	EnemyBase* lockOnTarget_;
+	bool isLockOn_;
 
 	// ステージ作成
 	void MakeStage1(void);

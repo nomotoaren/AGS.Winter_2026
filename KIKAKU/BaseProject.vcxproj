@@ -19,13 +19,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Src\Object\KiBlast.cpp" />
     <ClCompile Include="Src\Manager\EffekseerEffect.cpp" />
     <ClCompile Include="Src\Object\Enemy\MeleeEnemy.cpp" />
     <ClCompile Include="Src\Object\Enemy\EnemyBase.cpp" />
     <ClCompile Include="Src\Object\Goal.cpp" />
-    <ClCompile Include="Src\Object\Door.cpp" />
-    <ClCompile Include="Src\Object\FloorSwitch.cpp" />
-    <ClCompile Include="Src\Object\GhostPlayer.cpp" />
     <ClCompile Include="Src\Object\Metal.cpp" />
     <ClCompile Include="Src\Renderer\PixelRenderer.cpp" />
     <ClCompile Include="Src\Renderer\PixelMaterial.cpp" />
@@ -49,24 +47,20 @@
     <ClCompile Include="Src\Object\Player.cpp" />
     <ClCompile Include="Src\Object\SkyDome.cpp" />
     <ClCompile Include="Src\Object\Stage.cpp" />
-    <ClCompile Include="Src\Object\WarpStar.cpp" />
     <ClCompile Include="Src\Scene\GameScene.cpp" />
     <ClCompile Include="Src\Scene\SceneBase.cpp" />
     <ClCompile Include="Src\Scene\TitleScene.cpp" />
     <ClCompile Include="Src\Utility\AsoUtility.cpp" />
     <ClCompile Include="Src\Renderer\ModelMaterial.cpp" />
     <ClCompile Include="Src\Renderer\ModelRenderer.cpp" />
-    <ClCompile Include="Src\Object\Water.cpp" />
     <ClCompile Include="Src\Controller\TimeStopController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Src\Object\KiBlast.h" />
     <ClInclude Include="Src\Manager\EffekseerEffect.h" />
     <ClInclude Include="Src\Object\Enemy\MeleeEnemy.h" />
     <ClInclude Include="Src\Object\Enemy\EnemyBase.h" />
     <ClInclude Include="Src\Object\Goal.h" />
-    <ClInclude Include="Src\Object\Door.h" />
-    <ClInclude Include="Src\Object\FloorSwitch.h" />
-    <ClInclude Include="Src\Object\GhostPlayer.h" />
     <ClInclude Include="Src\Object\Metal.h" />
     <ClInclude Include="Src\Renderer\PixelRenderer.h" />
     <ClInclude Include="Src\Renderer\PixelMaterial.h" />
@@ -90,14 +84,12 @@
     <ClInclude Include="Src\Object\Player.h" />
     <ClInclude Include="Src\Object\SkyDome.h" />
     <ClInclude Include="Src\Object\Stage.h" />
-    <ClInclude Include="Src\Object\WarpStar.h" />
     <ClInclude Include="Src\Scene\GameScene.h" />
     <ClInclude Include="Src\Scene\SceneBase.h" />
     <ClInclude Include="Src\Scene\TitleScene.h" />
     <ClInclude Include="Src\Utility\AsoUtility.h" />
     <ClInclude Include="Src\Renderer\ModelMaterial.h" />
     <ClInclude Include="Src\Renderer\ModelRenderer.h" />
-    <ClInclude Include="Src\Object\Water.h" />
     <ClInclude Include="Src\Controller\TimeStopController.h" />
   </ItemGroup>
   <ItemGroup>

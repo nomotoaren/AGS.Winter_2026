@@ -42,6 +42,9 @@ public :
 	// 再生中のアニメーション
 	int GetPlayType(void) const;
 
+	// 現在のアニメーション姿勢を別モデルに設定
+	int CopyPose(int modelId);
+
 	// 再生終了
 	bool IsEnd(void) const;
 

@@ -15,6 +15,7 @@ Camera::Camera(void)
     pos_ = AsoUtility::VECTOR_ZERO;
     targetPos_ = AsoUtility::VECTOR_ZERO;
     followTransform_ = nullptr;
+    lockOnTransform_ = nullptr;
 
     followTargetPos_ =
     {
@@ -66,6 +67,10 @@ void Camera::SetBeforeDraw(void)
         SetBeforeDrawFollow();
         break;
 
+    case Camera::MODE::LOCK_ON:
+        SetBeforeDrawLockOn();
+        break;
+
     case Camera::MODE::KAMEHAME:
         SetBeforeDrawKamehame();
         break;
@@ -73,6 +78,7 @@ void Camera::SetBeforeDraw(void)
     case Camera::MODE::KAMEHAME_SHOT:
         SetBeforeDrawKamehameShot();
         break;
+
     }
 
     VECTOR drawPos =
@@ -129,6 +135,13 @@ void Camera::SetFollow(
 )
 {
     followTransform_ = follow;
+}
+
+void Camera::SetLockOnTarget(
+    const Transform* target
+)
+{
+    lockOnTransform_ = target;
 }
 
 void Camera::StartShake(
@@ -194,6 +207,8 @@ void Camera::ChangeMode(MODE mode)
     case Camera::MODE::FIXED_POINT:
         break;
     case Camera::MODE::FOLLOW:
+        break;
+    case Camera::MODE::LOCK_ON:
         break;
     case Camera::MODE::KAMEHAME:
         break;
@@ -335,6 +350,174 @@ void Camera::SetBeforeDrawFollow(void)
                 FOLLOW_SMOOTH
             )
         );
+
+    cameraUp_ =
+        AsoUtility::DIR_U;
+}
+
+void Camera::SetBeforeDrawLockOn(void)
+{
+    if (followTransform_ == nullptr ||
+        lockOnTransform_ == nullptr)
+    {
+        return;
+    }
+
+    VECTOR playerPos =
+        followTransform_->pos;
+
+    VECTOR enemyPos =
+        lockOnTransform_->pos;
+
+
+    // プレイヤーから敵への方向
+    VECTOR dir =
+        VSub(
+            enemyPos,
+            playerPos
+        );
+
+    dir.y = 0.0f;
+
+    float enemyDistance =
+        VSize(dir);
+
+    if (enemyDistance <= 0.001f)
+    {
+        return;
+    }
+
+    dir =
+        VNorm(dir);
+
+
+    // プレイヤーの後ろ
+    VECTOR goalCameraDir =
+        VScale(
+            dir,
+            -1.0f
+        );
+
+
+    // 現在のカメラ方向
+    VECTOR cameraDir =
+        VSub(
+            pos_,
+            playerPos
+        );
+
+    cameraDir.y = 0.0f;
+
+    if (VSize(cameraDir) <= 0.001f)
+    {
+        cameraDir =
+            goalCameraDir;
+    }
+    else
+    {
+        cameraDir =
+            VNorm(cameraDir);
+
+        cameraDir =
+            VAdd(
+                cameraDir,
+                VScale(
+                    VSub(
+                        goalCameraDir,
+                        cameraDir
+                    ),
+                    0.03f
+                )
+            );
+
+        if (VSize(cameraDir) > 0.001f)
+        {
+            cameraDir =
+                VNorm(cameraDir);
+        }
+    }
+
+
+    // 敵との距離に合わせてカメラを引く
+    float cameraDistance =
+        400.0f +
+        enemyDistance * 0.45f;
+
+    // 引きすぎ防止
+    if (cameraDistance > 850.0f)
+    {
+        cameraDistance = 850.0f;
+    }
+
+
+    // カメラ位置
+    VECTOR cameraPos =
+        VAdd(
+            playerPos,
+            VScale(
+                cameraDir,
+                cameraDistance
+            )
+        );
+
+
+    // 遠くなるほど少し高くする
+    float cameraHeight =
+        150.0f +
+        enemyDistance * 0.08f;
+
+    if (cameraHeight > 260.0f)
+    {
+        cameraHeight = 260.0f;
+    }
+
+    cameraPos.y +=
+        cameraHeight;
+
+
+    // プレイヤーと敵の中間を見る
+    VECTOR lookPos =
+        VAdd(
+            playerPos,
+            VScale(
+                VSub(
+                    enemyPos,
+                    playerPos
+                ),
+                0.5f
+            )
+        );
+
+    lookPos.y += 70.0f;
+
+
+    // カメラ位置を滑らかに移動
+    pos_ =
+        VAdd(
+            pos_,
+            VScale(
+                VSub(
+                    cameraPos,
+                    pos_
+                ),
+                FOLLOW_SMOOTH
+            )
+        );
+
+
+    // 注視点も滑らかに移動
+    targetPos_ =
+        VAdd(
+            targetPos_,
+            VScale(
+                VSub(
+                    lookPos,
+                    targetPos_
+                ),
+                FOLLOW_SMOOTH
+            )
+        );
+
 
     cameraUp_ =
         AsoUtility::DIR_U;

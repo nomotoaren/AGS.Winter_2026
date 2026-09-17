@@ -63,14 +63,8 @@ private:
 	// 惑星
 	std::map<NAME, std::shared_ptr<Planet>> planets_;
 
-	// ワープスター
-	std::vector<std::unique_ptr<WarpStar>> warpStars_;
-
 	// マテル
 	std::vector<std::unique_ptr<Metal>> matels_;
-
-	// ウォーター
-	std::vector<std::unique_ptr<Water>> waters_;
 
 	// 空のPlanet
 	std::shared_ptr<Planet> nullPlanet = nullptr;
@@ -80,13 +74,6 @@ private:
 	// 最初の惑星
 	void MakeMainStage(void);
 
-	// ワープスター
-	void MakeWarpStar(void);
-
 	// マテル
 	void MakeMatel(void);
-
-	// ウォーター
-	void MakeWater(void);
-
 };
