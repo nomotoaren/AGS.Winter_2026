@@ -47,7 +47,13 @@ Player::Player(void)
 	attackTargetPos_ = AsoUtility::VECTOR_ZERO;
 	canChase_ = false;
 	isChasing_ = false;
-
+	isAttack04Move_ = false;
+	attack04MoveTimer_ = 0.0f;
+	afterImageModel_ = -1;
+	isAfterImage_ = false;
+	afterImageTimer_ = 0.0f;
+	afterImagePos_ =
+		AsoUtility::VECTOR_ZERO;
 	// ‹C‚ð—­‚ß‚é
 	isCharging_ = false;
 	isChargeEnding_ = false;
@@ -85,6 +91,11 @@ void Player::Init(void)
 	// ƒ‚ƒfƒ‹‚ÌŠî–{Ý’è
 	transform_.SetModel(resMng_.LoadModelDuplicate(
 		ResourceManager::SRC::PLAYER));
+
+	afterImageModel_ =
+		MV1DuplicateModel(
+			transform_.modelId
+		);
 
 	kamehameChargeModel_ =
 		ResourceManager::GetInstance().
@@ -166,6 +177,17 @@ void Player::Update(void)
 	// ƒAƒjƒ[ƒVƒ‡ƒ“Ä¶
 	animationController_->Update();
 
+	if (isAfterImage_)
+	{
+		afterImageTimer_ -=
+			scnMng_.GetDeltaTime();
+
+		if (afterImageTimer_ <= 0.0f)
+		{
+			afterImageTimer_ = 0.0f;
+			isAfterImage_ = false;
+		}
+	}
 }
 
 void Player::Draw(void)
@@ -178,6 +200,29 @@ void Player::Draw(void)
 		ki_,
 		MAX_KI
 	);
+
+	DrawFormatString(
+		10,
+		300,
+		GetColor(255, 255, 255),
+		"Combo : %d  AttackTime : %.2f",
+		combo_,
+		attackTimer_
+	);
+
+
+	if (isAfterImage_ &&
+		afterImageModel_ != -1)
+	{
+		MV1SetOpacityRate(
+			afterImageModel_,
+			0.35f
+		);
+
+		MV1DrawModel(
+			afterImageModel_
+		);
+	}
 
 	MV1DrawModel(transform_.modelId);
 
@@ -216,6 +261,14 @@ void Player::InitAnimation(void)
 	animationController_->Add((int)ANIM_TYPE::ATTACK02,path + "Attack02.mv1",45.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK03,path + "Attack03.mv1",45.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK04,path + "Attack04.mv1",45.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK01, path + "Attack01.mv1", 45.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK02, path + "Attack02.mv1", 45.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK03, path + "Attack03.mv1", 45.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK04, path + "Attack04.mv1", 45.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK05, path + "Attack05.mv1", 60.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK06, path + "Attack01.mv1", 45.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK07, path + "Attack07.mv1", 40.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK08, path + "Attack08.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::KAMEHAME, path + "‚©‚ß‚Í‚ß”g.mv1", 20.0f);
 	animationController_->Add((int)ANIM_TYPE::CHARGE, path + "pawer.mv1", 40.0f);
 	animationController_->Play((int)ANIM_TYPE::IDLE);
@@ -397,6 +450,7 @@ void Player::UpdatePlay(void)
 	}
 
 	if (canChase_ &&
+		!isAttack_ &&
 		ins.IsTrgDown(KEY_INPUT_F))
 	{
 		isChasing_ = true;
@@ -429,7 +483,7 @@ void Player::UpdatePlay(void)
 		}
 	}
 
-	// UŒ‚’† 
+	// UŒ‚’†
 	if (isAttack_)
 	{
 		attackTimer_ +=
@@ -453,8 +507,7 @@ void Player::UpdatePlay(void)
 
 			if (distance > 0.001f)
 			{
-				dir =
-					VNorm(dir);
+				dir = VNorm(dir);
 
 				playerRotY_ =
 					Quaternion::LookRotation(dir);
@@ -462,34 +515,42 @@ void Player::UpdatePlay(void)
 				goalQuaRot_ =
 					playerRotY_;
 
-				if (distance > 55.0f &&
+				float stopDistance = 55.0f;
+				float chaseSpeed = 9.0f;
+
+				switch (combo_)
+				{
+				case 1:
+					stopDistance = 70.0f;
+					chaseSpeed = 9.0f;
+					break;
+
+				case 2:
+					break;
+
+				case 3:
+					stopDistance = 70.0f;
+					chaseSpeed = 18.0f;
+					break;
+				}
+
+				if (combo_ != 2 &&
+					combo_ < 4 &&
+					distance > stopDistance &&
 					distance < 300.0f)
 				{
-					float chaseSpeed = 10.0f;
+					float moveDistance =
+						distance - stopDistance;
 
-					switch (combo_)
+					if (moveDistance > chaseSpeed)
 					{
-					case 1:
-						chaseSpeed = 9.0f;
-						break;
-
-					case 2:
-						chaseSpeed = 10.0f;
-						break;
-
-					case 3:
-						chaseSpeed = 11.0f;
-						break;
-
-					case 4:
-						chaseSpeed = 6.0f;
-						break;
+						moveDistance = chaseSpeed;
 					}
 
 					movePow_ =
 						VScale(
 							dir,
-							chaseSpeed
+							moveDistance
 						);
 				}
 			}
@@ -498,7 +559,7 @@ void Player::UpdatePlay(void)
 		if (animationController_->IsEnd())
 		{
 			if (nextAttack_ &&
-				combo_ < 4)
+				combo_ < 8)
 			{
 				combo_++;
 				nextAttack_ = false;
@@ -510,12 +571,78 @@ void Player::UpdatePlay(void)
 				switch (combo_)
 				{
 				case 2:
+				{
+					if (hasAttackTarget_)
+					{
+						VECTOR enemyPos =
+							attackTargetPos_;
+
+						VECTOR dir =
+							VSub(
+								enemyPos,
+								transform_.pos
+							);
+
+						dir.y = 0.0f;
+
+						if (VSize(dir) > 0.001f)
+						{
+							dir = VNorm(dir);
+
+							// ˆÚ“®‘O‚ÌŽp‚ðŽc‚·
+							MV1SetMatrix(
+								afterImageModel_,
+								MV1GetMatrix(transform_.modelId)
+							);
+
+							isAfterImage_ = true;
+							afterImageTimer_ = 0.10f;
+
+							// “G‚ÌŒã‚ë‚ÖˆÚ“®
+							transform_.pos =
+								VAdd(
+									enemyPos,
+									VScale(
+										dir,
+										70.0f
+									)
+								);
+
+							// “G‚Ì•û‚ðŒü‚­
+							VECTOR lookDir =
+								VSub(
+									enemyPos,
+									transform_.pos
+								);
+
+							lookDir.y = 0.0f;
+
+							if (VSize(lookDir) > 0.001f)
+							{
+								lookDir =
+									VNorm(lookDir);
+
+								playerRotY_ =
+									Quaternion::LookRotation(
+										lookDir
+									);
+
+								goalQuaRot_ =
+									playerRotY_;
+							}
+						}
+					}
+
+					movePow_ =
+						AsoUtility::VECTOR_ZERO;
+
 					animationController_->Play(
 						(int)ANIM_TYPE::ATTACK02,
 						false
 					);
-					break;
 
+					break;
+				}
 				case 3:
 					animationController_->Play(
 						(int)ANIM_TYPE::ATTACK03,
@@ -524,12 +651,322 @@ void Player::UpdatePlay(void)
 					break;
 
 				case 4:
+				{
+					if (hasAttackTarget_)
+					{
+						VECTOR enemyPos =
+							attackTargetPos_;
+
+						VECTOR toEnemy =
+							VSub(
+								enemyPos,
+								transform_.pos
+							);
+
+						toEnemy.y = 0.0f;
+
+						if (VSize(toEnemy) > 0.001f)
+						{
+							VECTOR dir =
+								VNorm(toEnemy);
+
+							VECTOR sideDir =
+								VGet(
+									-dir.z,
+									0.0f,
+									dir.x
+								);
+
+							// ˆÚ“®‘O‚ÌˆÊ’u‚ðŽc‚·
+							afterImagePos_ =
+								transform_.pos;
+
+							MV1SetMatrix(
+								afterImageModel_,
+								MV1GetMatrix(transform_.modelId)
+							);
+
+							isAfterImage_ = true;
+							afterImageTimer_ = 0.10f;
+
+							// 4”­–Ú‚ÌUŒ‚Žž‚Í“G‚Ì‰¡‚ÉˆÚ“®‚·‚é
+							transform_.pos =
+								VAdd(
+									enemyPos,
+									VScale(
+										sideDir,
+										70.0f
+									)
+								);
+
+							VECTOR lookDir =
+								VSub(
+									enemyPos,
+									transform_.pos
+								);
+
+							lookDir.y = 0.0f;
+
+							if (VSize(lookDir) > 0.001f)
+							{
+								lookDir =
+									VNorm(lookDir);
+
+								playerRotY_ =
+									Quaternion::LookRotation(
+										lookDir
+									);
+
+								goalQuaRot_ =
+									playerRotY_;
+							}
+						}
+					}
+
+					movePow_ =
+						AsoUtility::VECTOR_ZERO;
+
 					animationController_->Play(
 						(int)ANIM_TYPE::ATTACK04,
 						false
 					);
+
 					break;
 				}
+				case 5:
+					animationController_->Play(
+						(int)ANIM_TYPE::ATTACK05,
+						false
+					);
+					break;
+
+				case 6:
+				{
+					if (hasAttackTarget_)
+					{
+						VECTOR enemyPos =
+							attackTargetPos_;
+
+						VECTOR toEnemy =
+							VSub(
+								enemyPos,
+								transform_.pos
+							);
+
+						toEnemy.y = 0.0f;
+
+						if (VSize(toEnemy) > 0.001f)
+						{
+							VECTOR dir =
+								VNorm(toEnemy);
+
+							VECTOR sideDir =
+								VGet(
+									dir.z,
+									0.0f,
+									-dir.x
+								);
+
+							// ˆÚ“®‘O‚ÌŽp‚ðŽc‚·
+							MV1SetMatrix(
+								afterImageModel_,
+								MV1GetMatrix(transform_.modelId)
+							);
+
+							isAfterImage_ = true;
+							afterImageTimer_ = 0.10f;
+
+							// “G‚Ì”½‘Î‘¤‚ÖˆÚ“®
+							transform_.pos =
+								VAdd(
+									enemyPos,
+									VScale(
+										sideDir,
+										70.0f
+									)
+								);
+
+							// “G‚Ì•û‚ðŒü‚­
+							VECTOR lookDir =
+								VSub(
+									enemyPos,
+									transform_.pos
+								);
+
+							lookDir.y = 0.0f;
+
+							if (VSize(lookDir) > 0.001f)
+							{
+								lookDir =
+									VNorm(lookDir);
+
+								playerRotY_ =
+									Quaternion::LookRotation(
+										lookDir
+									);
+
+								goalQuaRot_ =
+									playerRotY_;
+							}
+						}
+					}
+
+					movePow_ =
+						AsoUtility::VECTOR_ZERO;
+
+					animationController_->Play(
+						(int)ANIM_TYPE::ATTACK06,
+						false
+					);
+
+					break;
+				}
+				case 7:
+				{
+					if (hasAttackTarget_)
+					{
+						VECTOR enemyPos =
+							attackTargetPos_;
+
+						VECTOR dir =
+							VSub(
+								enemyPos,
+								transform_.pos
+							);
+
+						dir.y = 0.0f;
+
+						if (VSize(dir) > 0.001f)
+						{
+							dir = VNorm(dir);
+
+							// ˆÚ“®‘O‚ÌŽp‚ðŽc‚·
+							MV1SetMatrix(
+								afterImageModel_,
+								MV1GetMatrix(transform_.modelId)
+							);
+
+							isAfterImage_ = true;
+							afterImageTimer_ = 0.10f;
+
+							// “G‚ÌŒã‚ë‚ÖˆÚ“®
+							transform_.pos =
+								VAdd(
+									enemyPos,
+									VScale(
+										dir,
+										70.0f
+									)
+								);
+
+							VECTOR lookDir =
+								VSub(
+									enemyPos,
+									transform_.pos
+								);
+
+							lookDir.y = 0.0f;
+
+							if (VSize(lookDir) > 0.001f)
+							{
+								lookDir = VNorm(lookDir);
+
+								playerRotY_ =
+									Quaternion::LookRotation(
+										lookDir
+									);
+
+								goalQuaRot_ =
+									playerRotY_;
+							}
+						}
+					}
+
+					movePow_ =
+						AsoUtility::VECTOR_ZERO;
+
+					animationController_->Play(
+						(int)ANIM_TYPE::ATTACK07,
+						false
+					);
+
+					break;
+				}
+				case 8:
+				{
+					if (hasAttackTarget_)
+					{
+						VECTOR enemyPos =
+							attackTargetPos_;
+
+						// ¡‚¢‚éˆÊ’u‚©‚ç“G‚Ö‚Ì•ûŒü
+						VECTOR dir =
+							VSub(
+								enemyPos,
+								transform_.pos
+							);
+
+						dir.y = 0.0f;
+
+						if (VSize(dir) > 0.001f)
+						{
+							dir = VNorm(dir);
+
+							// ˆÚ“®‘O‚ÌŽp‚ðŽc‚·
+							MV1SetMatrix(
+								afterImageModel_,
+								MV1GetMatrix(transform_.modelId)
+							);
+
+							isAfterImage_ = true;
+							afterImageTimer_ = 0.10f;
+
+							// “G‚ð‹²‚ñ‚Å”½‘Î‘¤‚ÖˆÚ“®
+							transform_.pos =
+								VAdd(
+									enemyPos,
+									VScale(
+										dir,
+										70.0f
+									)
+								);
+
+							// “G‚Ì•û‚ðŒü‚­
+							VECTOR lookDir =
+								VSub(
+									enemyPos,
+									transform_.pos
+								);
+
+							lookDir.y = 0.0f;
+
+							if (VSize(lookDir) > 0.001f)
+							{
+								lookDir = VNorm(lookDir);
+
+								playerRotY_ =
+									Quaternion::LookRotation(
+										lookDir
+									);
+
+								goalQuaRot_ =
+									playerRotY_;
+							}
+						}
+					}
+
+					movePow_ =
+						AsoUtility::VECTOR_ZERO;
+
+					animationController_->Play(
+						(int)ANIM_TYPE::ATTACK08,
+						false
+					);
+
+					break;
+				}
+				}
+
 			}
 			else
 			{
@@ -539,6 +976,9 @@ void Player::UpdatePlay(void)
 
 				attackTimer_ = 0.0f;
 				hasAttackHit_ = false;
+
+				isAttack04Move_ = false;
+				attack04MoveTimer_ = 0.0f;
 
 				animationController_->Play(
 					(int)ANIM_TYPE::IDLE
@@ -564,18 +1004,21 @@ void Player::UpdatePlay(void)
 		!isJump_ &&
 		ins.IsTrgDown(KEY_INPUT_R))
 	{
-		isKamehame_ = true;
-		isKamehameBeam_ = false;
+		if (UseKi(KAMEHAME_KI_COST))
+		{
+			isKamehame_ = true;
+			isKamehameBeam_ = false;
 
-		kamehameTimer_ = 0.0f;
+			kamehameTimer_ = 0.0f;
 
-		movePow_ =
-			AsoUtility::VECTOR_ZERO;
+			movePow_ =
+				AsoUtility::VECTOR_ZERO;
 
-		animationController_->Play(
-			(int)ANIM_TYPE::KAMEHAME,
-			false
-		);
+			animationController_->Play(
+				(int)ANIM_TYPE::KAMEHAME,
+				false
+			);
+		}
 	}
 
 	if (isKamehame_)
@@ -617,7 +1060,7 @@ void Player::UpdatePlay(void)
 			float distance =
 				VSize(dir);
 
-			if (distance > 90.0f)
+			if (distance > 60.0f)
 			{
 				dir =
 					VNorm(dir);
@@ -631,36 +1074,37 @@ void Player::UpdatePlay(void)
 				movePow_ =
 					VScale(
 						dir,
-						25.0f
+						45.0f
 					);
 			}
 			else
 			{
-				isChasing_ = false;
-
 				movePow_ =
 					AsoUtility::VECTOR_ZERO;
+
+				isChasing_ = false;
+				canChase_ = false;
+
+				isAttack_ = true;
+				combo_ = 1;
+				nextAttack_ = false;
+
+				attackTimer_ = 0.0f;
+				hasAttackHit_ = false;
+				attackTrigger_ = true;
+
+				animationController_->Play(
+					(int)ANIM_TYPE::ATTACK01,
+					false
+				);
 			}
 		}
 		else
 		{
-			isChasing_ = false;
-
 			movePow_ =
 				AsoUtility::VECTOR_ZERO;
 
-			isAttack_ = true;
-			combo_ = 1;
-			nextAttack_ = false;
-
-			attackTimer_ = 0.0f;
-			hasAttackHit_ = false;
-			attackTrigger_ = true;
-
-			animationController_->Play(
-				(int)ANIM_TYPE::ATTACK01,
-				false
-			);
+			isChasing_ = false;
 		}
 	}
 
@@ -1235,9 +1679,55 @@ bool Player::IsAttack(void) const
 
 bool Player::IsAttackHitTiming(void) const
 {
+	float hitStart = 0.2f;
+	float hitEnd = 0.3f;
+
+	switch (combo_)
+	{
+	case 1:
+		hitStart = 0.20f;
+		hitEnd = 0.30f;
+		break;
+
+	case 2:
+		hitStart = 0.30f;
+		hitEnd = 0.40f;
+		break;
+
+	case 3:
+		hitStart = 0.25f;
+		hitEnd = 0.35f;
+		break;
+
+	case 4:
+		hitStart = 0.30f;
+		hitEnd = 0.40f;
+		break;
+
+	case 5:
+		hitStart = 0.35f;
+		hitEnd = 0.45f;
+		break;
+
+	case 6:
+		hitStart = 0.30f;
+		hitEnd = 0.40f;
+		break;
+
+	case 7:
+		hitStart = 0.40f;
+		hitEnd = 0.50f;
+		break;
+
+	case 8:
+		hitStart = 0.50f;
+		hitEnd = 0.60f;
+		break;
+	}
+
 	return isAttack_ &&
-		attackTimer_ >= ATTACK_HIT_START &&
-		attackTimer_ <= ATTACK_HIT_END;
+		attackTimer_ >= hitStart &&
+		attackTimer_ <= hitEnd;
 }
 
 bool Player::HasAttackHit(void) const
@@ -1640,4 +2130,16 @@ void Player::SetCanChase(bool canChase)
 bool Player::CanChase(void) const
 {
 	return canChase_;
+}
+
+bool Player::UseKi(float amount)
+{
+	if (ki_ < amount)
+	{
+		return false;
+	}
+
+	ki_ -= amount;
+
+	return true;
 }

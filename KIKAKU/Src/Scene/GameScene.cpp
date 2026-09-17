@@ -603,19 +603,28 @@ void GameScene::Update(void)
 						switch (player_->GetCombo())
 						{
 						case 1:
-							knockPower = 2.0f;
+							knockPower = 8.0f;
 							break;
-
 						case 2:
-							knockPower = 2.5f;
+							knockPower = 10.0f;
 							break;
-
 						case 3:
-							knockPower = 4.0f;
+							knockPower = 8.0f;
 							break;
-
 						case 4:
+							knockPower = 5.0f;
+							break;
+						case 5:
+							knockPower = 5.5f;
+							break;
+						case 6:
 							knockPower = 7.0f;
+							break;
+						case 7:
+							knockPower = 7.0f;
+							break;
+						case 8:
+							knockPower = 30.0f;
 							player_->SetCanChase(true);
 							break;
 						}

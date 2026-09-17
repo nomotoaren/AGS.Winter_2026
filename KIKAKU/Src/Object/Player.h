@@ -44,6 +44,7 @@ public:
 	// 気
 	static constexpr float MAX_KI = 100.0f;
 	static constexpr float KI_CHARGE_SPEED = 20.0f;
+	static constexpr float KAMEHAME_KI_COST = 30.0f;
 
 	// 状態
 	enum class STATE
@@ -72,6 +73,10 @@ public:
 		ATTACK02,
 		ATTACK03,
 		ATTACK04,
+		ATTACK05,
+		ATTACK06,
+		ATTACK07,
+		ATTACK08,
 		KAMEHAME,
 		CHARGE,
 	};
@@ -157,6 +162,8 @@ public:
 	void SetCanChase(bool canChase);
 	bool CanChase(void) const;
 
+	bool UseKi(float amount);
+
 private:
 
 	// アニメーション
@@ -227,6 +234,15 @@ private:
 	VECTOR attackTargetPos_;
 	bool canChase_;
 	bool isChasing_;
+
+	bool isAttack04Move_;
+	float attack04MoveTimer_;
+	// 高速移動の残像
+	int afterImageModel_;
+	bool isAfterImage_;
+	float afterImageTimer_;
+
+	VECTOR afterImagePos_;
 
 	// 気を溜める
 	bool isCharging_;
