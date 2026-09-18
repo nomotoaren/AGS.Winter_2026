@@ -12,8 +12,10 @@ public:
 
     static constexpr float SURPRISE_TIME = 0.5f;
 
-    // ターゲットを固定時間
-    static constexpr float TARGET_LOCK_TIME = 1.5f;
+    // 高速接近
+    static constexpr float BOOST_CHASE_DISTANCE = 400.0f;
+    static constexpr float BOOST_CHASE_SPEED = 18.0f;
+    static constexpr float BOOST_CHASE_TIME = 0.6f;
 
     enum class ANIM_TYPE
     {
@@ -46,11 +48,17 @@ public:
     // 位置設定
     void SetPosition(VECTOR pos);
 
+    // 叩き落とし開始
+    void StartSlamDown(void);
+
+    bool IsDown(void) const;
+
     bool IsAttackHitTiming(void) const;
 
     bool HasAttackHit(void) const;
     void SetAttackHit(void);
-    bool IsTargetGhost(void) const;
+
+    int GetAttackCombo(void) const;
 
     void InitAnimation(void);
 private:
@@ -65,14 +73,18 @@ private:
     // 移動速度
     float moveSpeed_;
 
-    // 索敵距離
-    float searchRange_;
+    // 高速接近
+    bool isBoostChase_;
+    float boostChaseTimer_;
 
     // この距離まで近づいたら止まる
     float stopRange_;
 
     // 攻撃中
     bool isAttack_;
+
+    // 何段目の攻撃か
+    int attackCombo_;
 
     // 攻撃開始からの時間
     float attackTimer_;
@@ -88,9 +100,6 @@ private:
     // プレイヤーに当たったか
     bool hasAttackHit_;
 
-    // ターゲット固定時間
-    float targetLockTimer_;
-
     bool showSurprise_;
 
     float surpriseTimer_;
@@ -102,4 +111,11 @@ private:
     // ダメージ中
     bool isDamage_;
     float damageTimer_;
+
+    // 叩き落とし中
+    bool isSlamDown_;
+
+    // ダウン中
+    bool isDown_;
+    float downTimer_;
 };

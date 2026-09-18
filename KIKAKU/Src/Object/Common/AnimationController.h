@@ -48,6 +48,8 @@ public :
 	// 再生終了
 	bool IsEnd(void) const;
 
+	float GetPlayRate(void) const;
+
 private :
 
 	// モデルのハンドルID

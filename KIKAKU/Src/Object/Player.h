@@ -66,6 +66,13 @@ public:
 		IDLE,
 		RUN,
 		FAST_RUN,
+		LOCK_LEFT,
+		LOCK_RIGHT,
+		LOCK_LEFT_RUN,
+		LOCK_RIGHT_RUN,
+		LOCK_BACK,
+		LOCK_BACK_RUN,
+		BOOST_CHASE,
 		JUMP,
 		WARP_PAUSE,
 		FLY,
@@ -82,23 +89,13 @@ public:
 		KI_BLAST,
 		KAMEHAME,
 		CHARGE,
+		DAMAGE,
 	};
 
-	// SHIFT用の1フレーム分の記録
-	struct PlayerRecord
+	struct BoostAfterImage
 	{
-		VECTOR position;
-		VECTOR movePow;
-		Quaternion rotation;
-
-		bool isJump;
-
-		ANIM_TYPE animType;
-
-		// 記録した時刻
-		float time;
-
-		bool attackTrigger;
+		MATRIX matrix;
+		float timer;
 	};
 
 	// コンストラクタ
@@ -111,14 +108,7 @@ public:
 	void Update(void) override;
 	void Draw(void) override;
 
-	// SHIFT用の記録を取得
-	const std::vector<PlayerRecord>& GetRecords(void) const;
-
-	void StartRecord(void);
 	void StopRecord(void);
-
-	// SHIFT記録の割合を取得
-	float GetRecordRate(void) const;
 
 	// 衝突判定に用いられるコライダ制御
 	void AddCollider(std::weak_ptr<Collider> collider);
@@ -140,6 +130,9 @@ public:
 
 	// ダメージ
 	void Damage(int damage);
+
+	// ノックバック
+	void AddKnockBack(VECTOR dir, float power);
 
 	// 死亡しているか
 	bool IsDead(void) const;
@@ -175,6 +168,9 @@ public:
 
 	void LookAtTarget(VECTOR targetPos);
 
+	void UpdateBoostChase(void);
+
+	bool IsDodging(void) const;
 private:
 
 	// アニメーション
@@ -201,7 +197,6 @@ private:
 
 	// 移動後の座標
 	VECTOR movedPos_;
-	std::vector<PlayerRecord> records_;
 	float recordTime_;
 	bool isRecording_;
 
@@ -272,6 +267,13 @@ private:
 	// HP
 	int hp_;
 
+	// ノックバック
+	VECTOR knockBackPow_;
+
+	// ダメージ中
+	bool isDamage_;
+	float damageTimer_;
+
 	// 死亡
 	bool isDead_;
 
@@ -309,14 +311,13 @@ private:
 	// 着地モーション終了
 	bool IsEndLanding(void);
 
-	void RecordPlayerState(void);
-
 	// 攻撃関連
 	void UpdateAttack(void);
 	void UpdateKiBlast(void);
 	void UpdateKamehame(void);
 	void UpdateCharge(void);
 	void UpdateChase(void);
+	void UpdateDodge(void);
 
 	float attackEndTimer_;
 
@@ -341,7 +342,21 @@ private:
 	// 残像
 	int afterImageAttachNo_;
 	MATRIX afterImageMatrix_;
+	std::vector<BoostAfterImage> boostAfterImages_;
+	float boostAfterImageTimer_;
 
 	// ロックオン
 	bool isLockOn_;
+	float lockOnPitch_;
+
+	bool isBoostChase_;
+	float boostChaseTimer_;
+
+	// 回避
+	bool isDodge_;
+	float dodgeTimer_;
+	VECTOR dodgeDir_;
+
+	// 空中
+	bool isFlying_;
 };

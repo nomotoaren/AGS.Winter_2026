@@ -89,8 +89,6 @@ void EnemyBase::AddKnockBack(VECTOR dir,  float power)
         return;
     }
 
-    dir.y = 0.0f;
-
     if (VSize(dir) <= 0.001f)
     {
         return;

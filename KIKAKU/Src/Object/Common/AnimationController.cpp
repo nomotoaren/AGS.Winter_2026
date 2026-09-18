@@ -249,6 +249,17 @@ bool AnimationController::IsEnd(void) const
 
 }
 
+float AnimationController::GetPlayRate(void) const
+{
+	if (playAnim_.totalTime <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	return playAnim_.step /
+		playAnim_.totalTime;
+}
+
 void AnimationController::ClearEndLoop(void)
 {
 	stepEndLoopStart_ = -1.0f;

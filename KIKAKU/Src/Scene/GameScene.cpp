@@ -248,6 +248,7 @@ void GameScene::Update(void)
 				isLockOn_ = false;
 				lockOnTarget_ = nullptr;
 
+				player_->SetLockOn(false);
 				player_->ClearAttackTarget();
 
 				mainCamera.SetLockOnTarget(nullptr);
@@ -264,9 +265,12 @@ void GameScene::Update(void)
 					targetPos
 				);
 
-				player_->LookAtTarget(
-					targetPos
-				);
+				if (player_->GetCombo() != 8)
+				{
+					player_->LookAtTarget(
+						targetPos
+					);
+				}
 			}
 		}
 		else
@@ -343,9 +347,23 @@ void GameScene::Update(void)
 		if (!isKamehame &&
 			wasKamehame_)
 		{
-			mainCamera.ChangeMode(
-				Camera::MODE::FOLLOW
-			);
+			if (isLockOn_ &&
+				lockOnTarget_ != nullptr)
+			{
+				mainCamera.SetLockOnTarget(
+					&lockOnTarget_->GetTransform()
+				);
+
+				mainCamera.ChangeMode(
+					Camera::MODE::LOCK_ON
+				);
+			}
+			else
+			{
+				mainCamera.ChangeMode(
+					Camera::MODE::FOLLOW
+				);
+			}
 		}
 
 		wasKamehame_ =
@@ -417,9 +435,38 @@ void GameScene::Update(void)
 
 			if (distance <= ActorBase::ATTACK_RANGE)
 			{
-				player_->Damage(
-					MeleeEnemy::ATTACK_DAMAGE
-				);
+				if (!player_->IsDodging())
+				{
+					player_->Damage(
+						MeleeEnemy::ATTACK_DAMAGE
+					);
+
+					// “G‚©‚çƒvƒŒƒCƒ„[‚ÖŒü‚©‚¤•ûŒü
+					VECTOR hitDir =
+						VSub(
+							player_->GetTransform().pos,
+							enemy->GetTransform().pos
+						);
+
+					if (VSize(hitDir) > 0.001f)
+					{
+						hitDir =
+							VNorm(hitDir);
+
+						float knockPower = 5.0f;
+
+						// 4’i–Ú‚¾‚¯‹­‚­‚Á”ò‚Î‚·
+						if (enemy->GetAttackCombo() == 4)
+						{
+							knockPower = 30.0f;
+						}
+
+						player_->AddKnockBack(
+							hitDir,
+							knockPower
+						);
+					}
+				}
 
 				enemy->SetAttackHit();
 			}
@@ -453,45 +500,56 @@ void GameScene::Update(void)
 						playerPos
 					);
 
-				// ‚‚³‚Í–³Ž‹
-				toEnemy.y = 0.0f;
-
 				float distance =
 					VSize(toEnemy);
 
 				// ‹——£”»’è
-				if (distance > ActorBase::ATTACK_RANGE)
+				float attackRange =
+					ActorBase::ATTACK_RANGE;
+
+
+				// 8’i–Ú‚Íã‚©‚ç’@‚«—Ž‚Æ‚·‚Ì‚ÅL‚ß
+				if (player_->GetCombo() == 8)
+				{
+					attackRange = 280.0f;
+				}
+
+				if (distance > attackRange)
 				{
 					continue;
 				}
-
 				if (distance <= 0.001f)
 				{
 					continue;
 				}
 
 				// Œü‚«”»’è
-				toEnemy =
-					VNorm(toEnemy);
+				VECTOR attackDir =
+					toEnemy;
+
+				attackDir.y = 0.0f;
 
 				VECTOR forward =
 					player_->GetForward();
 
 				forward.y = 0.0f;
 
-				if (VSize(forward) <= 0.001f)
+				if (VSize(attackDir) <= 0.001f ||
+					VSize(forward) <= 0.001f)
 				{
 					continue;
 				}
 
+				attackDir =
+					VNorm(attackDir);
+
 				forward =
 					VNorm(forward);
-
 
 				float dot =
 					VDot(
 						forward,
-						toEnemy
+						attackDir
 					);
 
 				if (dot < ActorBase::ATTACK_DOT)
@@ -504,28 +562,28 @@ void GameScene::Update(void)
 					Player::ATTACK_DAMAGE
 				);
 
-				float knockPower = 3.0f;
+				float knockPower = 0.0f;
 
 				switch (player_->GetCombo())
 				{
 				case 1:
-					knockPower = 8.0f;
-					break;
-
-				case 2:
-					knockPower = 10.0f;
-					break;
-
-				case 3:
-					knockPower = 8.0f;
-					break;
-
-				case 4:
 					knockPower = 5.0f;
 					break;
 
+				case 2:
+					knockPower = 7.0f;
+					break;
+
+				case 3:
+					knockPower = 5.0f;
+					break;
+
+				case 4:
+					knockPower = 7.0f;
+					break;
+
 				case 5:
-					knockPower = 5.5f;
+					knockPower = 9.0f;
 					break;
 
 				case 6:
@@ -533,19 +591,64 @@ void GameScene::Update(void)
 					break;
 
 				case 7:
-					knockPower = 7.0f;
+					knockPower = 4.0f;
 					break;
 
 				case 8:
-					knockPower = 30.0f;
-					player_->SetCanChase(true);
+					knockPower = 100.0f;
 					break;
 				}
 
 				VECTOR hitDir =
-					player_->GetForward();
+					VSub(
+						enemyPos,
+						playerPos
+					);
 
-				hitDir.y = 0.0f;
+				if (VSize(hitDir) > 0.001f)
+				{
+					hitDir =
+						VNorm(hitDir);
+				}
+
+				// 8’i–Ú‚Í‰º‚É’@‚«—Ž‚Æ‚·
+				if (player_->GetCombo() == 8)
+				{
+					VECTOR forward =
+						player_->GetForward();
+
+					forward.y = 0.0f;
+
+					if (VSize(forward) > 0.001f)
+					{
+						forward =
+							VNorm(forward);
+					}
+
+					hitDir =
+					{
+						forward.x,
+						-0.8f,
+						forward.z
+					};
+
+					hitDir =
+						VNorm(hitDir);
+				}
+
+				// 8’i–Ú‚Í’n–Ê‚É’@‚«—Ž‚Æ‚·
+				if (player_->GetCombo() == 8)
+				{
+					MeleeEnemy* meleeEnemy =
+						dynamic_cast<MeleeEnemy*>(
+							enemy.get()
+							);
+
+					if (meleeEnemy != nullptr)
+					{
+						meleeEnemy->StartSlamDown();
+					}
+				}
 
 				enemy->AddKnockBack(
 					hitDir,
@@ -759,9 +862,10 @@ void GameScene::Update(void)
 
 					// ƒmƒbƒNƒoƒbƒN
 					VECTOR knockDir =
-						player_->GetForward();
-
-					knockDir.y = 0.0f;
+						VSub(
+							beamEnd,
+							beamStart
+						);
 
 					if (VSize(knockDir) > 0.001f)
 					{
@@ -1437,10 +1541,6 @@ void GameScene::MakeStage3(void)
 		);
 
 	enemy->Init();
-
-	enemy->SetPosition(
-		{ 300.0f, -30.0f, 200.0f }
-	);
 
 	enemies_.push_back(
 		std::move(enemy)

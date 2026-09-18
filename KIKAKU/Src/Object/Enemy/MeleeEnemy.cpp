@@ -11,9 +11,11 @@ MeleeEnemy::MeleeEnemy(Player& player)
     :
     player_(player),
     moveSpeed_(2.0f),
-    searchRange_(500.0f),
     stopRange_(80.0f),
+    isBoostChase_(false),
+    boostChaseTimer_(0.0f),
     isAttack_(false),
+    attackCombo_(0),
     attackTimer_(0.0f),
     attackCoolTimer_(0.0f),
     hasAttackHit_(false)
@@ -23,6 +25,10 @@ MeleeEnemy::MeleeEnemy(Player& player)
 
     isDamage_ = false;
     damageTimer_ = 0.0f;
+
+    isSlamDown_ = false;
+    isDown_ = false;
+    downTimer_ = 0.0f;
 }
 
 MeleeEnemy::~MeleeEnemy(void)
@@ -41,12 +47,7 @@ void MeleeEnemy::Init(void)
     InitAnimation();
 
     // 初期位置
-    transform_.pos =
-    {
-        300.0f,
-        -30.0f,
-        0.0f
-    };
+    transform_.pos = { 300.0f, 1000.0f, 0.0f };
 
     transform_.scl =
     {
@@ -98,6 +99,17 @@ void MeleeEnemy::Update(void)
 
     animationController_->Update();
 
+    // 攻撃クールタイム
+    if (attackCoolTimer_ > 0.0f)
+    {
+        attackCoolTimer_ -= deltaTime;
+
+        if (attackCoolTimer_ < 0.0f)
+        {
+            attackCoolTimer_ = 0.0f;
+        }
+    }
+
     VECTOR targetPos =
         player_.GetTransform().pos;
 
@@ -106,8 +118,6 @@ void MeleeEnemy::Update(void)
             targetPos,
             transform_.pos
         );
-
-    toTarget.y = 0.0f;
 
     float distance =
         VSize(toTarget);
@@ -120,6 +130,43 @@ void MeleeEnemy::Update(void)
                 transform_.pos,
                 knockBackPow_
             );
+
+        // 高さ制限
+        const float MIN_HEIGHT = 100.0f;
+        const float MAX_HEIGHT = 2000.0f;
+
+        if (transform_.pos.y <= MIN_HEIGHT)
+        {
+            transform_.pos.y = MIN_HEIGHT;
+
+            // 8段目で叩き落とされていたらダウン
+            if (isSlamDown_)
+            {
+                isSlamDown_ = false;
+                isDown_ = true;
+                downTimer_ = 1.0f;
+
+                knockBackPow_ =
+                    AsoUtility::VECTOR_ZERO;
+
+                animationController_->Play(
+                    (int)ANIM_TYPE::DAMAGE,
+                    false
+                );
+
+                transform_.Update();
+
+                return;
+            }
+
+            knockBackPow_.y = 0.0f;
+        }
+
+        if (transform_.pos.y > MAX_HEIGHT)
+        {
+            transform_.pos.y = MAX_HEIGHT;
+            knockBackPow_.y = 0.0f;
+        }
 
         knockBackPow_ =
             VScale(
@@ -148,37 +195,17 @@ void MeleeEnemy::Update(void)
             AsoUtility::VECTOR_ZERO;
     }
 
-    // ダメージモーション
-    if (isDamage_)
+    // ダウン中
+    if (isDown_)
     {
-        if (animationController_->IsEnd())
+        downTimer_ -= deltaTime;
+
+        if (downTimer_ <= 0.0f)
         {
+            downTimer_ = 0.0f;
+            isDown_ = false;
             isDamage_ = false;
-
-            animationController_->Play(
-                (int)ANIM_TYPE::IDLE
-            );
-        }
-        else
-        {
-            transform_.Update();
-
-            return;
-        }
-    }
-
-    // 攻撃中
-    if (isAttack_)
-    {
-        attackTimer_ += deltaTime;
-
-        if (attackTimer_ >= ATTACK_TIME)
-        {
-            isAttack_ = false;
-            attackTimer_ = 0.0f;
-
-            attackCoolTimer_ =
-                ATTACK_COOL_TIME;
+            damageTimer_ = 0.0f;
 
             animationController_->Play(
                 (int)ANIM_TYPE::IDLE
@@ -190,38 +217,214 @@ void MeleeEnemy::Update(void)
         return;
     }
 
-    // 攻撃クールタイム
-    if (attackCoolTimer_ > 0.0f)
+    // ダメージモーション
+    if (isDamage_)
     {
-        attackCoolTimer_ -= deltaTime;
+        damageTimer_ -= deltaTime;
 
-        if (attackCoolTimer_ < 0.0f)
+        if (damageTimer_ <= 0.0f)
         {
-            attackCoolTimer_ = 0.0f;
+            damageTimer_ = 0.0f;
+            isDamage_ = false;
+
+            animationController_->Play(
+                (int)ANIM_TYPE::IDLE
+            );
+        }
+        else
+        {
+            transform_.Update();
+            return;
         }
     }
 
-    // 索敵範囲内
-    if (distance <= searchRange_)
+    // 高速接近中
+    if (isBoostChase_)
     {
+        boostChaseTimer_ += deltaTime;
+
         VECTOR dir =
-            AsoUtility::VECTOR_ZERO;
+            VSub(
+                player_.GetTransform().pos,
+                transform_.pos
+            );
 
-        if (distance > 0.001f)
-        {
-            dir =
-                VNorm(toTarget);
-        }
+        float chaseDistance =
+            VSize(dir);
 
-        // Playerの方向を向く
-        if (!AsoUtility::EqualsVZero(dir))
+        if (chaseDistance > 0.001f)
         {
+            dir = VNorm(dir);
+
             transform_.quaRot =
                 Quaternion::LookRotation(dir);
         }
 
-        // Playerへ近づく
-        if (distance > stopRange_)
+        // プレイヤーの近くまで来たら終了
+        if (chaseDistance <= stopRange_ ||
+            boostChaseTimer_ >= BOOST_CHASE_TIME)
+        {
+            isBoostChase_ = false;
+            boostChaseTimer_ = 0.0f;
+
+            animationController_->Play(
+                (int)ANIM_TYPE::IDLE
+            );
+        }
+        else
+        {
+            transform_.pos =
+                VAdd(
+                    transform_.pos,
+                    VScale(
+                        dir,
+                        BOOST_CHASE_SPEED
+                    )
+                );
+
+            animationController_->Play(
+                (int)ANIM_TYPE::FAST_RUN
+            );
+
+            transform_.Update();
+
+            return;
+        }
+    }
+
+    // 攻撃中
+    if (isAttack_)
+    {
+        attackTimer_ += deltaTime;
+
+        // 1～3段目は攻撃中もプレイヤーについていく
+        if (attackCombo_ >= 1 &&
+            attackCombo_ <= 3)
+        {
+            VECTOR dir =
+                VSub(
+                    player_.GetTransform().pos,
+                    transform_.pos
+                );
+
+            float distance =
+                VSize(dir);
+
+            if (distance > 0.001f)
+            {
+                dir =
+                    VNorm(dir);
+
+                float stopDistance = 65.0f;
+                float chaseSpeed = 10.0f;
+
+                if (distance > stopDistance)
+                {
+                    float moveDistance =
+                        distance - stopDistance;
+
+                    if (moveDistance > chaseSpeed)
+                    {
+                        moveDistance =
+                            chaseSpeed;
+                    }
+
+                    transform_.pos =
+                        VAdd(
+                            transform_.pos,
+                            VScale(
+                                dir,
+                                moveDistance
+                            )
+                        );
+                }
+
+                transform_.quaRot =
+                    Quaternion::LookRotation(dir);
+            }
+        }
+        // 次の攻撃へ
+        if (attackTimer_ >= 0.55f)
+        {
+            attackTimer_ = 0.0f;
+            hasAttackHit_ = false;
+
+            attackCombo_++;
+
+            switch (attackCombo_)
+            {
+            case 2:
+                animationController_->Play(
+                    (int)ANIM_TYPE::ATTACK02,
+                    false
+                );
+                break;
+
+            case 3:
+                animationController_->Play(
+                    (int)ANIM_TYPE::ATTACK03,
+                    false
+                );
+                break;
+
+            case 4:
+                animationController_->Play(
+                    (int)ANIM_TYPE::ATTACK04,
+                    false
+                );
+                break;
+
+            default:
+                isAttack_ = false;
+                attackCombo_ = 0;
+                attackTimer_ = 0.0f;
+                hasAttackHit_ = false;
+
+                attackCoolTimer_ =
+                    ATTACK_COOL_TIME;
+
+                animationController_->Play(
+                    (int)ANIM_TYPE::IDLE
+                );
+                break;
+            }
+        }
+
+        transform_.Update();
+
+        return;
+    }
+
+    VECTOR dir =
+        AsoUtility::VECTOR_ZERO;
+
+    if (distance > 0.001f)
+    {
+        dir =
+            VNorm(toTarget);
+    }
+
+    // Playerの方向を向く
+    if (!AsoUtility::EqualsVZero(dir))
+    {
+        transform_.quaRot =
+            Quaternion::LookRotation(dir);
+    }
+
+    // Playerへ近づく
+    if (distance > stopRange_)
+    {
+        // 遠ければ高速接近
+        if (distance >= BOOST_CHASE_DISTANCE)
+        {
+            isBoostChase_ = true;
+            boostChaseTimer_ = 0.0f;
+
+            animationController_->Play(
+                (int)ANIM_TYPE::FAST_RUN
+            );
+        }
+        else
         {
             transform_.pos =
                 VAdd(
@@ -236,32 +439,27 @@ void MeleeEnemy::Update(void)
                 (int)ANIM_TYPE::RUN
             );
         }
-        else
-        {
-            if (attackCoolTimer_ <= 0.0f)
-            {
-                isAttack_ = true;
-                attackTimer_ = 0.0f;
-                hasAttackHit_ = false;
-
-                animationController_->Play(
-                    (int)ANIM_TYPE::ATTACK01,
-                    false
-                );
-            }
-            else
-            {
-                animationController_->Play(
-                    (int)ANIM_TYPE::IDLE
-                );
-            }
-        }
     }
     else
     {
-        animationController_->Play(
-            (int)ANIM_TYPE::IDLE
-        );
+        if (attackCoolTimer_ <= 0.0f)
+        {
+            isAttack_ = true;
+            attackCombo_ = 1;
+            attackTimer_ = 0.0f;
+            hasAttackHit_ = false;
+
+            animationController_->Play(
+                (int)ANIM_TYPE::ATTACK01,
+                false
+            );
+        }
+        else
+        {
+            animationController_->Play(
+                (int)ANIM_TYPE::IDLE
+            );
+        }
     }
 
     transform_.Update();
@@ -290,6 +488,17 @@ void MeleeEnemy::Draw(void)
         "Enemy HP : %d",
         hp_
     );
+
+    DrawFormatString(
+        20,
+        200,
+        GetColor(255, 255, 255),
+        "Attack:%d Combo:%d Timer:%.2f Cool:%.2f",
+        isAttack_,
+        attackCombo_,
+        attackTimer_,
+        attackCoolTimer_
+    );
 }
 
 void MeleeEnemy::SetPosition(VECTOR pos)
@@ -315,6 +524,11 @@ bool MeleeEnemy::HasAttackHit(void) const
 void MeleeEnemy::SetAttackHit(void)
 {
     hasAttackHit_ = true;
+}
+
+int MeleeEnemy::GetAttackCombo(void) const
+{
+    return attackCombo_;
 }
 
 void MeleeEnemy::DrawSyncRing(void)
@@ -435,4 +649,22 @@ void MeleeEnemy::DrawSyncRing(void)
             )
         );
     }
+}
+
+void MeleeEnemy::StartSlamDown(void)
+{
+    isSlamDown_ = true;
+    isDown_ = false;
+    downTimer_ = 0.0f;
+
+    isAttack_ = false;
+    attackTimer_ = 0.0f;
+
+    isDamage_ = false;
+    damageTimer_ = 0.0f;
+}
+
+bool MeleeEnemy::IsDown(void) const
+{
+    return isDown_;
 }
