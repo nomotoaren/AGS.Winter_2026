@@ -437,11 +437,6 @@ void GameScene::Update(void)
 			{
 				if (!player_->IsDodging())
 				{
-					player_->Damage(
-						MeleeEnemy::ATTACK_DAMAGE
-					);
-
-					// 敵からプレイヤーへ向かう方向
 					VECTOR hitDir =
 						VSub(
 							player_->GetTransform().pos,
@@ -450,24 +445,69 @@ void GameScene::Update(void)
 
 					if (VSize(hitDir) > 0.001f)
 					{
-						hitDir =
-							VNorm(hitDir);
+						hitDir = VNorm(hitDir);
 
-						float knockPower = 5.0f;
-
-						// 4段目だけ強く吹っ飛ばす
-						if (enemy->GetAttackCombo() == 4)
+						if (player_->IsGuard())
 						{
-							knockPower = 30.0f;
-						}
+							// ガード耐久値を減らす
+							if (enemy->GetAttackCombo() == 4)
+							{
+								player_->GuardDamage(80.0f);
+							}
+							else
+							{
+								player_->GuardDamage(20.0f);
+							}
 
-						player_->AddKnockBack(
-							hitDir,
-							knockPower
-						);
+							// ガード中はダメージなしで少しだけ押される
+							float guardKnockPower = 1.5f;
+
+							if (enemy->GetAttackCombo() == 4)
+							{
+								guardKnockPower = 5.0f;
+							}
+
+							player_->AddKnockBack(
+								hitDir,
+								guardKnockPower
+							);
+
+							// ガードエフェクト
+							VECTOR effectPos =
+								player_->GetTransform().pos;
+
+							effectPos.y += 80.0f;
+
+							EffekseerEffect::GetInstance()->
+								PlayHitEffect(
+									effectPos,
+									0.0f
+								);
+
+							// ガードした瞬間に少し止める
+							isHitStop_ = true;
+							hitStopTimer_ = 0.03f;
+						}
+						else
+						{
+							player_->Damage(
+								MeleeEnemy::ATTACK_DAMAGE
+							);
+
+							float knockPower = 5.0f;
+
+							if (enemy->GetAttackCombo() == 4)
+							{
+								knockPower = 30.0f;
+							}
+
+							player_->AddKnockBack(
+								hitDir,
+								knockPower
+							);
+						}
 					}
 				}
-
 				enemy->SetAttackHit();
 			}
 		}

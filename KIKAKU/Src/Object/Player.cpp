@@ -78,6 +78,13 @@ Player::Player(void)
 	dodgeTimer_ = 0.0f;
 	dodgeDir_ = AsoUtility::VECTOR_ZERO;
 
+	// ガード
+	isGuard_ = false;
+	guardHp_ = 100.0f;
+	isGuardBreak_ = false;
+	guardBreakTimer_ = 0.0f;
+	guardRecoverTimer_ = 0.0f;
+
 	// 空中
 	isFlying_ = false;
 
@@ -474,6 +481,8 @@ void Player::InitAnimation(void)
 	animationController_->Add((int)ANIM_TYPE::KAMEHAME, path + "かめはめ波.mv1", 20.0f);
 	animationController_->Add((int)ANIM_TYPE::CHARGE, path + "pawer.mv1", 40.0f);
 	animationController_->Add((int)ANIM_TYPE::DAMAGE, path + "Damege.mv1", 60.0f);
+	animationController_->Add((int)ANIM_TYPE::GUARD, path + "Block.mv1", 60.0f);
+	animationController_->Add((int)ANIM_TYPE::GUARD_BREAK, path + "GuardBreak.mv1", 20.0f);
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
@@ -508,6 +517,17 @@ void Player::UpdatePlay(void)
 
 	attackTrigger_ = false;
 	
+	UpdateGuard();
+
+	if (isGuard_ ||
+		isGuardBreak_)
+	{
+		movePow_ =
+			AsoUtility::VECTOR_ZERO;
+
+		return;
+	}
+
 	// 気溜め
 	UpdateChase();
 
@@ -1329,6 +1349,17 @@ void Player::Damage(int damage)
 		isDead_ = true;
 	}
 
+	// 攻撃中なら解除
+	isAttack_ = false;
+	combo_ = 0;
+	nextAttack_ = false;
+	attackTimer_ = 0.0f;
+	hasAttackHit_ = false;
+
+	movePow_ =
+		AsoUtility::VECTOR_ZERO;
+
+	// ダメージ状態
 	isDamage_ = true;
 	damageTimer_ = 0.35f;
 
@@ -1354,6 +1385,31 @@ void Player::AddKnockBack(
 			dir,
 			power
 		);
+
+	// 攻撃してきた方向を向く
+	VECTOR lookDir =
+		VScale(
+			dir,
+			-1.0f
+		);
+
+	lookDir.y = 0.0f;
+
+	if (VSize(lookDir) > 0.001f)
+	{
+		lookDir = VNorm(lookDir);
+
+		playerRotY_ =
+			Quaternion::LookRotation(
+				lookDir
+			);
+
+		goalQuaRot_ =
+			playerRotY_;
+
+		transform_.quaRot =
+			playerRotY_;
+	}
 }
 
 bool Player::IsDead(void) const
@@ -3077,7 +3133,134 @@ void Player::UpdateDodge(void)
 	}
 }
 
+void Player::UpdateGuard(void)
+{
+	InputManager& ins =
+		InputManager::GetInstance();
+
+	float deltaTime =
+		SceneManager::GetInstance().GetDeltaTime();
+
+	// ガードブレイク中
+	if (isGuardBreak_)
+	{
+		guardBreakTimer_ -= deltaTime;
+
+		movePow_ =
+			AsoUtility::VECTOR_ZERO;
+
+		if (guardBreakTimer_ <= 0.0f)
+		{
+			guardBreakTimer_ = 0.0f;
+			isGuardBreak_ = false;
+
+			guardHp_ = 100.0f;
+
+			animationController_->Play(
+				(int)ANIM_TYPE::IDLE,
+				true,
+				0.0f,
+				-1.0f,
+				false,
+				true
+			);
+		}
+
+		return;
+	}
+
+	// ガード耐久値の回復
+	if (guardHp_ < 100.0f)
+	{
+		if (guardRecoverTimer_ > 0.0f)
+		{
+			guardRecoverTimer_ -= deltaTime;
+		}
+		else
+		{
+			guardHp_ += 25.0f * deltaTime;
+
+			if (guardHp_ > 100.0f)
+			{
+				guardHp_ = 100.0f;
+			}
+		}
+	}
+
+	// ガード開始
+	if (!isGuard_ &&
+		ins.IsNew(KEY_INPUT_L))
+	{
+		isGuard_ = true;
+
+		movePow_ =
+			AsoUtility::VECTOR_ZERO;
+
+		animationController_->Play(
+			(int)ANIM_TYPE::GUARD,
+			false,
+			0.0f,
+			-1.0f,
+			true
+		);
+	}
+	// ガード解除
+	else if (isGuard_ &&
+		!ins.IsNew(KEY_INPUT_L))
+	{
+		isGuard_ = false;
+
+		animationController_->Play(
+			(int)ANIM_TYPE::IDLE
+		);
+	}
+}
+
 bool Player::IsDodging(void) const
 {
 	return isDodge_;
+}
+
+bool Player::IsGuard(void) const
+{
+	return isGuard_;
+}
+
+void Player::GuardDamage(float damage)
+{
+	if (isGuardBreak_)
+	{
+		return;
+	}
+
+	// 回復開始までの時間をリセット
+	guardRecoverTimer_ = 2.0f;
+
+	guardHp_ -= damage;
+
+	if (guardHp_ <= 0.0f)
+	{
+		guardHp_ = 0.0f;
+
+		isGuard_ = false;
+		isGuardBreak_ = true;
+		guardBreakTimer_ = 1.5f;
+
+		movePow_ =
+			AsoUtility::VECTOR_ZERO;
+
+		animationController_->Play(
+			(int)ANIM_TYPE::GUARD_BREAK,
+			true,
+			0.0f,
+			-1.0f,
+			false,
+			true
+		);
+	}
+}
+
+bool Player::IsGuardBreak(void) const
+{
+	return isGuardBreak_;
 }

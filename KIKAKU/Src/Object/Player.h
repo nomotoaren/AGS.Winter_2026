@@ -90,6 +90,8 @@ public:
 		KAMEHAME,
 		CHARGE,
 		DAMAGE,
+		GUARD,
+		GUARD_BREAK,
 	};
 
 	struct BoostAfterImage
@@ -171,6 +173,11 @@ public:
 	void UpdateBoostChase(void);
 
 	bool IsDodging(void) const;
+
+	// ガード
+	bool IsGuard(void) const;
+	void GuardDamage(float damage);
+	bool IsGuardBreak(void) const;
 private:
 
 	// アニメーション
@@ -274,6 +281,13 @@ private:
 	bool isDamage_;
 	float damageTimer_;
 
+	// ガード中
+	bool isGuard_;
+	float guardHp_;
+	bool isGuardBreak_;
+	float guardBreakTimer_;
+	float guardRecoverTimer_;
+
 	// 死亡
 	bool isDead_;
 
@@ -315,9 +329,13 @@ private:
 	void UpdateAttack(void);
 	void UpdateKiBlast(void);
 	void UpdateKamehame(void);
+
+	// 高速追撃
 	void UpdateCharge(void);
 	void UpdateChase(void);
+
 	void UpdateDodge(void);
+	void UpdateGuard(void);
 
 	float attackEndTimer_;
 
