@@ -84,6 +84,9 @@ Player::Player(void)
 	isGuardBreak_ = false;
 	guardBreakTimer_ = 0.0f;
 	guardRecoverTimer_ = 0.0f;
+	isGuardBurst_ = false;
+	guardBurstTimer_ = 0.0f;
+	guardBurstTrigger_ = false;
 
 	// 空中
 	isFlying_ = false;
@@ -330,6 +333,14 @@ void Player::Draw(void)
 
 	DrawFormatString(
 		10,
+		120,
+		GetColor(255, 255, 255),
+		"GUARD : %.1f / 100.0",
+		guardHp_
+	);
+
+	DrawFormatString(
+		10,
 		300,
 		GetColor(255, 255, 255),
 		"Combo : %d  AttackTime : %.2f",
@@ -482,7 +493,8 @@ void Player::InitAnimation(void)
 	animationController_->Add((int)ANIM_TYPE::CHARGE, path + "pawer.mv1", 40.0f);
 	animationController_->Add((int)ANIM_TYPE::DAMAGE, path + "Damege.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::GUARD, path + "Block.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::GUARD_BREAK, path + "GuardBreak.mv1", 20.0f);
+	animationController_->Add((int)ANIM_TYPE::GUARD_BURST, path + "GuardBurst.mv1", 20.0f);
+	animationController_->Add((int)ANIM_TYPE::GUARD_BREAK, path + "pawer.mv1", 100.0f);
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
@@ -519,8 +531,11 @@ void Player::UpdatePlay(void)
 	
 	UpdateGuard();
 
+	UpdateGuardBurst();
+
 	if (isGuard_ ||
-		isGuardBreak_)
+		isGuardBreak_ ||
+		isGuardBurst_)
 	{
 		movePow_ =
 			AsoUtility::VECTOR_ZERO;
@@ -1430,6 +1445,11 @@ bool Player::IsRecording(void) const
 void Player::SetLockOn(bool lockOn)
 {
 	isLockOn_ = lockOn;
+}
+
+bool Player::IsGuardBurst(void) const
+{
+	return isGuardBurst_;
 }
 
 bool Player::IsLockOn(void) const
@@ -3189,6 +3209,7 @@ void Player::UpdateGuard(void)
 
 	// ガード開始
 	if (!isGuard_ &&
+		!isGuardBurst_ &&
 		ins.IsNew(KEY_INPUT_L))
 	{
 		isGuard_ = true;
@@ -3213,6 +3234,70 @@ void Player::UpdateGuard(void)
 		animationController_->Play(
 			(int)ANIM_TYPE::IDLE
 		);
+	}
+}
+
+void Player::UpdateGuardBurst(void)
+{
+	auto& ins =
+		InputManager::GetInstance();
+
+	float deltaTime =
+		SceneManager::GetInstance().GetDeltaTime();
+
+	guardBurstTrigger_ = false;
+
+	// バースト中
+	if (isGuardBurst_)
+	{
+		guardBurstTimer_ -= deltaTime;
+
+		movePow_ =
+			AsoUtility::VECTOR_ZERO;
+
+		if (guardBurstTimer_ <= 0.0f)
+		{
+			guardBurstTimer_ = 0.0f;
+			isGuardBurst_ = false;
+
+			animationController_->Play(
+				(int)ANIM_TYPE::IDLE,
+				true,
+				0.0f,
+				-1.0f,
+				false,
+				true
+			);
+		}
+
+		return;
+	}
+
+	// ガード中にBでバースト
+	if (isGuard_ &&
+		ins.IsTrgDown(KEY_INPUT_B))
+	{
+		isGuardBurst_ = true;
+		guardBurstTrigger_ = true;
+		guardBurstTimer_ = 0.5f;
+
+		isGuard_ = false;
+
+		movePow_ =
+			AsoUtility::VECTOR_ZERO;
+
+		animationController_->ClearEndLoop();
+
+		animationController_->Play(
+			(int)ANIM_TYPE::GUARD_BURST,
+			false,
+			0.0f,
+			45.0f,
+			false,
+			true
+		);
+
+		return;
 	}
 }
 
@@ -3263,4 +3348,9 @@ void Player::GuardDamage(float damage)
 bool Player::IsGuardBreak(void) const
 {
 	return isGuardBreak_;
+}
+
+bool Player::IsGuardBurstTrigger(void) const
+{
+	return guardBurstTrigger_;
 }

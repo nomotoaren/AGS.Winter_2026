@@ -92,6 +92,7 @@ public:
 		DAMAGE,
 		GUARD,
 		GUARD_BREAK,
+		GUARD_BURST,
 	};
 
 	struct BoostAfterImage
@@ -178,6 +179,10 @@ public:
 	bool IsGuard(void) const;
 	void GuardDamage(float damage);
 	bool IsGuardBreak(void) const;
+	void UpdateGuardBurst(void);
+	bool IsGuardBurst(void) const;
+	bool IsGuardBurstTrigger(void) const;
+
 private:
 
 	// アニメーション
@@ -287,6 +292,9 @@ private:
 	bool isGuardBreak_;
 	float guardBreakTimer_;
 	float guardRecoverTimer_;
+	bool isGuardBurst_;
+	float guardBurstTimer_;
+	bool guardBurstTrigger_;
 
 	// 死亡
 	bool isDead_;

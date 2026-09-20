@@ -321,6 +321,63 @@ void GameScene::Update(void)
 
 		player_->Update();
 
+		// ガードバースト
+		if (player_->IsGuardBurstTrigger())
+		{
+			VECTOR playerPos =
+				player_->GetTransform().pos;
+
+			// バースト時のカメラ揺れ
+			mainCamera.StartShake(
+				0.12f,
+				6.0f
+			);
+
+			for (auto& enemy : enemies_)
+			{
+				if (!enemy)
+				{
+					continue;
+				}
+
+				if (enemy->IsDead())
+				{
+					continue;
+				}
+
+				VECTOR enemyPos =
+					enemy->GetTransform().pos;
+
+				VECTOR dir =
+					VSub(
+						enemyPos,
+						playerPos
+					);
+
+				float distance =
+					VSize(dir);
+
+				// バーストの範囲
+				if (distance > 250.0f)
+				{
+					continue;
+				}
+
+				if (distance <= 0.001f)
+				{
+					continue;
+				}
+
+				dir =
+					VNorm(dir);
+
+				enemy->AddKnockBack(
+					dir,
+					40.0f
+				);
+			}
+		}
+
 		// かめはめ波カメラ
 		bool isKamehame =
 			player_->IsKamehame();
