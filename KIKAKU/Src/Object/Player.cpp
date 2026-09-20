@@ -493,8 +493,8 @@ void Player::InitAnimation(void)
 	animationController_->Add((int)ANIM_TYPE::CHARGE, path + "pawer.mv1", 40.0f);
 	animationController_->Add((int)ANIM_TYPE::DAMAGE, path + "Damege.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::GUARD, path + "Block.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::GUARD_BURST, path + "GuardBurst.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::GUARD_BREAK, path + "pawer.mv1", 100.0f);
+	animationController_->Add((int)ANIM_TYPE::GUARD_BURST, path + "pawer.mv1", 100.0f);
+	animationController_->Add((int)ANIM_TYPE::GUARD_BREAK, path + "GuardBreak.mv1", 20.0f);
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
@@ -1370,6 +1370,18 @@ void Player::Damage(int damage)
 	nextAttack_ = false;
 	attackTimer_ = 0.0f;
 	hasAttackHit_ = false;
+
+	// ‹C—­‚ß‚ğ‰ğœ
+	if (isCharging_ || isChargeEnding_)
+	{
+		isCharging_ = false;
+		isChargeEnding_ = false;
+
+		animationController_->ClearEndLoop();
+
+		EffekseerEffect::GetInstance()->
+			StopChargeEffect();
+	}
 
 	movePow_ =
 		AsoUtility::VECTOR_ZERO;
@@ -3277,6 +3289,12 @@ void Player::UpdateGuardBurst(void)
 	if (isGuard_ &&
 		ins.IsTrgDown(KEY_INPUT_B))
 	{
+		// ‹C‚ª‘«‚è‚È‚¢ê‡‚Í”­“®‚µ‚È‚¢
+		if (!UseKi(20.0f))
+		{
+			return;
+		}
+
 		isGuardBurst_ = true;
 		guardBurstTrigger_ = true;
 		guardBurstTimer_ = 0.5f;
@@ -3329,7 +3347,7 @@ void Player::GuardDamage(float damage)
 
 		isGuard_ = false;
 		isGuardBreak_ = true;
-		guardBreakTimer_ = 1.5f;
+		guardBreakTimer_ = 3.0f;
 
 		movePow_ =
 			AsoUtility::VECTOR_ZERO;

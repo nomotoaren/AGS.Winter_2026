@@ -32,7 +32,8 @@ public:
         ATTACK03,
         ATTACK04,
         KAMEHAME,
-        DAMAGE
+        DAMAGE,
+        GUARD,
     };
 
     MeleeEnemy(
@@ -50,6 +51,7 @@ public:
 
     // 叩き落とし開始
     void StartSlamDown(void);
+    void GuardBurst(void);
 
     bool IsDown(void) const;
 
@@ -59,6 +61,7 @@ public:
     void SetAttackHit(void);
 
     int GetAttackCombo(void) const;
+    bool IsGuard(void) const;
 
     void InitAnimation(void);
 private:
@@ -111,6 +114,10 @@ private:
     // ダメージ中
     bool isDamage_;
     float damageTimer_;
+
+    // ガード
+    bool isGuard_;
+    float guardTimer_;
 
     // 叩き落とし中
     bool isSlamDown_;

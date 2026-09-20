@@ -29,6 +29,9 @@ MeleeEnemy::MeleeEnemy(Player& player)
     isSlamDown_ = false;
     isDown_ = false;
     downTimer_ = 0.0f;
+
+    isGuard_ = false;
+    guardTimer_ = 0.0f;
 }
 
 MeleeEnemy::~MeleeEnemy(void)
@@ -84,6 +87,7 @@ void MeleeEnemy::InitAnimation(void)
     animationController_->Add((int)ANIM_TYPE::ATTACK04, path + "Attack04.mv1", 45.0f);
     animationController_->Add((int)ANIM_TYPE::KAMEHAME, path + "‚©‚ß‚Í‚ß”g.mv1", 20.0f);
 	animationController_->Add((int)ANIM_TYPE::DAMAGE, path + "Damege.mv1", 60.0f);
+    animationController_->Add((int)ANIM_TYPE::GUARD, path + "Block.mv1", 60.0f);
     animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
@@ -290,6 +294,53 @@ void MeleeEnemy::Update(void)
 
             return;
         }
+    }
+
+    // ƒK[ƒh’†
+    if (isGuard_)
+    {
+        guardTimer_ -= deltaTime;
+
+        if (guardTimer_ <= 0.0f)
+        {
+            guardTimer_ = 0.0f;
+            isGuard_ = false;
+
+            animationController_->Play(
+                (int)ANIM_TYPE::IDLE
+            );
+        }
+        else
+        {
+            transform_.Update();
+            return;
+        }
+    }
+
+    // ƒvƒŒƒCƒ„[‚ª‹ß‚­‚ÅUŒ‚‚µ‚Ä‚¢‚½‚çƒK[ƒh
+    if (distance <= 150.0f &&
+        player_.GetCombo() > 0)
+    {
+        isGuard_ = true;
+        guardTimer_ = 0.8f;
+
+        isAttack_ = false;
+        attackCombo_ = 0;
+        attackTimer_ = 0.0f;
+        hasAttackHit_ = false;
+
+        animationController_->Play(
+            (int)ANIM_TYPE::GUARD,
+            true,
+            0.0f,
+            -1.0f,
+            true,
+            true
+        );
+
+        transform_.Update();
+
+        return;
     }
 
     // UŒ‚’†
@@ -664,7 +715,29 @@ void MeleeEnemy::StartSlamDown(void)
     damageTimer_ = 0.0f;
 }
 
+void MeleeEnemy::GuardBurst(void)
+{
+    // UŒ‚‚ğ’†’f
+    isAttack_ = false;
+    attackCombo_ = 0;
+    attackTimer_ = 0.0f;
+    hasAttackHit_ = false;
+
+    // ‚‘¬Ú‹ß‚à’†’f
+    isBoostChase_ = false;
+    boostChaseTimer_ = 0.0f;
+
+    // ‚·‚®‚ÉÄUŒ‚‚µ‚È‚¢‚æ‚¤‚É‚·‚é
+    attackCoolTimer_ =
+        ATTACK_COOL_TIME;
+}
+
 bool MeleeEnemy::IsDown(void) const
 {
     return isDown_;
+}
+
+bool MeleeEnemy::IsGuard(void) const
+{
+    return isGuard_;
 }

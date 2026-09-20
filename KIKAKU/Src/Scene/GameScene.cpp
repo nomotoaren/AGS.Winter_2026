@@ -371,6 +371,16 @@ void GameScene::Update(void)
 				dir =
 					VNorm(dir);
 
+				MeleeEnemy* meleeEnemy =
+					dynamic_cast<MeleeEnemy*>(
+						enemy.get()
+						);
+
+				if (meleeEnemy != nullptr)
+				{
+					meleeEnemy->GuardBurst();
+				}
+
 				enemy->AddKnockBack(
 					dir,
 					40.0f
@@ -651,6 +661,36 @@ void GameScene::Update(void)
 
 				if (dot < ActorBase::ATTACK_DOT)
 				{
+					continue;
+				}
+
+				// 敵がガード中
+				MeleeEnemy* meleeEnemy =
+					dynamic_cast<MeleeEnemy*>(
+						enemy.get()
+						);
+
+				if (meleeEnemy != nullptr &&
+					meleeEnemy->IsGuard())
+				{
+					// ガードエフェクト
+					VECTOR effectPos =
+						enemy->GetTransform().pos;
+
+					effectPos.y += 80.0f;
+
+					EffekseerEffect::GetInstance()->
+						PlayHitEffect(
+							effectPos,
+							0.0f
+						);
+
+					// 少しだけヒットストップ
+					isHitStop_ = true;
+					hitStopTimer_ = 0.03f;
+
+					player_->SetAttackHit();
+
 					continue;
 				}
 
