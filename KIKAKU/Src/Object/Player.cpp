@@ -243,6 +243,9 @@ void Player::Update(void)
 		}
 		else
 		{
+			transform_.quaRot =
+				damageRot_;
+
 			transform_.Update();
 
 			animationController_->Update();
@@ -1383,6 +1386,22 @@ void Player::Damage(int damage)
 			StopChargeEffect();
 	}
 
+	// ‚©‚ß‚Í‚ß”g‚ð‰ðœ
+	if (isKamehame_)
+	{
+		isKamehame_ = false;
+		isKamehameBeam_ = false;
+		kamehameTimer_ = 0.0f;
+
+		if (kamehameLightHandle_ != -1)
+		{
+			SetLightEnableHandle(
+				kamehameLightHandle_,
+				false
+			);
+		}
+	}
+
 	movePow_ =
 		AsoUtility::VECTOR_ZERO;
 
@@ -1412,31 +1431,27 @@ void Player::AddKnockBack(
 			dir,
 			power
 		);
+}
 
-	// UŒ‚‚µ‚Ä‚«‚½•ûŒü‚ðŒü‚­
-	VECTOR lookDir =
-		VScale(
-			dir,
-			-1.0f
-		);
-
-	lookDir.y = 0.0f;
-
-	if (VSize(lookDir) > 0.001f)
+void Player::AddAttackMove(
+	VECTOR dir,
+	float power)
+{
+	if (VSize(dir) <= 0.001f)
 	{
-		lookDir = VNorm(lookDir);
-
-		playerRotY_ =
-			Quaternion::LookRotation(
-				lookDir
-			);
-
-		goalQuaRot_ =
-			playerRotY_;
-
-		transform_.quaRot =
-			playerRotY_;
+		return;
 	}
+
+	dir = VNorm(dir);
+
+	transform_.pos =
+		VAdd(
+			transform_.pos,
+			VScale(
+				dir,
+				power
+			)
+		);
 }
 
 bool Player::IsDead(void) const
@@ -1509,6 +1524,31 @@ void Player::LookAtTarget(VECTOR targetPos)
 
 	goalQuaRot_ =
 		playerRotY_;
+}
+
+void Player::LookAtDamageEnemy(VECTOR enemyPos)
+{
+	VECTOR dir =
+		VSub(
+			enemyPos,
+			transform_.pos
+		);
+
+	dir.y = 0.0f;
+
+	if (VSize(dir) <= 0.001f)
+	{
+		return;
+	}
+
+	dir = VNorm(dir);
+
+	damageRot_ =
+		Quaternion::LookRotation(dir);
+
+	playerRotY_ = damageRot_;
+	goalQuaRot_ = damageRot_;
+	transform_.quaRot = damageRot_;
 }
 
 void Player::DrawKamehame(void)
@@ -1794,9 +1834,9 @@ void Player::DrawKamehame(void)
 	MV1SetScale(
 		kamehameBeamModel_,
 		{
-			0.5f,  // ‘¾‚³
-			0.5f,  // ‘¾‚³
-			1.0f    // ’·‚³
+			0.5f,
+			0.5f,
+			1.0f
 		}
 	);
 
@@ -2013,28 +2053,54 @@ void Player::UpdateAttack(void)
 						playerRotY_;
 				}
 
-				// 1`7’i–Ú‚Í“G‚É‚Â‚¢‚Ä‚¢‚­
-				if (combo_ >= 1 &&
-					combo_ <= 7)
+				// ’ÊíƒRƒ“ƒ{’†‚Í“G‚Æ‚ÌˆÊ’u‚ðˆÛŽ‚·‚é
+				bool keepAttackPosition =
+					combo_ >= 1 &&
+					combo_ <= 7;
+
+				if (combo_ == 8 &&
+					attackTimer_ < 0.50f)
 				{
-					float stopDistance = 65.0f;
-					float chaseSpeed = 12.0f;
+					keepAttackPosition = true;
+				}
 
-					if (distance > stopDistance)
+				if (keepAttackPosition)
+				{
+					const float attackDistance = 80.0f;
+					const float followRate = 0.25f;
+
+					VECTOR enemyDir =
+						VSub(
+							attackTargetPos_,
+							transform_.pos
+						);
+
+					enemyDir.y = 0.0f;
+
+					if (VSize(enemyDir) > 0.001f)
 					{
-						float moveDistance =
-							distance - stopDistance;
+						enemyDir =
+							VNorm(enemyDir);
 
-						if (moveDistance > chaseSpeed)
-						{
-							moveDistance =
-								chaseSpeed;
-						}
+						VECTOR targetPos =
+							VSub(
+								attackTargetPos_,
+								VScale(
+									enemyDir,
+									attackDistance
+								)
+							);
+
+						VECTOR follow =
+							VSub(
+								targetPos,
+								transform_.pos
+							);
 
 						movePow_ =
 							VScale(
-								dir,
-								moveDistance
+								follow,
+								followRate
 							);
 					}
 				}
@@ -2675,6 +2741,24 @@ void Player::UpdateCharge(void)
 		isChasing_ = false;
 		canChase_ = false;
 
+		// ’ÇŒ‚‚Ì¨‚¢‚ð­‚µŽc‚·
+		if (distance > 0.001f)
+		{
+			VECTOR attackDir =
+				VNorm(
+					VSub(
+						attackTargetPos_,
+						transform_.pos
+					)
+				);
+
+			movePow_ =
+				VScale(
+					attackDir,
+					8.0f
+				);
+		}
+
 		isAttack_ = true;
 		combo_ = 1;
 		nextAttack_ = false;
@@ -2717,9 +2801,11 @@ void Player::UpdateCharge(void)
 	float moveDistance =
 		distance - 80.0f;
 
-	if (moveDistance > 45.0f)
+	const float chaseSpeed = 18.0f;
+
+	if (moveDistance > chaseSpeed)
 	{
-		moveDistance = 45.0f;
+		moveDistance = chaseSpeed;
 	}
 
 	movePow_ =

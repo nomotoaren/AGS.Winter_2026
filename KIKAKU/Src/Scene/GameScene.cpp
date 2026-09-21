@@ -557,6 +557,10 @@ void GameScene::Update(void)
 						}
 						else
 						{
+							player_->LookAtDamageEnemy(
+								enemy->GetTransform().pos
+							);
+
 							player_->Damage(
 								MeleeEnemy::ATTACK_DAMAGE
 							);
@@ -673,6 +677,11 @@ void GameScene::Update(void)
 				if (meleeEnemy != nullptr &&
 					meleeEnemy->IsGuard())
 				{
+					// ガード耐久値を減らす
+					meleeEnemy->GuardDamage(
+						20.0f
+					);
+
 					// ガードエフェクト
 					VECTOR effectPos =
 						enemy->GetTransform().pos;
@@ -685,7 +694,6 @@ void GameScene::Update(void)
 							0.0f
 						);
 
-					// 少しだけヒットストップ
 					isHitStop_ = true;
 					hitStopTimer_ = 0.03f;
 
@@ -695,11 +703,17 @@ void GameScene::Update(void)
 				}
 
 				// HIT
+				if (meleeEnemy != nullptr)
+				{
+					meleeEnemy->LookAtPlayer();
+				}
+
 				enemy->Damage(
 					Player::ATTACK_DAMAGE
 				);
 
 				float knockPower = 0.0f;
+
 
 				switch (player_->GetCombo())
 				{
@@ -785,6 +799,9 @@ void GameScene::Update(void)
 					{
 						meleeEnemy->StartSlamDown();
 					}
+
+					// 8段目が当たったら高速追撃できる
+					player_->SetCanChase(true);
 				}
 
 				enemy->AddKnockBack(

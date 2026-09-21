@@ -18,7 +18,9 @@ MeleeEnemy::MeleeEnemy(Player& player)
     attackCombo_(0),
     attackTimer_(0.0f),
     attackCoolTimer_(0.0f),
-    hasAttackHit_(false)
+    hasAttackHit_(false),
+    isAttackWait_(false),
+    attackWaitTimer_(0.0f)
 {
     hp_ = 100;
     hitRadius_ = 50.0f;
@@ -32,6 +34,11 @@ MeleeEnemy::MeleeEnemy(Player& player)
 
     isGuard_ = false;
     guardTimer_ = 0.0f;
+    guardHp_ = 100.0f;
+
+    isGuardBreak_ = false;
+    guardBreakTimer_ = 0.0f;
+    float guardCoolTimer_;
 }
 
 MeleeEnemy::~MeleeEnemy(void)
@@ -88,6 +95,7 @@ void MeleeEnemy::InitAnimation(void)
     animationController_->Add((int)ANIM_TYPE::KAMEHAME, path + "かめはめ波.mv1", 20.0f);
 	animationController_->Add((int)ANIM_TYPE::DAMAGE, path + "Damege.mv1", 60.0f);
     animationController_->Add((int)ANIM_TYPE::GUARD, path + "Block.mv1", 60.0f);
+	animationController_->Add((int)ANIM_TYPE::GUARD_BREAK, path + "GuardBreak.mv1", 20.0f);
     animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
@@ -102,6 +110,16 @@ void MeleeEnemy::Update(void)
         SceneManager::GetInstance().GetDeltaTime();
 
     animationController_->Update();
+
+    if (guardCoolTimer_ > 0.0f)
+    {
+        guardCoolTimer_ -= deltaTime;
+
+        if (guardCoolTimer_ < 0.0f)
+        {
+            guardCoolTimer_ = 0.0f;
+        }
+    }
 
     // 攻撃クールタイム
     if (attackCoolTimer_ > 0.0f)
@@ -181,7 +199,7 @@ void MeleeEnemy::Update(void)
         if (!isDamage_)
         {
             isDamage_ = true;
-            damageTimer_ = 0.5f;
+            damageTimer_ = 0.18f;
 
             animationController_->Play(
                 (int)ANIM_TYPE::DAMAGE,
@@ -224,6 +242,10 @@ void MeleeEnemy::Update(void)
     // ダメージモーション
     if (isDamage_)
     {
+        // 被弾中はプレイヤーの方を向く
+        transform_.quaRot =
+            damageRot_;
+
         damageTimer_ -= deltaTime;
 
         if (damageTimer_ <= 0.0f)
@@ -238,6 +260,8 @@ void MeleeEnemy::Update(void)
         else
         {
             transform_.Update();
+            animationController_->Update();
+
             return;
         }
     }
@@ -296,6 +320,34 @@ void MeleeEnemy::Update(void)
         }
     }
 
+    // ガードブレイク中
+    if (isGuardBreak_)
+    {
+        guardBreakTimer_ -=
+            SceneManager::GetInstance().GetDeltaTime();
+
+        if (guardBreakTimer_ <= 0.0f)
+        {
+            guardBreakTimer_ = 0.0f;
+            isGuardBreak_ = false;
+
+            guardHp_ = 100.0f;
+
+            // すぐにガードし直さない
+            guardCoolTimer_ = 2.0f;
+
+            animationController_->Play(
+                (int)ANIM_TYPE::IDLE
+            );
+        }
+        else
+        {
+            transform_.Update();
+
+            return;
+        }
+    }
+
     // ガード中
     if (isGuard_)
     {
@@ -319,7 +371,8 @@ void MeleeEnemy::Update(void)
 
     // プレイヤーが近くで攻撃していたらガード
     if (distance <= 150.0f &&
-        player_.GetCombo() > 0)
+        player_.GetCombo() > 0 &&
+        guardCoolTimer_ <= 0.0f)
     {
         isGuard_ = true;
         guardTimer_ = 0.8f;
@@ -344,107 +397,108 @@ void MeleeEnemy::Update(void)
     }
 
     // 攻撃中
-    if (isAttack_)
-    {
-        attackTimer_ += deltaTime;
+    //if (isAttack_)
+    //{
+    //    attackTimer_ += deltaTime;
 
-        // 1～3段目は攻撃中もプレイヤーについていく
-        if (attackCombo_ >= 1 &&
-            attackCombo_ <= 3)
-        {
-            VECTOR dir =
-                VSub(
-                    player_.GetTransform().pos,
-                    transform_.pos
-                );
+    //    // 1～3段目は攻撃中もプレイヤーについていく
+    //    if (attackCombo_ >= 1 &&
+    //        attackCombo_ <= 3)
+    //    {
+    //        VECTOR dir =
+    //            VSub(
+    //                player_.GetTransform().pos,
+    //                transform_.pos
+    //            );
 
-            float distance =
-                VSize(dir);
+    //        float distance =
+    //            VSize(dir);
 
-            if (distance > 0.001f)
-            {
-                dir =
-                    VNorm(dir);
+    //        if (distance > 0.001f)
+    //        {
+    //            dir =
+    //                VNorm(dir);
 
-                float stopDistance = 65.0f;
-                float chaseSpeed = 10.0f;
+    //            float stopDistance = 65.0f;
+    //            float chaseSpeed = 10.0f;
 
-                if (distance > stopDistance)
-                {
-                    float moveDistance =
-                        distance - stopDistance;
+    //            if (distance > stopDistance)
+    //            {
+    //                float moveDistance =
+    //                    distance - stopDistance;
 
-                    if (moveDistance > chaseSpeed)
-                    {
-                        moveDistance =
-                            chaseSpeed;
-                    }
+    //                if (moveDistance > chaseSpeed)
+    //                {
+    //                    moveDistance =
+    //                        chaseSpeed;
+    //                }
 
-                    transform_.pos =
-                        VAdd(
-                            transform_.pos,
-                            VScale(
-                                dir,
-                                moveDistance
-                            )
-                        );
-                }
+    //                transform_.pos =
+    //                    VAdd(
+    //                        transform_.pos,
+    //                        VScale(
+    //                            dir,
+    //                            moveDistance
+    //                        )
+    //                    );
+    //            }
 
-                transform_.quaRot =
-                    Quaternion::LookRotation(dir);
-            }
-        }
-        // 次の攻撃へ
-        if (attackTimer_ >= 0.55f)
-        {
-            attackTimer_ = 0.0f;
-            hasAttackHit_ = false;
+    //            transform_.quaRot =
+    //                Quaternion::LookRotation(dir);
+    //        }
+    //    }
 
-            attackCombo_++;
+    //    // 次の攻撃へ
+    //    if (attackTimer_ >= 0.55f)
+    //    {
+    //        attackTimer_ = 0.0f;
+    //        hasAttackHit_ = false;
 
-            switch (attackCombo_)
-            {
-            case 2:
-                animationController_->Play(
-                    (int)ANIM_TYPE::ATTACK02,
-                    false
-                );
-                break;
+    //        attackCombo_++;
 
-            case 3:
-                animationController_->Play(
-                    (int)ANIM_TYPE::ATTACK03,
-                    false
-                );
-                break;
+    //        switch (attackCombo_)
+    //        {
+    //        case 2:
+    //            animationController_->Play(
+    //                (int)ANIM_TYPE::ATTACK02,
+    //                false
+    //            );
+    //            break;
 
-            case 4:
-                animationController_->Play(
-                    (int)ANIM_TYPE::ATTACK04,
-                    false
-                );
-                break;
+    //        case 3:
+    //            animationController_->Play(
+    //                (int)ANIM_TYPE::ATTACK03,
+    //                false
+    //            );
+    //            break;
 
-            default:
-                isAttack_ = false;
-                attackCombo_ = 0;
-                attackTimer_ = 0.0f;
-                hasAttackHit_ = false;
+    //        case 4:
+    //            animationController_->Play(
+    //                (int)ANIM_TYPE::ATTACK04,
+    //                false
+    //            );
+    //            break;
 
-                attackCoolTimer_ =
-                    ATTACK_COOL_TIME;
+    //        default:
+    //            isAttack_ = false;
+    //            attackCombo_ = 0;
+    //            attackTimer_ = 0.0f;
+    //            hasAttackHit_ = false;
 
-                animationController_->Play(
-                    (int)ANIM_TYPE::IDLE
-                );
-                break;
-            }
-        }
+    //            attackCoolTimer_ =
+    //                ATTACK_COOL_TIME;
 
-        transform_.Update();
+    //            animationController_->Play(
+    //                (int)ANIM_TYPE::IDLE
+    //            );
+    //            break;
+    //        }
+    //    }
 
-        return;
-    }
+    //    transform_.Update();
+
+    //    return;
+    //}
 
     VECTOR dir =
         AsoUtility::VECTOR_ZERO;
@@ -495,21 +549,35 @@ void MeleeEnemy::Update(void)
     {
         if (attackCoolTimer_ <= 0.0f)
         {
-            isAttack_ = true;
-            attackCombo_ = 1;
-            attackTimer_ = 0.0f;
-            hasAttackHit_ = false;
+            if (!isAttackWait_)
+            {
+                isAttackWait_ = true;
+                attackWaitTimer_ = 5.0f;
 
-            animationController_->Play(
-                (int)ANIM_TYPE::ATTACK01,
-                false
-            );
-        }
-        else
-        {
-            animationController_->Play(
-                (int)ANIM_TYPE::IDLE
-            );
+                animationController_->Play(
+                    (int)ANIM_TYPE::IDLE
+                );
+            }
+            else
+            {
+                attackWaitTimer_ -= deltaTime;
+
+                if (attackWaitTimer_ <= 0.0f)
+                {
+                    isAttackWait_ = false;
+                    attackWaitTimer_ = 0.0f;
+
+                    isAttack_ = true;
+                    attackCombo_ = 1;
+                    attackTimer_ = 0.0f;
+                    hasAttackHit_ = false;
+
+                    animationController_->Play(
+                        (int)ANIM_TYPE::ATTACK01,
+                        false
+                    );
+                }
+            }
         }
     }
 
@@ -559,6 +627,29 @@ void MeleeEnemy::SetPosition(VECTOR pos)
     transform_.Update();
 }
 
+void MeleeEnemy::LookAtPlayer(void)
+{
+    VECTOR dir =
+        VSub(
+            player_.GetTransform().pos,
+            transform_.pos
+        );
+
+    dir.y = 0.0f;
+
+    if (VSize(dir) <= 0.001f)
+    {
+        return;
+    }
+
+    dir = VNorm(dir);
+
+    damageRot_ =
+        Quaternion::LookRotation(dir);
+
+    transform_.quaRot =
+        damageRot_;
+}
 bool MeleeEnemy::IsAttackHitTiming(void) const
 {
     return
@@ -730,6 +821,41 @@ void MeleeEnemy::GuardBurst(void)
     // すぐに再攻撃しないようにする
     attackCoolTimer_ =
         ATTACK_COOL_TIME;
+}
+
+void MeleeEnemy::GuardDamage(float damage)
+{
+    if (!isGuard_ ||
+        isGuardBreak_)
+    {
+        return;
+    }
+
+    guardHp_ -= damage;
+
+    if (guardHp_ <= 0.0f)
+    {
+        guardHp_ = 0.0f;
+
+        isGuard_ = false;
+        guardTimer_ = 0.0f;
+
+        isGuardBreak_ = true;
+        guardBreakTimer_ = 2.0f;
+
+        isAttack_ = false;
+        attackCombo_ = 0;
+        attackTimer_ = 0.0f;
+        hasAttackHit_ = false;
+
+        isBoostChase_ = false;
+        boostChaseTimer_ = 0.0f;
+
+        animationController_->Play(
+            (int)ANIM_TYPE::GUARD_BREAK,
+            false
+        );
+    }
 }
 
 bool MeleeEnemy::IsDown(void) const

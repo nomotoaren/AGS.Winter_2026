@@ -39,7 +39,7 @@ public:
 	// Ç©ÇﬂÇÕÇﬂîgÇÃî≠éÀÇ‹Ç≈ÇÃéûä‘
 	static constexpr float KAMEHAME_SHOT_TIME = 2.0f;
 	static constexpr float KAMEHAME_END_TIME = 3.0f;
-	static constexpr float KAMEHAME_BEAM_LENGTH = 600.0f;
+	static constexpr float KAMEHAME_BEAM_LENGTH = 2000.0f;
 	static constexpr float KAMEHAME_BEAM_RADIUS = 25.0f;
 	static constexpr float KAMEHAME_TRANSITION_TIME = 0.12f;
 
@@ -163,6 +163,8 @@ public:
 
 	bool UseKi(float amount);
 
+	void AddAttackMove(VECTOR dir, float power);
+
 	const std::vector<std::unique_ptr<KiBlast>>&
 		GetKiBlasts(void) const;
 
@@ -170,6 +172,7 @@ public:
 	bool IsLockOn(void) const;
 
 	void LookAtTarget(VECTOR targetPos);
+	void LookAtDamageEnemy(VECTOR enemyPos);
 
 	void UpdateBoostChase(void);
 
@@ -206,6 +209,8 @@ private:
 
 	// à⁄ìÆó 
 	VECTOR movePow_;
+
+	Quaternion damageRot_;
 
 	// à⁄ìÆå„ÇÃç¿ïW
 	VECTOR movedPos_;

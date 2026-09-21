@@ -34,6 +34,7 @@ public:
         KAMEHAME,
         DAMAGE,
         GUARD,
+        GUARD_BREAK
     };
 
     MeleeEnemy(
@@ -49,6 +50,8 @@ public:
     // 位置設定
     void SetPosition(VECTOR pos);
 
+    void LookAtPlayer(void);
+
     // 叩き落とし開始
     void StartSlamDown(void);
     void GuardBurst(void);
@@ -62,6 +65,7 @@ public:
 
     int GetAttackCombo(void) const;
     bool IsGuard(void) const;
+    void GuardDamage(float damage);
 
     void InitAnimation(void);
 private:
@@ -72,6 +76,8 @@ private:
     std::unique_ptr<AnimationController> animationController_;
 
     VECTOR targetPos;
+
+    Quaternion damageRot_;
 
     // 移動速度
     float moveSpeed_;
@@ -94,9 +100,11 @@ private:
 
     // 攻撃のクールタイム
     float attackCoolTimer_;
+    bool isAttackWait_;
+    float attackWaitTimer_;
 
     static constexpr float ATTACK_TIME = 0.8f;
-    static constexpr float ATTACK_COOL_TIME = 1.5f;
+    static constexpr float ATTACK_COOL_TIME = 10.5f;
     static constexpr float ATTACK_HIT_START = 0.25f;
     static constexpr float ATTACK_HIT_END = 0.45f;
 
@@ -118,6 +126,11 @@ private:
     // ガード
     bool isGuard_;
     float guardTimer_;
+    float guardHp_;
+    // ガードブレイク
+    bool isGuardBreak_;
+    float guardBreakTimer_;
+    float guardCoolTimer_;
 
     // 叩き落とし中
     bool isSlamDown_;
