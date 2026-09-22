@@ -68,9 +68,29 @@ public:
     void GuardDamage(float damage);
 
     void InitAnimation(void);
+
+    void SetKamehameHit(
+        bool hit,
+        VECTOR dir = { 0.0f, 0.0f, 0.0f }
+    );
 private:
 
-    // 追跡対象
+    enum class AI_STATE
+    {
+        WAIT,           // 様子を見る
+        MOVE,           // 間合い調整
+        SIDE_MOVE,      // 横移動
+        BOOST_ATTACK,   // 高速接近から攻撃
+        ATTACK          // 近接攻撃
+    };
+
+    AI_STATE aiState_ = AI_STATE::WAIT;
+
+    float aiTimer_ = 0.0f;
+
+    float sideMoveDir_ = 1.0f;
+    // 
+
     Player& player_;
 
     std::unique_ptr<AnimationController> animationController_;
@@ -78,6 +98,13 @@ private:
     VECTOR targetPos;
 
     Quaternion damageRot_;
+
+    VECTOR kamehamePushDir_ =
+    {
+        0.0f,
+        0.0f,
+        0.0f
+    };
 
     // 移動速度
     float moveSpeed_;
@@ -123,10 +150,14 @@ private:
     bool isDamage_;
     float damageTimer_;
 
+    bool isKamehameHit_ = false;
+    float kamehamePushSpeed_ = 0.0f;
+
     // ガード
     bool isGuard_;
     float guardTimer_;
     float guardHp_;
+
     // ガードブレイク
     bool isGuardBreak_;
     float guardBreakTimer_;

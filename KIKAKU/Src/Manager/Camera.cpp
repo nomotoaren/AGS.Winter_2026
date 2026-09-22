@@ -34,6 +34,13 @@ Camera::Camera(void)
     isShake_ = false;
     shakeTimer_ = 0.0f;
     shakePower_ = 0.0f;
+
+    lockOnCameraDir_ =
+    {
+        0.0f,
+        0.0f,
+        -1.0f
+    };
 }
 
 Camera::~Camera(void)
@@ -369,129 +376,185 @@ void Camera::SetBeforeDrawLockOn(void)
     VECTOR enemyPos =
         lockOnTransform_->pos;
 
-
-    // プレイヤーから敵への方向
-    VECTOR dir =
+    // プレイヤー → 敵
+    VECTOR toEnemy =
         VSub(
             enemyPos,
             playerPos
         );
 
-    dir.y = 0.0f;
+    // 水平方向だけの距離
+    VECTOR horizontal =
+        toEnemy;
 
-    float enemyDistance =
-        VSize(dir);
+    horizontal.y = 0.0f;
 
-    if (enemyDistance <= 0.001f)
+    float horizontalDistance =
+        VSize(horizontal);
+
+    // 真上・真下に近い状態でも
+    // 今までのカメラ方向を維持する
+    VECTOR horizontalDir;
+
+    if (horizontalDistance > 0.001f)
     {
-        return;
-    }
-
-    dir =
-        VNorm(dir);
-
-
-    // プレイヤーの後ろ
-    VECTOR goalCameraDir =
-        VScale(
-            dir,
-            -1.0f
-        );
-
-
-    // 現在のカメラ方向
-    VECTOR cameraDir =
-        VSub(
-            pos_,
-            playerPos
-        );
-
-    cameraDir.y = 0.0f;
-
-    if (VSize(cameraDir) <= 0.001f)
-    {
-        cameraDir =
-            goalCameraDir;
+        horizontalDir =
+            VNorm(horizontal);
     }
     else
     {
-        cameraDir =
-            VNorm(cameraDir);
-
-        cameraDir =
-            VAdd(
-                cameraDir,
-                VScale(
-                    VSub(
-                        goalCameraDir,
-                        cameraDir
-                    ),
-                    0.03f
-                )
+        horizontalDir =
+            VScale(
+                lockOnCameraDir_,
+                -1.0f
             );
 
-        if (VSize(cameraDir) > 0.001f)
+        horizontalDir.y = 0.0f;
+
+        if (VSize(horizontalDir) <= 0.001f)
         {
-            cameraDir =
-                VNorm(cameraDir);
+            horizontalDir =
+                VGet(
+                    0.0f,
+                    0.0f,
+                    1.0f
+                );
         }
+
+        horizontalDir =
+            VNorm(horizontalDir);
     }
 
-
-    // 敵との距離に合わせてカメラを引く
-    float cameraDistance =
-        400.0f +
-        enemyDistance * 0.45f;
-
-    // 引きすぎ防止
-    if (cameraDistance > 850.0f)
+    // 右方向
+    VECTOR right =
     {
-        cameraDistance = 850.0f;
-    }
+        horizontalDir.z,
+        0.0f,
+        -horizontalDir.x
+    };
 
-
-    // カメラ位置
-    VECTOR cameraPos =
+    // プレイヤー寄りの中心位置
+    VECTOR centerPos =
         VAdd(
             playerPos,
             VScale(
-                cameraDir,
+                toEnemy,
+                0.25f
+            )
+        );
+
+    // カメラは少し横から見る
+    VECTOR goalCameraDir =
+        VAdd(
+            VScale(
+                horizontalDir,
+                -1.0f
+            ),
+            VScale(
+                right,
+                0.18f
+            )
+        );
+
+    goalCameraDir.y = 0.0f;
+
+    if (VSize(goalCameraDir) > 0.001f)
+    {
+        goalCameraDir =
+            VNorm(goalCameraDir);
+    }
+
+    // カメラ方向を滑らかに変更
+    lockOnCameraDir_ =
+        VAdd(
+            lockOnCameraDir_,
+            VScale(
+                VSub(
+                    goalCameraDir,
+                    lockOnCameraDir_
+                ),
+                0.035f
+            )
+        );
+
+    lockOnCameraDir_.y = 0.0f;
+
+    if (VSize(lockOnCameraDir_) > 0.001f)
+    {
+        lockOnCameraDir_ =
+            VNorm(lockOnCameraDir_);
+    }
+
+    // -------------------------
+    // カメラ距離
+    // -------------------------
+
+    // 基本距離は水平方向だけで決める
+    float cameraDistance =
+        230.0f +
+        horizontalDistance * 0.30f;
+
+    // 高低差
+    float heightDiff =
+        enemyPos.y -
+        playerPos.y;
+
+    float absHeightDiff =
+        fabsf(heightDiff);
+
+    // 高低差が大きい時だけ少し引く
+    cameraDistance +=
+        absHeightDiff * 0.12f;
+
+    if (cameraDistance > 700.0f)
+    {
+        cameraDistance = 700.0f;
+    }
+
+    // -------------------------
+    // カメラ位置
+    // -------------------------
+
+    VECTOR cameraPos =
+        VAdd(
+            centerPos,
+            VScale(
+                lockOnCameraDir_,
                 cameraDistance
             )
         );
 
-
-    // 遠くなるほど少し高くする
+    // 基本の高さ
     float cameraHeight =
-        150.0f +
-        enemyDistance * 0.08f;
+        120.0f +
+        horizontalDistance * 0.05f;
 
-    if (cameraHeight > 260.0f)
+    if (cameraHeight > 220.0f)
     {
-        cameraHeight = 260.0f;
+        cameraHeight = 220.0f;
+    }
+
+    if (cameraHeight < 80.0f)
+    {
+        cameraHeight = 80.0f;
     }
 
     cameraPos.y +=
         cameraHeight;
 
+    // -------------------------
+    // 注視点
+    // -------------------------
 
-    // プレイヤーと敵の中間を見る
     VECTOR lookPos =
-        VAdd(
-            playerPos,
-            VScale(
-                VSub(
-                    enemyPos,
-                    playerPos
-                ),
-                0.5f
-            )
-        );
+        centerPos;
 
     lookPos.y += 70.0f;
 
+    // -------------------------
+    // 滑らかに追従
+    // -------------------------
 
-    // カメラ位置を滑らかに移動
     pos_ =
         VAdd(
             pos_,
@@ -500,12 +563,10 @@ void Camera::SetBeforeDrawLockOn(void)
                     cameraPos,
                     pos_
                 ),
-                FOLLOW_SMOOTH
+                0.08f
             )
         );
 
-
-    // 注視点も滑らかに移動
     targetPos_ =
         VAdd(
             targetPos_,
@@ -514,15 +575,13 @@ void Camera::SetBeforeDrawLockOn(void)
                     lookPos,
                     targetPos_
                 ),
-                FOLLOW_SMOOTH
+                0.15f
             )
         );
-
 
     cameraUp_ =
         AsoUtility::DIR_U;
 }
-
 void Camera::SetBeforeDrawSelfShot(void)
 {
 }

@@ -139,5 +139,7 @@ private:
 	bool isShake_;
 	float shakeTimer_;
 	float shakePower_;
+
+	VECTOR lockOnCameraDir_;
 };
 

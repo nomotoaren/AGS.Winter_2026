@@ -108,6 +108,8 @@ Player::Player(void)
 	leftHandFrame_ = -1;
 	rightHandFrame_ = -1;
 	kamehameLightHandle_ = -1;
+	kamehameDir_ =
+		AsoUtility::VECTOR_ZERO;
 
 	capsule_ = nullptr;
 
@@ -203,7 +205,6 @@ void Player::Init(void)
 
 void Player::Update(void)
 {
-
 	if (VSize(knockBackPow_) > 0.1f)
 	{
 		transform_.pos =
@@ -257,34 +258,26 @@ void Player::Update(void)
 	// 更新ステップ
 	stateUpdate_();
 
-	if (isLockOn_)
+	// ロックオン中
+	if (isLockOn_ &&
+		hasAttackTarget_ &&
+		!isAttack_)
 	{
-		// 格闘中は上下に傾けない
-		if (isAttack_)
-		{
-			transform_.quaRot =
-				playerRotY_;
-		}
-		else
-		{
-			transform_.quaRot =
-				playerRotY_.Mult(
-					Quaternion::Euler(
-						{
-							lockOnPitch_,
-							0.0f,
-							0.0f
-						}
-					)
-				);
-		}
+		transform_.quaRot =
+			playerRotY_.Mult(
+				Quaternion::Euler(
+					{
+						lockOnPitch_,
+						0.0f,
+						0.0f
+					}
+				)
+			);
 	}
 	else
 	{
 		transform_.quaRot =
 			playerRotY_;
-
-		lockOnPitch_ = 0.0f;
 	}
 
 	// モデル制御更新
@@ -731,7 +724,6 @@ void Player::ProcessMove(void)
 	VECTOR right =
 		AsoUtility::VECTOR_ZERO;
 
-
 	// ロックオン中
 	if (isLockOn_ &&
 		hasAttackTarget_)
@@ -784,7 +776,6 @@ void Player::ProcessMove(void)
 		}
 	}
 
-
 	// 上下方向は移動に使わない
 	forward.y = 0.0f;
 	right.y = 0.0f;
@@ -800,7 +791,6 @@ void Player::ProcessMove(void)
 		right =
 			VNorm(right);
 	}
-
 
 	// W：前
 	if (ins.IsNew(KEY_INPUT_W))
@@ -842,41 +832,19 @@ void Player::ProcessMove(void)
 			);
 	}
 
-	// 上昇
+	// 上下移動
+	float verticalMove = 0.0f;
+
+	// E：上昇
 	if (ins.IsNew(KEY_INPUT_E))
 	{
-		movePow_.y += 8.0f;
+		verticalMove = 5.0f;
 	}
 
-	// 下降
+	// Q：下降
 	if (ins.IsNew(KEY_INPUT_Q))
 	{
-		movePow_.y -= 8.0f;
-	}
-
-	// 高さ制限
-	float nextY =
-		transform_.pos.y + movePow_.y;
-
-	const float MIN_HEIGHT = 100.0f;
-	const float MAX_HEIGHT = 2000.0f;
-
-	if (nextY < MIN_HEIGHT)
-	{
-		movePow_.y =
-			MIN_HEIGHT - transform_.pos.y;
-	}
-
-	if (nextY > MAX_HEIGHT)
-	{
-		movePow_.y =
-			MAX_HEIGHT - transform_.pos.y;
-	}
-
-	if (VSize(dir) > 0.001f)
-	{
-		dir =
-			VNorm(dir);
+		verticalMove = -5.0f;
 	}
 
 	// 斜め移動の速度を揃える
@@ -885,7 +853,6 @@ void Player::ProcessMove(void)
 		dir =
 			VNorm(dir);
 	}
-
 
 	// 移動
 	if (!AsoUtility::EqualsVZero(dir) &&
@@ -909,7 +876,6 @@ void Player::ProcessMove(void)
 				dir,
 				speed_
 			);
-
 
 		// 通常時は移動方向を向く
 		if (!isLockOn_)
@@ -980,7 +946,7 @@ void Player::ProcessMove(void)
 						);
 					}
 				}
-				// Wは今まで通り
+				// W
 				else
 				{
 					if (ins.IsNew(KEY_INPUT_RSHIFT))
@@ -1026,6 +992,32 @@ void Player::ProcessMove(void)
 				(int)ANIM_TYPE::IDLE
 			);
 		}
+	}
+
+	// 横移動とは別に上下移動を入れる
+	movePow_.y =
+		verticalMove;
+
+	// 高さ制限
+	float nextY =
+		transform_.pos.y +
+		movePow_.y;
+
+	const float MIN_HEIGHT = 100.0f;
+	const float MAX_HEIGHT = 2000.0f;
+
+	if (nextY < MIN_HEIGHT)
+	{
+		movePow_.y =
+			MIN_HEIGHT -
+			transform_.pos.y;
+	}
+
+	if (nextY > MAX_HEIGHT)
+	{
+		movePow_.y =
+			MAX_HEIGHT -
+			transform_.pos.y;
 	}
 }
 
@@ -1611,6 +1603,38 @@ void Player::DrawKamehame(void)
 		VECTOR forward =
 			GetForward();
 
+		DrawFormatString(
+			10,
+			360,
+			GetColor(255, 255, 0),
+			"BeamDir X:%.2f Y:%.2f Z:%.2f",
+			kamehameDir_.x,
+			kamehameDir_.y,
+			kamehameDir_.z
+		);
+
+		VECTOR enemyDir =
+			VSub(
+				attackTargetPos_,
+				chargePos
+			);
+
+		if (VSize(enemyDir) > 0.001f)
+		{
+			enemyDir =
+				VNorm(enemyDir);
+		}
+
+		DrawFormatString(
+			10,
+			380,
+			GetColor(255, 255, 0),
+			"EnemyDir X:%.2f Y:%.2f Z:%.2f",
+			enemyDir.x,
+			enemyDir.y,
+			enemyDir.z
+		);
+
 		lightPos =
 			VAdd(
 				lightPos,
@@ -1771,23 +1795,6 @@ void Player::DrawKamehame(void)
 	VECTOR forward =
 		GetForward();
 
-	if (isLockOn_ &&
-		hasAttackTarget_)
-	{
-		forward =
-			VSub(
-				attackTargetPos_,
-				chargePos
-			);
-
-		if (VSize(forward) > 0.001f)
-		{
-			forward =
-				VNorm(forward);
-		}
-	}
-
-
 	VECTOR startPos =
 		VAdd(
 			chargePos,
@@ -1797,7 +1804,6 @@ void Player::DrawKamehame(void)
 			)
 		);
 
-	// ビームモデルの位置
 	MV1SetPosition(
 		kamehameBeamModel_,
 		startPos
@@ -1807,7 +1813,7 @@ void Player::DrawKamehame(void)
 		atan2f(
 			forward.x,
 			forward.z
-		) + DX_PI_F;
+		);
 
 	float horizontal =
 		sqrtf(
@@ -1893,20 +1899,10 @@ VECTOR Player::GetKamehameEndPos(void) const
 	VECTOR dir =
 		GetForward();
 
-	if (isLockOn_ &&
-		hasAttackTarget_)
+	if (VSize(dir) > 0.001f)
 	{
 		dir =
-			VSub(
-				attackTargetPos_,
-				startPos
-			);
-
-		if (VSize(dir) > 0.001f)
-		{
-			dir =
-				VNorm(dir);
-		}
+			VNorm(dir);
 	}
 
 	return VAdd(
@@ -2066,7 +2062,7 @@ void Player::UpdateAttack(void)
 
 				if (keepAttackPosition)
 				{
-					const float attackDistance = 80.0f;
+					const float attackDistance = 90.0f;
 					const float followRate = 0.25f;
 
 					VECTOR enemyDir =
@@ -2141,6 +2137,7 @@ void Player::UpdateAttack(void)
 					);
 
 					break;
+
 				case 3:
 					animationController_->Play(
 						(int)ANIM_TYPE::ATTACK03,
@@ -2187,13 +2184,13 @@ void Player::UpdateAttack(void)
 							isAfterImage_ = true;
 							afterImageTimer_ = 0.10f;
 
-							// 4発目の攻撃時は敵の横に移動する
+							// 敵の横へ移動
 							transform_.pos =
 								VAdd(
 									enemyPos,
 									VScale(
 										sideDir,
-										70.0f
+										90.0f
 									)
 								);
 
@@ -2231,6 +2228,7 @@ void Player::UpdateAttack(void)
 
 					break;
 				}
+
 				case 5:
 					animationController_->Play(
 						(int)ANIM_TYPE::ATTACK05,
@@ -2280,7 +2278,7 @@ void Player::UpdateAttack(void)
 									enemyPos,
 									VScale(
 										sideDir,
-										70.0f
+										90.0f
 									)
 								);
 
@@ -2319,6 +2317,7 @@ void Player::UpdateAttack(void)
 
 					break;
 				}
+
 				case 7:
 				{
 					if (hasAttackTarget_)
@@ -2334,7 +2333,8 @@ void Player::UpdateAttack(void)
 
 						if (VSize(dir) > 0.001f)
 						{
-							dir = VNorm(dir);
+							dir =
+								VNorm(dir);
 
 							// 移動前の姿を残す
 							afterImageMatrix_ =
@@ -2351,7 +2351,7 @@ void Player::UpdateAttack(void)
 									enemyPos,
 									VScale(
 										dir,
-										70.0f
+										90.0f
 									)
 								);
 
@@ -2365,7 +2365,8 @@ void Player::UpdateAttack(void)
 
 							if (VSize(lookDir) > 0.001f)
 							{
-								lookDir = VNorm(lookDir);
+								lookDir =
+									VNorm(lookDir);
 
 								playerRotY_ =
 									Quaternion::LookRotation(
@@ -2388,6 +2389,7 @@ void Player::UpdateAttack(void)
 
 					break;
 				}
+
 				case 8:
 				{
 					if (hasAttackTarget_)
@@ -2478,7 +2480,6 @@ void Player::UpdateAttack(void)
 					break;
 				}
 				}
-
 			}
 			else
 			{
@@ -2544,9 +2545,35 @@ void Player::UpdateKamehame(void)
 		kamehameTimer_ +=
 			scnMng_.GetDeltaTime();
 
-		if (kamehameTimer_ >=
-			KAMEHAME_SHOT_TIME)
+		if (!isKamehameBeam_ &&
+			kamehameTimer_ >= KAMEHAME_SHOT_TIME)
 		{
+			VECTOR startPos =
+				GetKamehameStartPos();
+
+			if (isLockOn_ &&
+				hasAttackTarget_)
+			{
+				kamehameDir_ =
+					VSub(
+						attackTargetPos_,
+						startPos
+					);
+
+				kamehameDir_.y = 0.0f;
+
+				if (VSize(kamehameDir_) > 0.001f)
+				{
+					kamehameDir_ =
+						VNorm(kamehameDir_);
+				}
+			}
+			else
+			{
+				kamehameDir_ =
+					GetForward();
+			}
+
 			isKamehameBeam_ = true;
 		}
 
@@ -2741,23 +2768,8 @@ void Player::UpdateCharge(void)
 		isChasing_ = false;
 		canChase_ = false;
 
-		// 追撃の勢いを少し残す
-		if (distance > 0.001f)
-		{
-			VECTOR attackDir =
-				VNorm(
-					VSub(
-						attackTargetPos_,
-						transform_.pos
-					)
-				);
-
-			movePow_ =
-				VScale(
-					attackDir,
-					8.0f
-				);
-		}
+		movePow_ =
+			AsoUtility::VECTOR_ZERO;
 
 		isAttack_ = true;
 		combo_ = 1;

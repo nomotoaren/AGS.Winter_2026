@@ -170,72 +170,55 @@ void GameScene::Update(void)
 
 		stage_->Update();
 
-		// ロックオン切り替え
-		if (ins.IsTrgDown(KEY_INPUT_H))
+		// 常時ロックオン
+		if (lockOnTarget_ == nullptr ||
+			lockOnTarget_->IsDead())
 		{
-			// ロックオン解除
-			if (isLockOn_)
+			EnemyBase* nearestEnemy = nullptr;
+			float nearestDistance = FLT_MAX;
+
+			for (auto& enemy : enemies_)
 			{
-				isLockOn_ = false;
-				lockOnTarget_ = nullptr;
+				if (!enemy)
+				{
+					continue;
+				}
 
-				player_->SetLockOn(false);
-				player_->ClearAttackTarget();
+				if (enemy->IsDead())
+				{
+					continue;
+				}
 
-				mainCamera.SetLockOnTarget(nullptr);
-				mainCamera.ChangeMode(
-					Camera::MODE::FOLLOW
-				);
+				VECTOR toEnemy =
+					VSub(
+						enemy->GetTransform().pos,
+						player_->GetTransform().pos
+					);
+
+				float distance =
+					VSize(toEnemy);
+
+				if (distance < nearestDistance)
+				{
+					nearestDistance = distance;
+					nearestEnemy = enemy.get();
+				}
 			}
-			// ロックオン開始
-			else
+
+			if (nearestEnemy != nullptr)
 			{
-				EnemyBase* nearestEnemy = nullptr;
-				float nearestDistance = FLT_MAX;
+				lockOnTarget_ = nearestEnemy;
+				isLockOn_ = true;
 
-				for (auto& enemy : enemies_)
-				{
-					if (!enemy)
-					{
-						continue;
-					}
+				player_->SetLockOn(true);
 
-					if (enemy->IsDead())
-					{
-						continue;
-					}
+				mainCamera.SetLockOnTarget(
+					&lockOnTarget_->GetTransform()
+				);
 
-					VECTOR toEnemy =
-						VSub(
-							enemy->GetTransform().pos,
-							player_->GetTransform().pos
-						);
-
-					float distance =
-						VSize(toEnemy);
-
-					if (distance < nearestDistance)
-					{
-						nearestDistance = distance;
-						nearestEnemy = enemy.get();
-					}
-				}
-
-				if (nearestEnemy != nullptr)
-				{
-					isLockOn_ = true;
-					lockOnTarget_ = nearestEnemy;
-
-					player_->SetLockOn(true);
-
-					mainCamera.SetLockOnTarget(
-						&lockOnTarget_->GetTransform()
-					);
-
-					mainCamera.ChangeMode(
-						Camera::MODE::LOCK_ON
-					);
-				}
+				mainCamera.ChangeMode(
+					Camera::MODE::LOCK_ON
+				);
 			}
 		}
 
@@ -261,15 +244,19 @@ void GameScene::Update(void)
 				VECTOR targetPos =
 					lockOnTarget_->GetTransform().pos;
 
-				player_->SetAttackTarget(
-					targetPos
-				);
-
-				if (player_->GetCombo() != 8)
+				// かめはめ波中は敵を追尾しない
+				if (!player_->IsKamehame())
 				{
-					player_->LookAtTarget(
+					player_->SetAttackTarget(
 						targetPos
 					);
+
+					if (player_->GetCombo() != 8)
+					{
+						player_->LookAtTarget(
+							targetPos
+						);
+					}
 				}
 			}
 		}
@@ -900,6 +887,7 @@ void GameScene::Update(void)
 			}
 		}
 
+		// かめはめ波ダメージタイマー
 		if (player_->IsKamehameBeam())
 		{
 			kamehameDamageTimer_ +=
@@ -908,11 +896,28 @@ void GameScene::Update(void)
 		else
 		{
 			kamehameDamageTimer_ = 0.0f;
+
+			for (auto& enemy : enemies_)
+			{
+				if (!enemy)
+				{
+					continue;
+				}
+
+				MeleeEnemy* meleeEnemy =
+					dynamic_cast<MeleeEnemy*>(
+						enemy.get()
+						);
+
+				if (meleeEnemy != nullptr)
+				{
+					meleeEnemy->SetKamehameHit(false);
+				}
+			}
 		}
-		
+
 		// かめはめ波の攻撃判定
-		if (player_->IsKamehameBeam() &&
-			kamehameDamageTimer_ >= 0.15f)
+		if (player_->IsKamehameBeam())
 		{
 			VECTOR beamStart =
 				player_->GetKamehameStartPos();
@@ -946,20 +951,29 @@ void GameScene::Update(void)
 						continue;
 					}
 
+					MeleeEnemy* meleeEnemy =
+						dynamic_cast<MeleeEnemy*>(
+							enemy.get()
+							);
+
+					// 最初は「ビームに当たっていない」にする
+					if (meleeEnemy != nullptr)
+					{
+						meleeEnemy->SetKamehameHit(false);
+					}
+
 					VECTOR enemyPos =
 						enemy->GetTransform().pos;
 
-					// 敵の中心を少し上にする
+					// 敵の中心
 					enemyPos.y += 70.0f;
 
-					// ビーム始点 → 敵
 					VECTOR startToEnemy =
 						VSub(
 							enemyPos,
 							beamStart
 						);
 
-					// 線分上のどの位置が敵に一番近いか
 					float t =
 						VDot(
 							startToEnemy,
@@ -967,7 +981,6 @@ void GameScene::Update(void)
 						) /
 						beamLengthSq;
 
-					// 0～1に制限
 					if (t < 0.0f)
 					{
 						t = 0.0f;
@@ -978,7 +991,6 @@ void GameScene::Update(void)
 						t = 1.0f;
 					}
 
-					// ビーム上で敵に最も近い位置
 					VECTOR closestPos =
 						VAdd(
 							beamStart,
@@ -988,7 +1000,6 @@ void GameScene::Update(void)
 							)
 						);
 
-					// 敵とビームの距離
 					VECTOR diff =
 						VSub(
 							enemyPos,
@@ -998,7 +1009,6 @@ void GameScene::Update(void)
 					float distance =
 						VSize(diff);
 
-					// 敵側の当たり半径
 					static constexpr float ENEMY_HIT_RADIUS =
 						45.0f;
 
@@ -1006,33 +1016,37 @@ void GameScene::Update(void)
 						player_->GetKamehameRadius() +
 						ENEMY_HIT_RADIUS;
 
+					// ビームに当たっていない
 					if (distance > hitRadius)
 					{
 						continue;
 					}
 
-					// HIT
-					enemy->Damage(3);
-
-					// ノックバック
-					VECTOR knockDir =
-						VSub(
-							beamEnd,
-							beamStart
-						);
-
-					if (VSize(knockDir) > 0.001f)
+					// ビームに当たっている
+					if (meleeEnemy != nullptr)
 					{
-						knockDir =
-							VNorm(knockDir);
+						VECTOR pushDir =
+							player_->GetForward();
 
-						enemy->AddKnockBack(
-							knockDir,
-							10.0f
+						if (VSize(pushDir) > 0.001f)
+						{
+							pushDir =
+								VNorm(pushDir);
+						}
+
+						meleeEnemy->SetKamehameHit(
+							true,
+							pushDir
 						);
 					}
 
-					kamehameDamageTimer_ = 0.0f;
+					// ダメージだけ0.15秒ごと
+					if (kamehameDamageTimer_ >= 0.15f)
+					{
+						enemy->Damage(3);
+
+						kamehameDamageTimer_ = 0.0f;
+					}
 				}
 			}
 		}

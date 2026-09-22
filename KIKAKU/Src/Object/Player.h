@@ -353,6 +353,7 @@ private:
 	float attackEndTimer_;
 
 	// ‚©‚ß‚Í‚ß”g
+	VECTOR kamehameDir_;
 	bool isKamehame_;
 	float kamehameTimer_;
 	bool isKamehameBeam_;
