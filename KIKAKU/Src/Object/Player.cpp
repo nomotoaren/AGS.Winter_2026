@@ -14,7 +14,6 @@
 
 Player::Player(void)
 {
-
 	animationController_ = nullptr;
 	state_ = STATE::NONE;
 
@@ -125,7 +124,6 @@ Player::~Player(void)
 
 void Player::Init(void)
 {
-
 	// モデルの基本設定
 	transform_.SetModel(resMng_.LoadModelDuplicate(
 		ResourceManager::SRC::PLAYER));
@@ -148,7 +146,7 @@ void Player::Init(void)
 		);
 
 	transform_.scl =
-	{
+	{	
 		1.0f,
 		1.0f,
 		1.0f
@@ -200,7 +198,6 @@ void Player::Init(void)
 
 	// 初期状態
 	ChangeState(STATE::PLAY);
-
 }
 
 void Player::Update(void)
@@ -408,13 +405,13 @@ void Player::Draw(void)
 			alpha * 0.5f
 		);
 
-		SetUseLighting(FALSE);
+		SetUseLighting(false);
 
 		MV1DrawModel(
 			transform_.modelId
 		);
 
-		SetUseLighting(TRUE);
+		SetUseLighting(true);
 
 		MV1SetMatrix(
 			transform_.modelId,
@@ -428,13 +425,13 @@ void Player::Draw(void)
 	}
 
 	// プレイヤー本体
-	SetUseLighting(FALSE);
+	SetUseLighting(false);
 
 	MV1DrawModel(
 		transform_.modelId
 	);
 
-	SetUseLighting(TRUE);
+	SetUseLighting(true);
 
 	DrawKiBlast();
 
