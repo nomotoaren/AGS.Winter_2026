@@ -56,6 +56,7 @@ Player::Player(void)
 	afterImageTimer_ = 0.0f;
 	afterImagePos_ =
 		AsoUtility::VECTOR_ZERO;
+	afterImageMatrix_ = {};
 	// ãCÇó≠ÇﬂÇÈ
 	isCharging_ = false;
 	isChargeEnding_ = false;
@@ -112,10 +113,12 @@ Player::Player(void)
 
 	capsule_ = nullptr;
 
+	kamehameChargeModel_ = -1;
+	kamehameBeamModel_ = -1;
+
 	// èÛë‘ä«óù
 	stateChanges_.emplace(STATE::NONE, std::bind(&Player::ChangeStateNone, this));
 	stateChanges_.emplace(STATE::PLAY, std::bind(&Player::ChangeStatePlay, this));
-	
 }
 
 Player::~Player(void)
@@ -1161,7 +1164,6 @@ void Player::CollisionGravity(void)
 		}
 
 	}
-
 }
 
 void Player::CollisionCapsule(void)
