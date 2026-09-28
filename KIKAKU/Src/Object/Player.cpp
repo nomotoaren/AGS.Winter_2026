@@ -1961,15 +1961,17 @@ void Player::UpdateAttack(void)
 	auto& ins =
 		InputManager::GetInstance();
 
-	if (canChase_ &&
+	if (hasAttackTarget_ &&
 		!isAttack_ &&
+		!isKamehame_ &&
+		!isChasing_ &&
 		ins.IsTrgDown(KEY_INPUT_F))
 	{
 		isChasing_ = true;
+
 		canChase_ = false;
 
-		movePow_ =
-			AsoUtility::VECTOR_ZERO;
+		movePow_ = AsoUtility::VECTOR_ZERO;
 
 		animationController_->Play(
 			(int)ANIM_TYPE::BOOST_CHASE,

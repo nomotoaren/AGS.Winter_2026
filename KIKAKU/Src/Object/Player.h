@@ -188,6 +188,50 @@ public:
 
 private:
 
+	// 定数グループ（インスタンスごとに持たせない、アクセスは Player::Constants::Name）
+	struct Constants
+	{
+		// 汎用しきい値 / 減衰
+		static constexpr float KnockBackThreshold = 0.1f;
+		static constexpr float KnockBackDamping = 0.8f;
+
+		// ダメージ
+		static constexpr float DamageStateTime = 0.35f;
+
+		// 残像
+		static constexpr float AfterImageDuration = 0.10f;
+		static constexpr float BoostAfterImageDuration = 0.15f;
+		static constexpr float BoostAfterImageInterval = 0.03f;
+
+		// 移動 / 高さ
+		static constexpr float VerticalMoveSpeed = 5.0f;
+		static constexpr float MinHeight = 100.0f;
+		static constexpr float MaxHeight = 2000.0f;
+
+		// 影描画
+		static constexpr float PlayerShadowHeight = 300.0f;
+		static constexpr float PlayerShadowSize = 30.0f;
+
+		// 回避
+		static constexpr float DodgeSpeed = 12.0f;
+		static constexpr float DodgeDuration = 0.18f;
+
+		// ブースト関連
+		static constexpr float BoostStopDistance = 70.0f;
+		static constexpr float BoostMaxSpeed = 45.0f;
+		static constexpr float BoostInitialDelay = 0.10f;
+		static constexpr float BoostAccelWindow = 0.20f;
+
+		// 追尾・攻撃
+		static constexpr float AttackFollowRate = 0.25f;
+		static constexpr float AttackDistance = 90.0f;
+		static constexpr float ChaseSpeed = 18.0f;
+		static constexpr float NextAttackPlayRateThreshold = 0.75f;
+
+		// 汎用比較
+		static constexpr float Epsilon = 0.001f;
+	};
+
 	// アニメーション
 	std::unique_ptr<AnimationController> animationController_;
 
@@ -314,7 +358,7 @@ private:
 	// 更新ステップ
 	void UpdateNone(void);
 	void UpdatePlay(void);
-	
+
 	// 描画系
 	void DrawShadow(void);
 	void DrawKiBlast(void);

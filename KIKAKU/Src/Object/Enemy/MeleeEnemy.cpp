@@ -652,378 +652,378 @@ void MeleeEnemy::Update(void)
             )
         );
 
-    switch (aiState_)
-    {
-    case AI_STATE::WAIT:
-    {
-        aiTimer_ += deltaTime;
+    //switch (aiState_)
+    //{
+    //case AI_STATE::WAIT:
+    //{
+    //    aiTimer_ += deltaTime;
 
-        animationController_->Play(
-            (int)ANIM_TYPE::IDLE
-        );
+    //    animationController_->Play(
+    //        (int)ANIM_TYPE::IDLE
+    //    );
 
-        // 離れていてもすぐには飛んでこない
-        if (aiTimer_ >= 0.8f)
-        {
-            aiTimer_ = 0.0f;
+    //    // 離れていてもすぐには飛んでこない
+    //    if (aiTimer_ >= 0.8f)
+    //    {
+    //        aiTimer_ = 0.0f;
 
-            if (distance >= 650.0f)
-            {
-                aiState_ =
-                    AI_STATE::BOOST_ATTACK;
-            }
-            else
-            {
-                aiState_ =
-                    AI_STATE::SIDE_MOVE;
+    //        if (distance >= 650.0f)
+    //        {
+    //            aiState_ =
+    //                AI_STATE::BOOST_ATTACK;
+    //        }
+    //        else
+    //        {
+    //            aiState_ =
+    //                AI_STATE::SIDE_MOVE;
 
-                sideMoveDir_ *= -1.0f;
-            }
-        }
+    //            sideMoveDir_ *= -1.0f;
+    //        }
+    //    }
 
-        break;
-    }
+    //    break;
+    //}
 
-    case AI_STATE::SIDE_MOVE:
-    {
-        aiTimer_ += deltaTime;
+    //case AI_STATE::SIDE_MOVE:
+    //{
+    //    aiTimer_ += deltaTime;
 
-        VECTOR sideDir =
-        {
-            horizontalDir.z,
-            0.0f,
-            -horizontalDir.x
-        };
+    //    VECTOR sideDir =
+    //    {
+    //        horizontalDir.z,
+    //        0.0f,
+    //        -horizontalDir.x
+    //    };
 
-        sideDir =
-            VScale(
-                sideDir,
-                sideMoveDir_
-            );
+    //    sideDir =
+    //        VScale(
+    //            sideDir,
+    //            sideMoveDir_
+    //        );
 
-        // 280からズレた分を少しずつ直す
-        VECTOR distanceCorrection =
-            VSub(
-                normalBattlePos,
-                transform_.pos
-            );
+    //    // 280からズレた分を少しずつ直す
+    //    VECTOR distanceCorrection =
+    //        VSub(
+    //            normalBattlePos,
+    //            transform_.pos
+    //        );
 
-        distanceCorrection.y = 0.0f;
+    //    distanceCorrection.y = 0.0f;
 
-        VECTOR sideMove =
-            VScale(
-                sideDir,
-                2.0f
-            );
+    //    VECTOR sideMove =
+    //        VScale(
+    //            sideDir,
+    //            2.0f
+    //        );
 
-        VECTOR correctionMove =
-            VScale(
-                distanceCorrection,
-                0.08f
-            );
+    //    VECTOR correctionMove =
+    //        VScale(
+    //            distanceCorrection,
+    //            0.08f
+    //        );
 
-        VECTOR move =
-            VAdd(
-                sideMove,
-                correctionMove
-            );
+    //    VECTOR move =
+    //        VAdd(
+    //            sideMove,
+    //            correctionMove
+    //        );
 
-        if (VSize(move) > 3.0f)
-        {
-            move =
-                VScale(
-                    VNorm(move),
-                    3.0f
-                );
-        }
+    //    if (VSize(move) > 3.0f)
+    //    {
+    //        move =
+    //            VScale(
+    //                VNorm(move),
+    //                3.0f
+    //            );
+    //    }
 
-        transform_.pos =
-            VAdd(
-                transform_.pos,
-                move
-            );
+    //    transform_.pos =
+    //        VAdd(
+    //            transform_.pos,
+    //            move
+    //        );
 
-        // 高さはゆっくり合わせる
-        float heightDiff =
-            playerPos.y -
-            transform_.pos.y;
+    //    // 高さはゆっくり合わせる
+    //    float heightDiff =
+    //        playerPos.y -
+    //        transform_.pos.y;
 
-        const float verticalSpeed = 2.0f;
+    //    const float verticalSpeed = 2.0f;
 
-        if (heightDiff > verticalSpeed)
-        {
-            transform_.pos.y +=
-                verticalSpeed;
-        }
-        else if (heightDiff < -verticalSpeed)
-        {
-            transform_.pos.y -=
-                verticalSpeed;
-        }
-        else
-        {
-            transform_.pos.y =
-                playerPos.y;
-        }
+    //    if (heightDiff > verticalSpeed)
+    //    {
+    //        transform_.pos.y +=
+    //            verticalSpeed;
+    //    }
+    //    else if (heightDiff < -verticalSpeed)
+    //    {
+    //        transform_.pos.y -=
+    //            verticalSpeed;
+    //    }
+    //    else
+    //    {
+    //        transform_.pos.y =
+    //            playerPos.y;
+    //    }
 
-        animationController_->Play(
-            (int)ANIM_TYPE::RUN
-        );
+    //    animationController_->Play(
+    //        (int)ANIM_TYPE::RUN
+    //    );
 
-        if (aiTimer_ >= 1.0f)
-        {
-            aiTimer_ = 0.0f;
-            aiState_ = AI_STATE::MOVE;
-        }
+    //    if (aiTimer_ >= 1.0f)
+    //    {
+    //        aiTimer_ = 0.0f;
+    //        aiState_ = AI_STATE::MOVE;
+    //    }
 
-        break;
-    }
+    //    break;
+    //}
 
-    case AI_STATE::MOVE:
-    {
-        // 攻撃前に一度280付近へ間合いを整える
-        VECTOR moveDir =
-            VSub(
-                normalBattlePos,
-                transform_.pos
-            );
+    //case AI_STATE::MOVE:
+    //{
+    //    // 攻撃前に一度280付近へ間合いを整える
+    //    VECTOR moveDir =
+    //        VSub(
+    //            normalBattlePos,
+    //            transform_.pos
+    //        );
 
-        float moveDistance =
-            VSize(moveDir);
+    //    float moveDistance =
+    //        VSize(moveDir);
 
-        if (moveDistance > 0.001f)
-        {
-            moveDir =
-                VNorm(moveDir);
-        }
+    //    if (moveDistance > 0.001f)
+    //    {
+    //        moveDir =
+    //            VNorm(moveDir);
+    //    }
 
-        if (moveDistance > 10.0f)
-        {
-            float moveAmount =
-                moveDistance;
+    //    if (moveDistance > 10.0f)
+    //    {
+    //        float moveAmount =
+    //            moveDistance;
 
-            if (moveAmount > moveSpeed_)
-            {
-                moveAmount =
-                    moveSpeed_;
-            }
+    //        if (moveAmount > moveSpeed_)
+    //        {
+    //            moveAmount =
+    //                moveSpeed_;
+    //        }
 
-            transform_.pos =
-                VAdd(
-                    transform_.pos,
-                    VScale(
-                        moveDir,
-                        moveAmount
-                    )
-                );
+    //        transform_.pos =
+    //            VAdd(
+    //                transform_.pos,
+    //                VScale(
+    //                    moveDir,
+    //                    moveAmount
+    //                )
+    //            );
 
-            animationController_->Play(
-                (int)ANIM_TYPE::RUN
-            );
-        }
-        else
-        {
-            aiTimer_ += deltaTime;
+    //        animationController_->Play(
+    //            (int)ANIM_TYPE::RUN
+    //        );
+    //    }
+    //    else
+    //    {
+    //        aiTimer_ += deltaTime;
 
-            animationController_->Play(
-                (int)ANIM_TYPE::IDLE
-            );
+    //        animationController_->Play(
+    //            (int)ANIM_TYPE::IDLE
+    //        );
 
-            if (aiTimer_ >= 0.5f)
-            {
-                aiTimer_ = 0.0f;
+    //        if (aiTimer_ >= 0.5f)
+    //        {
+    //            aiTimer_ = 0.0f;
 
-                if (attackCoolTimer_ <= 0.0f)
-                {
-                    aiState_ =
-                        AI_STATE::ATTACK;
-                }
-                else
-                {
-                    aiState_ =
-                        AI_STATE::WAIT;
-                }
-            }
-        }
+    //            if (attackCoolTimer_ <= 0.0f)
+    //            {
+    //                aiState_ =
+    //                    AI_STATE::ATTACK;
+    //            }
+    //            else
+    //            {
+    //                aiState_ =
+    //                    AI_STATE::WAIT;
+    //            }
+    //        }
+    //    }
 
-        break;
-    }
+    //    break;
+    //}
 
-    case AI_STATE::BOOST_ATTACK:
-    {
-        // 高速接近はこの行動を選んだ時だけ
-        if (!isBoostChase_)
-        {
-            isBoostChase_ = true;
-            boostChaseTimer_ = 0.0f;
+    //case AI_STATE::BOOST_ATTACK:
+    //{
+    //    // 高速接近はこの行動を選んだ時だけ
+    //    if (!isBoostChase_)
+    //    {
+    //        isBoostChase_ = true;
+    //        boostChaseTimer_ = 0.0f;
 
-            animationController_->Play(
-                (int)ANIM_TYPE::FAST_RUN
-            );
-        }
+    //        animationController_->Play(
+    //            (int)ANIM_TYPE::FAST_RUN
+    //        );
+    //    }
 
-        boostChaseTimer_ += deltaTime;
+    //    boostChaseTimer_ += deltaTime;
 
-        const float boostStopDistance = 110.0f;
+    //    const float boostStopDistance = 110.0f;
 
-        VECTOR boostTarget =
-            VSub(
-                playerPos,
-                VScale(
-                    horizontalDir,
-                    boostStopDistance
-                )
-            );
+    //    VECTOR boostTarget =
+    //        VSub(
+    //            playerPos,
+    //            VScale(
+    //                horizontalDir,
+    //                boostStopDistance
+    //            )
+    //        );
 
-        VECTOR boostDir =
-            VSub(
-                boostTarget,
-                transform_.pos
-            );
+    //    VECTOR boostDir =
+    //        VSub(
+    //            boostTarget,
+    //            transform_.pos
+    //        );
 
-        float boostDistance =
-            VSize(boostDir);
+    //    float boostDistance =
+    //        VSize(boostDir);
 
-        if (boostDistance > 0.001f)
-        {
-            boostDir =
-                VNorm(boostDir);
-        }
+    //    if (boostDistance > 0.001f)
+    //    {
+    //        boostDir =
+    //            VNorm(boostDir);
+    //    }
 
-        if (boostDistance <= 10.0f ||
-            boostChaseTimer_ >= BOOST_CHASE_TIME)
-        {
-            isBoostChase_ = false;
-            boostChaseTimer_ = 0.0f;
+    //    if (boostDistance <= 10.0f ||
+    //        boostChaseTimer_ >= BOOST_CHASE_TIME)
+    //    {
+    //        isBoostChase_ = false;
+    //        boostChaseTimer_ = 0.0f;
 
-            aiState_ =
-                AI_STATE::ATTACK;
+    //        aiState_ =
+    //            AI_STATE::ATTACK;
 
-            aiTimer_ = 0.0f;
+    //        aiTimer_ = 0.0f;
 
-            animationController_->Play(
-                (int)ANIM_TYPE::IDLE
-            );
-        }
-        else
-        {
-            float boostMove =
-                boostDistance;
+    //        animationController_->Play(
+    //            (int)ANIM_TYPE::IDLE
+    //        );
+    //    }
+    //    else
+    //    {
+    //        float boostMove =
+    //            boostDistance;
 
-            if (boostMove >
-                BOOST_CHASE_SPEED)
-            {
-                boostMove =
-                    BOOST_CHASE_SPEED;
-            }
+    //        if (boostMove >
+    //            BOOST_CHASE_SPEED)
+    //        {
+    //            boostMove =
+    //                BOOST_CHASE_SPEED;
+    //        }
 
-            transform_.pos =
-                VAdd(
-                    transform_.pos,
-                    VScale(
-                        boostDir,
-                        boostMove
-                    )
-                );
+    //        transform_.pos =
+    //            VAdd(
+    //                transform_.pos,
+    //                VScale(
+    //                    boostDir,
+    //                    boostMove
+    //                )
+    //            );
 
-            animationController_->Play(
-                (int)ANIM_TYPE::FAST_RUN
-            );
-        }
+    //        animationController_->Play(
+    //            (int)ANIM_TYPE::FAST_RUN
+    //        );
+    //    }
 
-        break;
-    }
+    //    break;
+    //}
 
-    case AI_STATE::ATTACK:
-    {
-        // 攻撃すると決めてから90まで近づく
-        const float attackDistance = 90.0f;
+    //case AI_STATE::ATTACK:
+    //{
+    //    // 攻撃すると決めてから90まで近づく
+    //    const float attackDistance = 90.0f;
 
-        VECTOR attackPos =
-            VSub(
-                playerPos,
-                VScale(
-                    horizontalDir,
-                    attackDistance
-                )
-            );
+    //    VECTOR attackPos =
+    //        VSub(
+    //            playerPos,
+    //            VScale(
+    //                horizontalDir,
+    //                attackDistance
+    //            )
+    //        );
 
-        VECTOR attackMoveDir =
-            VSub(
-                attackPos,
-                transform_.pos
-            );
+    //    VECTOR attackMoveDir =
+    //        VSub(
+    //            attackPos,
+    //            transform_.pos
+    //        );
 
-        float attackMoveDistance =
-            VSize(attackMoveDir);
+    //    float attackMoveDistance =
+    //        VSize(attackMoveDir);
 
-        if (attackMoveDistance > 0.001f)
-        {
-            attackMoveDir =
-                VNorm(attackMoveDir);
-        }
+    //    if (attackMoveDistance > 0.001f)
+    //    {
+    //        attackMoveDir =
+    //            VNorm(attackMoveDir);
+    //    }
 
-        if (attackMoveDistance > 10.0f)
-        {
-            const float attackApproachSpeed = 5.0f;
+    //    if (attackMoveDistance > 10.0f)
+    //    {
+    //        const float attackApproachSpeed = 5.0f;
 
-            float moveAmount =
-                attackMoveDistance;
+    //        float moveAmount =
+    //            attackMoveDistance;
 
-            if (moveAmount >
-                attackApproachSpeed)
-            {
-                moveAmount =
-                    attackApproachSpeed;
-            }
+    //        if (moveAmount >
+    //            attackApproachSpeed)
+    //        {
+    //            moveAmount =
+    //                attackApproachSpeed;
+    //        }
 
-            transform_.pos =
-                VAdd(
-                    transform_.pos,
-                    VScale(
-                        attackMoveDir,
-                        moveAmount
-                    )
-                );
+    //        transform_.pos =
+    //            VAdd(
+    //                transform_.pos,
+    //                VScale(
+    //                    attackMoveDir,
+    //                    moveAmount
+    //                )
+    //            );
 
-            animationController_->Play(
-                (int)ANIM_TYPE::RUN
-            );
-        }
-        else
-        {
-            // 90まで来てから今までの4段攻撃開始
-            if (attackCoolTimer_ <= 0.0f)
-            {
-                isAttack_ = true;
-                attackCombo_ = 1;
-                attackTimer_ = 0.0f;
-                hasAttackHit_ = false;
+    //        animationController_->Play(
+    //            (int)ANIM_TYPE::RUN
+    //        );
+    //    }
+    //    else
+    //    {
+    //        // 90まで来てから今までの4段攻撃開始
+    //        if (attackCoolTimer_ <= 0.0f)
+    //        {
+    //            isAttack_ = true;
+    //            attackCombo_ = 1;
+    //            attackTimer_ = 0.0f;
+    //            hasAttackHit_ = false;
 
-                isAttackWait_ = false;
-                attackWaitTimer_ = 0.0f;
+    //            isAttackWait_ = false;
+    //            attackWaitTimer_ = 0.0f;
 
-                animationController_->Play(
-                    (int)ANIM_TYPE::ATTACK01,
-                    false
-                );
-            }
-            else
-            {
-                aiState_ =
-                    AI_STATE::WAIT;
+    //            animationController_->Play(
+    //                (int)ANIM_TYPE::ATTACK01,
+    //                false
+    //            );
+    //        }
+    //        else
+    //        {
+    //            aiState_ =
+    //                AI_STATE::WAIT;
 
-                aiTimer_ = 0.0f;
+    //            aiTimer_ = 0.0f;
 
-                animationController_->Play(
-                    (int)ANIM_TYPE::IDLE
-                );
-            }
-        }
+    //            animationController_->Play(
+    //                (int)ANIM_TYPE::IDLE
+    //            );
+    //        }
+    //    }
 
-        break;
-    }
-    }
+    //    break;
+    //}
+    //}
 
     transform_.Update();
 }

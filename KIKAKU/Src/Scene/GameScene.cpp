@@ -440,135 +440,135 @@ void GameScene::Update(void)
 		}
 
 		// Enemy‚ÌUŒ‚”»’è
-		for (auto& enemyBase : enemies_)
-		{
-			if (!enemyBase)
-			{
-				continue;
-			}
+		//for (auto& enemyBase : enemies_)
+		//{
+		//	if (!enemyBase)
+		//	{
+		//		continue;
+		//	}
 
-			if (enemyBase->IsDead())
-			{
-				continue;
-			}
+		//	if (enemyBase->IsDead())
+		//	{
+		//		continue;
+		//	}
 
-			MeleeEnemy* enemy =
-				dynamic_cast<MeleeEnemy*>(
-					enemyBase.get()
-					);
+		//	MeleeEnemy* enemy =
+		//		dynamic_cast<MeleeEnemy*>(
+		//			enemyBase.get()
+		//			);
 
-			if (enemy == nullptr)
-			{
-				continue;
-			}
+		//	if (enemy == nullptr)
+		//	{
+		//		continue;
+		//	}
 
-			if (!enemy->IsAttackHitTiming())
-			{
-				continue;
-			}
+		//	if (!enemy->IsAttackHitTiming())
+		//	{
+		//		continue;
+		//	}
 
-			if (enemy->HasAttackHit())
-			{
-				continue;
-			}
+		//	if (enemy->HasAttackHit())
+		//	{
+		//		continue;
+		//	}
 
-			VECTOR enemyPos =
-				enemy->GetTransform().pos;
-			// Player‚ð‘_‚Á‚Ä‚¢‚é
-			VECTOR playerPos =
-				player_->GetTransform().pos;
+		//	VECTOR enemyPos =
+		//		enemy->GetTransform().pos;
+		//	// Player‚ð‘_‚Á‚Ä‚¢‚é
+		//	VECTOR playerPos =
+		//		player_->GetTransform().pos;
 
-			VECTOR toPlayer =
-				VSub(
-					playerPos,
-					enemyPos
-				);
+		//	VECTOR toPlayer =
+		//		VSub(
+		//			playerPos,
+		//			enemyPos
+		//		);
 
-			float distance =
-				VSize(toPlayer);
+		//	float distance =
+		//		VSize(toPlayer);
 
-			if (distance <= ActorBase::ATTACK_RANGE)
-			{
-				if (!player_->IsDodging())
-				{
-					VECTOR hitDir =
-						VSub(
-							player_->GetTransform().pos,
-							enemy->GetTransform().pos
-						);
+		//	if (distance <= ActorBase::ATTACK_RANGE)
+		//	{
+		//		if (!player_->IsDodging())
+		//		{
+		//			VECTOR hitDir =
+		//				VSub(
+		//					player_->GetTransform().pos,
+		//					enemy->GetTransform().pos
+		//				);
 
-					if (VSize(hitDir) > 0.001f)
-					{
-						hitDir = VNorm(hitDir);
+		//			if (VSize(hitDir) > 0.001f)
+		//			{
+		//				hitDir = VNorm(hitDir);
 
-						if (player_->IsGuard())
-						{
-							// ƒK[ƒh‘Ï‹v’l‚ðŒ¸‚ç‚·
-							if (enemy->GetAttackCombo() == 4)
-							{
-								player_->GuardDamage(80.0f);
-							}
-							else
-							{
-								player_->GuardDamage(20.0f);
-							}
+		//				if (player_->IsGuard())
+		//				{
+		//					// ƒK[ƒh‘Ï‹v’l‚ðŒ¸‚ç‚·
+		//					if (enemy->GetAttackCombo() == 4)
+		//					{
+		//						player_->GuardDamage(80.0f);
+		//					}
+		//					else
+		//					{
+		//						player_->GuardDamage(20.0f);
+		//					}
 
-							// ƒK[ƒh’†‚Íƒ_ƒ[ƒW‚È‚µ‚Å­‚µ‚¾‚¯‰Ÿ‚³‚ê‚é
-							float guardKnockPower = 1.5f;
+		//					// ƒK[ƒh’†‚Íƒ_ƒ[ƒW‚È‚µ‚Å­‚µ‚¾‚¯‰Ÿ‚³‚ê‚é
+		//					float guardKnockPower = 1.5f;
 
-							if (enemy->GetAttackCombo() == 4)
-							{
-								guardKnockPower = 5.0f;
-							}
+		//					if (enemy->GetAttackCombo() == 4)
+		//					{
+		//						guardKnockPower = 5.0f;
+		//					}
 
-							player_->AddKnockBack(
-								hitDir,
-								guardKnockPower
-							);
+		//					player_->AddKnockBack(
+		//						hitDir,
+		//						guardKnockPower
+		//					);
 
-							// ƒK[ƒhƒGƒtƒFƒNƒg
-							VECTOR effectPos =
-								player_->GetTransform().pos;
+		//					// ƒK[ƒhƒGƒtƒFƒNƒg
+		//					VECTOR effectPos =
+		//						player_->GetTransform().pos;
 
-							effectPos.y += 80.0f;
+		//					effectPos.y += 80.0f;
 
-							EffekseerEffect::GetInstance()->
-								PlayHitEffect(
-									effectPos,
-									0.0f
-								);
+		//					EffekseerEffect::GetInstance()->
+		//						PlayHitEffect(
+		//							effectPos,
+		//							0.0f
+		//						);
 
-							// ƒK[ƒh‚µ‚½uŠÔ‚É­‚µŽ~‚ß‚é
-							isHitStop_ = true;
-							hitStopTimer_ = 0.03f;
-						}
-						else
-						{
-							player_->LookAtDamageEnemy(
-								enemy->GetTransform().pos
-							);
+		//					// ƒK[ƒh‚µ‚½uŠÔ‚É­‚µŽ~‚ß‚é
+		//					isHitStop_ = true;
+		//					hitStopTimer_ = 0.03f;
+		//				}
+		//				else
+		//				{
+		//					player_->LookAtDamageEnemy(
+		//						enemy->GetTransform().pos
+		//					);
 
-							player_->Damage(
-								MeleeEnemy::ATTACK_DAMAGE
-							);
+		//					player_->Damage(
+		//						MeleeEnemy::ATTACK_DAMAGE
+		//					);
 
-							float knockPower = 5.0f;
+		//					float knockPower = 5.0f;
 
-							if (enemy->GetAttackCombo() == 4)
-							{
-								knockPower = 30.0f;
-							}
+		//					if (enemy->GetAttackCombo() == 4)
+		//					{
+		//						knockPower = 30.0f;
+		//					}
 
-							player_->AddKnockBack(
-								hitDir,
-								knockPower
-							);
-						}
-					}
-				}
-				enemy->SetAttackHit();
-			}
-		}
+		//					player_->AddKnockBack(
+		//						hitDir,
+		//						knockPower
+		//					);
+		//				}
+		//			}
+		//		}
+		//		enemy->SetAttackHit();
+		//	}
+		//}
 
 		// Player‚ÌUŒ‚”»’è
 		if (player_->IsAttackHitTiming() &&
