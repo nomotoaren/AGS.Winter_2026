@@ -61,9 +61,9 @@ void MeleeEnemy::Init(void)
 
     transform_.scl =
     {
-        1.0f,
-        1.0f,
-        1.0f
+        1.5f,
+        1.5f,
+        1.5f
     };
 
     transform_.quaRotLocal =

@@ -150,9 +150,9 @@ void Player::Init(void)
 
 	transform_.scl =
 	{	
-		1.0f,
-		1.0f,
-		1.0f
+		1.5f,
+		1.5f,
+		1.5f
 	};
 
 	transform_.pos = { 0.0f, 1000.0f, 0.0f };
@@ -462,28 +462,28 @@ void Player::InitAnimation(void)
 	std::string path = Application::PATH_MODEL + "Player/";
 	animationController_ = std::make_unique<AnimationController>(transform_.modelId);
 	animationController_->Add((int)ANIM_TYPE::IDLE, path + "Idle.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::RUN, path + "Running.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::FAST_RUN, path + "Fast Run.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_LEFT, path + "LSWalking.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_RIGHT, path + "RSWalking.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_LEFT_RUN, path + "Left Strafe.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_RIGHT_RUN, path + "Right Strafe.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_BACK, path + "Walking Back.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_BACK_RUN, path + "Running Back.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::BOOST_CHASE, path + "Kousoku.mv1", 20.0f);
+	animationController_->Add((int)ANIM_TYPE::RUN, path + "Walk.mv1", 40.0f);
+	animationController_->Add((int)ANIM_TYPE::FAST_RUN, path + "Running.mv1", 40.0f);
+	animationController_->Add((int)ANIM_TYPE::LOCK_LEFT, path + "LSWalking.mv1", 40.0f);
+	animationController_->Add((int)ANIM_TYPE::LOCK_RIGHT, path + "RSWalking.mv1", 40.0f);
+	animationController_->Add((int)ANIM_TYPE::LOCK_LEFT_RUN, path + "Left Strafe.mv1", 40.0f);
+	animationController_->Add((int)ANIM_TYPE::LOCK_RIGHT_RUN, path + "Right Strafe.mv1", 40.0f);
+	animationController_->Add((int)ANIM_TYPE::LOCK_BACK, path + "Walking Back.mv1", 40.0f);
+	animationController_->Add((int)ANIM_TYPE::LOCK_BACK_RUN, path + "Running Back.mv1", 40.0f);
+	animationController_->Add((int)ANIM_TYPE::BOOST_CHASE, path + "Flying.mv1", 40.0f);
 	animationController_->Add((int)ANIM_TYPE::JUMP, path + "Jumping.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::WARP_PAUSE, path + "WarpPose.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::FLY, path + "Flying.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::FALLING, path + "Falling.mv1", 80.0f);
+	animationController_->Add((int)ANIM_TYPE::FALLING, path + "Flying.mv1", 80.0f);
 	animationController_->Add((int)ANIM_TYPE::VICTORY, path + "Victory.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK01, path + "Attack01.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK02, path + "Attack02.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK03, path + "Attack03.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK04, path + "Attack04.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK05, path + "Attack05.mv1", 75.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK06, path + "Attack01.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK07, path + "Attack07.mv1", 55.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK08, path + "Attack09.mv1", 55.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK03, path + "Attack03.mv1", 80.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK04, path + "Attack04.mv1", 80.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK05, path + "Attack05.mv1", 85.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK06, path + "Attack01.mv1", 80.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK07, path + "Attack07.mv1", 65.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK08, path + "Attack08.mv1", 65.0f);
 	animationController_->Add((int)ANIM_TYPE::KI_BLAST, path + "KiBlast.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::KAMEHAME, path + "‚©‚ß‚Í‚ß”g.mv1", 20.0f);
 	animationController_->Add((int)ANIM_TYPE::CHARGE, path + "pawer.mv1", 40.0f);
