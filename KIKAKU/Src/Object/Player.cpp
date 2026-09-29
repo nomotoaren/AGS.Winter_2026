@@ -464,7 +464,7 @@ void Player::InitAnimation(void)
 	animationController_->Add((int)ANIM_TYPE::IDLE, path + "Idle.mv1", 20.0f);
 	animationController_->Add((int)ANIM_TYPE::RUN, path + "Walk.mv1", 40.0f);
 	animationController_->Add((int)ANIM_TYPE::FAST_RUN, path + "Running.mv1", 40.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_LEFT, path + "LSWalking.mv1", 40.0f);
+	animationController_->Add((int)ANIM_TYPE::LOCK_LEFT, path + "LSWalking.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::LOCK_RIGHT, path + "RSWalking.mv1", 40.0f);
 	animationController_->Add((int)ANIM_TYPE::LOCK_LEFT_RUN, path + "Left Strafe.mv1", 40.0f);
 	animationController_->Add((int)ANIM_TYPE::LOCK_RIGHT_RUN, path + "Right Strafe.mv1", 40.0f);
@@ -476,8 +476,8 @@ void Player::InitAnimation(void)
 	animationController_->Add((int)ANIM_TYPE::FLY, path + "Flying.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::FALLING, path + "Flying.mv1", 80.0f);
 	animationController_->Add((int)ANIM_TYPE::VICTORY, path + "Victory.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK01, path + "Attack01.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK02, path + "Attack02.mv1", 60.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK01, path + "Attack02.mv1", 60.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK02, path + "Attack01.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK03, path + "Attack03.mv1", 80.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK04, path + "Attack04.mv1", 80.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK05, path + "Attack05.mv1", 85.0f);
@@ -2522,6 +2522,7 @@ void Player::UpdateKamehame(void)
 	if (!isAttack_ &&
 		!isKamehame_ &&
 		!isJump_ &&
+		!isChasing_ &&
 		ins.IsTrgDown(KEY_INPUT_R))
 	{
 		if (UseKi(KAMEHAME_KI_COST))
@@ -2600,6 +2601,8 @@ void Player::UpdateChase(void)
 	// ‹C—­‚ßŠJŽn
 	if (!isCharging_ &&
 		!isChargeEnding_ &&
+		!isAttack_ &&
+		!isKamehame_&&
 		ins.IsTrgDown(KEY_INPUT_T))
 	{
 		isCharging_ = true;
