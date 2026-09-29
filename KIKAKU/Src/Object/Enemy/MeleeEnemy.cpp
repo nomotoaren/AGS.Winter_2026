@@ -50,7 +50,7 @@ void MeleeEnemy::Init(void)
     // ‰¼ƒ‚ƒfƒ‹
     transform_.SetModel(
         resMng_.LoadModelDuplicate(
-            ResourceManager::SRC::PLAYER
+            ResourceManager::SRC::ENEMY
         )
     );
 
@@ -61,9 +61,9 @@ void MeleeEnemy::Init(void)
 
     transform_.scl =
     {
-        1.5f,
-        1.5f,
-        1.5f
+        0.8f,
+        0.8f,
+        0.8f
     };
 
     transform_.quaRotLocal =
@@ -78,7 +78,7 @@ void MeleeEnemy::Init(void)
 
 void MeleeEnemy::InitAnimation(void)
 {
-    std::string path = Application::PATH_MODEL + "Player/";
+    std::string path = Application::PATH_MODEL + "Enemy/";
     animationController_ = std::make_unique<AnimationController>(transform_.modelId);
     animationController_->Add((int)ANIM_TYPE::IDLE, path + "Idle.mv1", 20.0f);
     animationController_->Add((int)ANIM_TYPE::RUN, path + "Running.mv1", 20.0f);

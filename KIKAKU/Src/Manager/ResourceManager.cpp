@@ -47,6 +47,10 @@ void ResourceManager::Init(void)
 	res = std::make_unique<RES>(RES_T::MODEL, PATH_MDL + "Player/新プレイヤー.mv1");
 	resourcesMap_.emplace(SRC::PLAYER, std::move(res));
 
+	// 敵
+	res = std::make_unique<RES>(RES_T::MODEL, PATH_MDL + "Enemy/enemykyara.mv1");
+	resourcesMap_.emplace(SRC::ENEMY, std::move(res));
+
 	// プレイヤー影
 	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "Shadow.png");
 	resourcesMap_.emplace(SRC::PLAYER_SHADOW, std::move(res));
