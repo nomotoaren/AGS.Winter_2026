@@ -13,112 +13,118 @@
 #include "../Manager/EffekseerEffect.h"
 
 Player::Player(void)
-{
-	animationController_ = nullptr;
-	state_ = STATE::NONE;
+	:
+	animationController_(nullptr),
+	state_(STATE::NONE),
 
-	speed_ = 0.0f;
-	moveDir_ = AsoUtility::VECTOR_ZERO;
-	movePow_ = AsoUtility::VECTOR_ZERO;
-	movedPos_ = AsoUtility::VECTOR_ZERO;
-	knockBackPow_ = AsoUtility::VECTOR_ZERO;
-	isDamage_ = false;
-	damageTimer_ = 0.0f;
+	speed_(0.0f),
+	moveDir_(AsoUtility::VECTOR_ZERO),
+	movePow_(AsoUtility::VECTOR_ZERO),
+	movedPos_(AsoUtility::VECTOR_ZERO),
+	knockBackPow_(AsoUtility::VECTOR_ZERO),
+	isDamage_(false),
+	damageTimer_(0.0f),
 
-	playerRotY_ = Quaternion();
-	goalQuaRot_ = Quaternion();
-	stepRotTime_ = 0.0f;
+	playerRotY_(Quaternion()),
+	goalQuaRot_(Quaternion()),
+	stepRotTime_(0.0f),
 
-	jumpPow_ = AsoUtility::VECTOR_ZERO;
-	isJump_ = false;
-	stepJump_ = 0.0f;
+	jumpPow_(AsoUtility::VECTOR_ZERO),
+	isJump_(false),
+	stepJump_(0.0f),
 
 	// 衝突チェック
-	gravHitPosDown_ = AsoUtility::VECTOR_ZERO;
-	gravHitPosUp_ = AsoUtility::VECTOR_ZERO;
+	gravHitPosDown_(AsoUtility::VECTOR_ZERO),
+	gravHitPosUp_(AsoUtility::VECTOR_ZERO),
 
-	imgShadow_ = -1;
-	recordTime_ = 0.0f;
-	isRecording_ = false;
+	imgShadow_(-1),
+	recordTime_(0.0f),
+	isRecording_(false),
 
 	// 攻撃関連
-	isAttack_ = false;
-	combo_ = 0;
-	nextAttack_ = false;
-	hasAttackTarget_ = false;
-	attackTargetPos_ = AsoUtility::VECTOR_ZERO;
-	canChase_ = false;
-	isChasing_ = false;
-	isAttack04Move_ = false;
-	attack04MoveTimer_ = 0.0f;
-	afterImageModel_ = -1;
-	isAfterImage_ = false;
-	afterImageTimer_ = 0.0f;
-	afterImagePos_ =
-		AsoUtility::VECTOR_ZERO;
-	afterImageMatrix_ = {};
+	isAttack_(false),
+	combo_(0),
+	nextAttack_(false),
+	hasAttackTarget_(false),
+	attackTargetPos_(AsoUtility::VECTOR_ZERO),
+	canChase_(false),
+	isChasing_(false),
+	isAttack04Move_(false),
+	attack04MoveTimer_(0.0f),
+	afterImageModel_(-1),
+	isAfterImage_(false),
+	afterImageTimer_(0.0f),
+	afterImagePos_(AsoUtility::VECTOR_ZERO),
+	afterImageMatrix_({}),
+
 	// 気を溜める
-	isCharging_ = false;
-	isChargeEnding_ = false;
-	ki_ = 0.0f;
+	isCharging_(false),
+	isChargeEnding_(false),
+	ki_(0.0f),
 
 	// 気弾
-	isKiBlast_ = false;
-	isKiBlastShot_ = false;
-	kiBlastTimer_ = 0.0f;
+	isKiBlast_(false),
+	isKiBlastShot_(false),
+	kiBlastTimer_(0.0f),
 
 	// ロックオン
-	isLockOn_ = false;
-	isBoostChase_ = false;
-	boostChaseTimer_ = 0.0f;
-	lockOnPitch_ = 0.0f;
+	isLockOn_(false),
+	isBoostChase_(false),
+	boostChaseTimer_(0.0f),
+	lockOnPitch_(0.0f),
 
 	// 回避
-	isDodge_ = false;
-	dodgeTimer_ = 0.0f;
-	dodgeDir_ = AsoUtility::VECTOR_ZERO;
+	isDodge_(false),
+	dodgeTimer_(0.0f),
+	dodgeDir_(AsoUtility::VECTOR_ZERO),
 
 	// ガード
-	isGuard_ = false;
-	guardHp_ = 100.0f;
-	isGuardBreak_ = false;
-	guardBreakTimer_ = 0.0f;
-	guardRecoverTimer_ = 0.0f;
-	isGuardBurst_ = false;
-	guardBurstTimer_ = 0.0f;
-	guardBurstTrigger_ = false;
+	isGuard_(false),
+	guardHp_(100.0f),
+	isGuardBreak_(false),
+	guardBreakTimer_(0.0f),
+	guardRecoverTimer_(0.0f),
+	isGuardBurst_(false),
+	guardBurstTimer_(0.0f),
+	guardBurstTrigger_(false),
 
 	// 空中
-	isFlying_ = false;
+	isFlying_(false),
 
 	// 残像
-	boostAfterImageTimer_ = 0.0f;
-	afterImageAttachNo_ = -1;
-	attackTimer_ = 0.0f;
-	hasAttackHit_ = false;
-	attackTrigger_ = false;
+	boostAfterImageTimer_(0.0f),
+	afterImageAttachNo_(-1),
+	attackTimer_(0.0f),
+	hasAttackHit_(false),
+	attackTrigger_(false),
 
-	hp_ = 100;
-	isDead_ = false;
+	hp_(100),
+	isDead_(false),
 
-	attackEndTimer_ = 0.0f;
-	isKamehame_ = false;
-	kamehameTimer_ = 0.0f;
-	isKamehameBeam_ = false;
-	leftHandFrame_ = -1;
-	rightHandFrame_ = -1;
-	kamehameLightHandle_ = -1;
-	kamehameDir_ =
-		AsoUtility::VECTOR_ZERO;
+	attackEndTimer_(0.0f),
+	isKamehame_(false),
+	kamehameTimer_(0.0f),
+	isKamehameBeam_(false),
+	leftHandFrame_(-1),
+	rightHandFrame_(-1),
+	kamehameLightHandle_(-1),
+	kamehameDir_(AsoUtility::VECTOR_ZERO),
 
-	capsule_ = nullptr;
+	capsule_(nullptr),
 
-	kamehameChargeModel_ = -1;
-	kamehameBeamModel_ = -1;
-
+	kamehameChargeModel_(-1),
+	kamehameBeamModel_(-1)
+{
 	// 状態管理
-	stateChanges_.emplace(STATE::NONE, std::bind(&Player::ChangeStateNone, this));
-	stateChanges_.emplace(STATE::PLAY, std::bind(&Player::ChangeStatePlay, this));
+	stateChanges_.emplace(
+		STATE::NONE,
+		std::bind(&Player::ChangeStateNone, this)
+	);
+
+	stateChanges_.emplace(
+		STATE::PLAY,
+		std::bind(&Player::ChangeStatePlay, this)
+	);
 }
 
 Player::~Player(void)
@@ -2767,6 +2773,7 @@ void Player::UpdateCharge(void)
 	float distance =
 		VSize(dir);
 
+	// 目標距離に到達したら攻撃状態へ
 	if (distance <= 80.0f)
 	{
 		isChasing_ = false;
@@ -2774,6 +2781,55 @@ void Player::UpdateCharge(void)
 
 		movePow_ =
 			AsoUtility::VECTOR_ZERO;
+
+		// 敵との相対位置を攻撃距離にスナップして向きを合わせる
+		if (hasAttackTarget_)
+		{
+			VECTOR enemyDir =
+				VSub(
+					attackTargetPos_,
+					transform_.pos
+				);
+
+			enemyDir.y = 0.0f;
+
+			if (VSize(enemyDir) > 0.001f)
+			{
+				enemyDir = VNorm(enemyDir);
+
+				const float attackDistance = 90.0f; // 他箇所と合わせる値
+				transform_.pos =
+					VSub(
+						attackTargetPos_,
+						VScale(
+							enemyDir,
+							attackDistance
+						)
+					);
+
+				// 向きを敵へ合わせる
+				VECTOR lookDir =
+					VSub(
+						attackTargetPos_,
+						transform_.pos
+					);
+
+				lookDir.y = 0.0f;
+
+				if (VSize(lookDir) > 0.001f)
+				{
+					lookDir = VNorm(lookDir);
+
+					playerRotY_ =
+						Quaternion::LookRotation(
+							lookDir
+						);
+
+					goalQuaRot_ =
+						playerRotY_;
+				}
+			}
+		}
 
 		isAttack_ = true;
 		combo_ = 1;

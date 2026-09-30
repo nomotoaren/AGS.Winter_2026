@@ -20,7 +20,11 @@ MeleeEnemy::MeleeEnemy(Player& player)
     attackCoolTimer_(0.0f),
     hasAttackHit_(false),
     isAttackWait_(false),
-    attackWaitTimer_(0.0f)
+    attackWaitTimer_(0.0f),
+    showSurprise_(false), 
+    surpriseTimer_(0.0f), 
+    surpriseHandle_(-1), 
+    targetPos({ 0.0f, 0.0f, 0.0f }) 
 {
     hp_ = 100;
     hitRadius_ = 50.0f;

@@ -23,7 +23,6 @@
     <ClCompile Include="Src\Manager\EffekseerEffect.cpp" />
     <ClCompile Include="Src\Object\Enemy\MeleeEnemy.cpp" />
     <ClCompile Include="Src\Object\Enemy\EnemyBase.cpp" />
-    <ClCompile Include="Src\Object\Goal.cpp" />
     <ClCompile Include="Src\Object\Metal.cpp" />
     <ClCompile Include="Src\Renderer\PixelRenderer.cpp" />
     <ClCompile Include="Src\Renderer\PixelMaterial.cpp" />
@@ -60,7 +59,6 @@
     <ClInclude Include="Src\Manager\EffekseerEffect.h" />
     <ClInclude Include="Src\Object\Enemy\MeleeEnemy.h" />
     <ClInclude Include="Src\Object\Enemy\EnemyBase.h" />
-    <ClInclude Include="Src\Object\Goal.h" />
     <ClInclude Include="Src\Object\Metal.h" />
     <ClInclude Include="Src\Renderer\PixelRenderer.h" />
     <ClInclude Include="Src\Renderer\PixelMaterial.h" />

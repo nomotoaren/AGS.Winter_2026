@@ -22,21 +22,25 @@
 #include <cfloat>
 
 GameScene::GameScene(void)
+	:
+	player_(nullptr),
+	skyDome_(nullptr),
+	stage_(nullptr),
+	kamehameDamageTimer_(0.0f),
+	wasKamehame_(false),
+	wasKamehameBeam_(false),
+	gameState_(GAME_STATE::PLAY),
+	clearTimer_(0.0f),
+	stageNo_(STAGE_NO::STAGE_1),
+	attackUIHandle_(-1),
+	isHitStop_(false),
+	hitStopTimer_(0.0f),
+	lockOnTarget_(nullptr),
+	isLockOn_(false),
+	mode_(MODE::MAIN),
+	postEffectScreen_(-1),
+	stageStartTimer_(0.0f)
 {
-	player_ = nullptr;
-	skyDome_ = nullptr;
-	stage_ = nullptr;
-	kamehameDamageTimer_ = 0.0f;
-	wasKamehame_ = false;
-	wasKamehameBeam_ = false;
-	gameState_ = GAME_STATE::PLAY;
-	clearTimer_ = 0.0f;
-	stageNo_ = STAGE_NO::STAGE_1;
-	attackUIHandle_ = -1;
-	isHitStop_ = false;
-	hitStopTimer_ = 0.0f;
-	lockOnTarget_ = nullptr;
-	isLockOn_ = false;
 }
 
 GameScene::~GameScene(void)

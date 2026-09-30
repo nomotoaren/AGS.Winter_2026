@@ -201,7 +201,6 @@ float SceneManager::GetTotalTime(void) const
 
 SceneManager::SceneManager(void)
 {
-
 	sceneId_ = SCENE_ID::NONE;
 	waitSceneId_ = SCENE_ID::NONE;
 
@@ -215,6 +214,9 @@ SceneManager::SceneManager(void)
 
 	camera_ = nullptr;
 
+	mainScreen_ = -1;
+
+	totalTime_ = 0.0f;
 }
 
 void SceneManager::ResetDeltaTime(void)

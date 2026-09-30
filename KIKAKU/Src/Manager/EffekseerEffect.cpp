@@ -4,11 +4,30 @@
 EffekseerEffect* EffekseerEffect::instance_ = nullptr;
 
 EffekseerEffect::EffekseerEffect(void)
+    :
+    hitEffectId_(-1),
+    playHitEffectHandle_(-1),
+    chargeEffectId_(-1),
+    playChargeEffectHandle_(-1),
+    shalshutEffectId_(-1),
+    PlayshalshuEffectHandle(-1),
+    slashHandle_(-1),
+    isSlashing_(false),
+    tutorialEffectId_(-1),
+    playTutorialHandle(-1),
+    finisyuId(-1),
+    finisyu2Id(-1),
+    finisyu3Id(-1),
+    finisyu4Id(-1),
+    finisyu5Id(-1),
+    finisyu6Id(-1),
+    playFinisyuHandle(-1),
+    playFinisyu2Handle(-1),
+    playFinisyu3Handle(-1),
+    playFinisyu4Handle(-1),
+    playFinisyu5Handle(-1),
+    playFinisyu6Handle(-1)
 {
-    hitEffectId_ = -1;
-    playHitEffectHandle_ = -1;
-    chargeEffectId_ = -1;
-    playChargeEffectHandle_ = -1;
 }
 
 EffekseerEffect::~EffekseerEffect(void)
@@ -18,17 +37,6 @@ EffekseerEffect::~EffekseerEffect(void)
 
 void EffekseerEffect::Init(void)
 {
-    //SetUseDirect3DVersion(DX_DIRECT3D_11);
-
-    //if (Effekseer_Init(8000) == -1) {
-    //    DxLib_End();
-    //    return;
-    //}
-
-    //SetChangeScreenModeGraphicsSystemResetFlag(false);
-
-    //Effekseer_SetGraphicsDeviceLostCallbackFunctions();
-
     shalshutEffectId_ = LoadEffekseerEffect(
         (Application::PATH_EFFECT + "slashu.efkefc").c_str());
 
