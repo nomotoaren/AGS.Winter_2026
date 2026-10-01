@@ -1051,9 +1051,8 @@ void Player::Rotate(void)
 	stepRotTime_ -= scnMng_.GetDeltaTime();
 
 	// 回転の球面補間
-	playerRotY_ = Quaternion::Slerp(
-		playerRotY_, goalQuaRot_, (TIME_ROT - stepRotTime_) / TIME_ROT);
-
+	stepRotTime_ -= scnMng_.GetDeltaTime();
+	if (stepRotTime_ < 0.0f) { stepRotTime_ = 0.0f; }
 }
 
 void Player::Collision(void)
@@ -1110,13 +1109,6 @@ void Player::CollisionGravity(void)
 			// ジャンプリセット
 			jumpPow_ = AsoUtility::VECTOR_ZERO;
 			stepJump_ = 0.0f;
-
-			if (isJump_)
-			{
-				// 着地モーション
-				animationController_->Play(
-					(int)ANIM_TYPE::JUMP, false, 29.0f, 45.0f, false, true);
-			}
 
 			isJump_ = false;
 
@@ -1201,22 +1193,7 @@ void Player::CalcGravityPow(void)
 
 bool Player::IsEndLanding(void)
 {
-	bool ret = true;
-
-	// アニメーションがジャンプではない
-	if (animationController_->GetPlayType() != (int)ANIM_TYPE::JUMP)
-	{
-		return ret;
-	}
-
-	// アニメーションが終了しているか
-	if (animationController_->IsEnd())
-	{
-		return ret;
-	}
-
-	return false;
-
+	return true;
 }
 void Player::StopRecord(void)
 {
