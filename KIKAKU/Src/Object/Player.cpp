@@ -477,11 +477,6 @@ void Player::InitAnimation(void)
 	animationController_->Add((int)ANIM_TYPE::LOCK_BACK, path + "Walking Back.mv1", 40.0f);
 	animationController_->Add((int)ANIM_TYPE::LOCK_BACK_RUN, path + "Running Back.mv1", 40.0f);
 	animationController_->Add((int)ANIM_TYPE::BOOST_CHASE, path + "Flying.mv1", 40.0f);
-	animationController_->Add((int)ANIM_TYPE::JUMP, path + "Jumping.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::WARP_PAUSE, path + "WarpPose.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::FLY, path + "Flying.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::FALLING, path + "Flying.mv1", 80.0f);
-	animationController_->Add((int)ANIM_TYPE::VICTORY, path + "Victory.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK01, path + "Attack02.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK02, path + "Attack01.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK03, path + "Attack03.mv1", 80.0f);
@@ -1029,48 +1024,6 @@ void Player::ProcessMove(void)
 
 void Player::ProcessJump(void)
 {
-
-	bool isHit = CheckHitKey(KEY_INPUT_BACKSLASH);
-
-	if (isKamehame_)
-	{
-		return;
-	}
-
-	// ジャンプ
-	if (isHit && (isJump_ || IsEndLanding()))
-	{
-
-		if (!isJump_)
-		{
-			// 制御無しジャンプ
-			//mAnimationController->Play((int)ANIM_TYPE::JUMP);
-			// ループしないジャンプ
-			//mAnimationController->Play((int)ANIM_TYPE::JUMP, false);
-			// 切り取りアニメーション
-			//mAnimationController->Play((int)ANIM_TYPE::JUMP, false, 13.0f, 24.0f);
-			// 無理やりアニメーション
-			animationController_->Play((int)ANIM_TYPE::JUMP, true, 13.0f, 25.0f);
-			animationController_->SetEndLoop(23.0f, 25.0f, 5.0f);
-		}
-
-		isJump_ = true;
-
-		// ジャンプの入力受付時間をヘラス
-		stepJump_ += scnMng_.GetDeltaTime();
-		if (stepJump_ < TIME_JUMP_IN)
-		{
-			jumpPow_ = VScale(AsoUtility::DIR_U, POW_JUMP);
-		}
-
-	}
-
-	// ボタンを離したらジャンプ力に加算しない
-	if (!isHit)
-	{
-		stepJump_ = TIME_JUMP_IN;
-	}
-
 }
 
 void Player::SetGoalRotate(double rotRad)
@@ -2797,7 +2750,7 @@ void Player::UpdateCharge(void)
 			{
 				enemyDir = VNorm(enemyDir);
 
-				const float attackDistance = 90.0f; // 他箇所と合わせる値
+				const float attackDistance = 90.0f;
 				transform_.pos =
 					VSub(
 						attackTargetPos_,

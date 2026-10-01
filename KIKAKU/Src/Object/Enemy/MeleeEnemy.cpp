@@ -51,7 +51,7 @@ MeleeEnemy::~MeleeEnemy(void)
 
 void MeleeEnemy::Init(void)
 {
-    // ‰¼ƒ‚ƒfƒ‹
+    // ƒ‚ƒfƒ‹
     transform_.SetModel(
         resMng_.LoadModelDuplicate(
             ResourceManager::SRC::ENEMY
@@ -87,11 +87,6 @@ void MeleeEnemy::InitAnimation(void)
     animationController_->Add((int)ANIM_TYPE::IDLE, path + "Idle.mv1", 20.0f);
     animationController_->Add((int)ANIM_TYPE::RUN, path + "Running.mv1", 20.0f);
     animationController_->Add((int)ANIM_TYPE::FAST_RUN, path + "Fast Run.mv1", 20.0f);
-    animationController_->Add((int)ANIM_TYPE::JUMP, path + "Jumping.mv1", 60.0f);
-    animationController_->Add((int)ANIM_TYPE::WARP_PAUSE, path + "WarpPose.mv1", 60.0f);
-    animationController_->Add((int)ANIM_TYPE::FLY, path + "Flying.mv1", 60.0f);
-    animationController_->Add((int)ANIM_TYPE::FALLING, path + "Falling.mv1", 80.0f);
-    animationController_->Add((int)ANIM_TYPE::VICTORY, path + "Victory.mv1", 60.0f);
     animationController_->Add((int)ANIM_TYPE::ATTACK01, path + "Attack01.mv1", 45.0f);
     animationController_->Add((int)ANIM_TYPE::ATTACK02, path + "Attack02.mv1", 45.0f);
     animationController_->Add((int)ANIM_TYPE::ATTACK03, path + "Attack03.mv1", 45.0f);
