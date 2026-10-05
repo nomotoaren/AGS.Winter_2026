@@ -7,161 +7,198 @@ class Player;
 
 class MeleeEnemy : public EnemyBase
 {
+
 public:
-    static constexpr int ATTACK_DAMAGE = 1;
 
-    static constexpr float SURPRISE_TIME = 0.5f;
+	// 攻撃のダメージ
+	static constexpr int ATTACK_DAMAGE = 1;
 
-    // 高速接近
-    static constexpr float BOOST_CHASE_DISTANCE = 400.0f;
-    static constexpr float BOOST_CHASE_SPEED = 18.0f;
-    static constexpr float BOOST_CHASE_TIME = 0.6f;
+	// 驚き表示の時間
+	static constexpr float SURPRISE_TIME = 0.5f;
 
-    enum class ANIM_TYPE
-    {
-        IDLE,
-        RUN,
-        FAST_RUN,
-        ATTACK01,
-        ATTACK02,
-        ATTACK03,
-        ATTACK04,
-        KAMEHAME,
-        DAMAGE,
-        GUARD,
-        GUARD_BREAK
-    };
+	// 高速接近
+	static constexpr float BOOST_CHASE_DISTANCE = 400.0f;
+	static constexpr float BOOST_CHASE_SPEED = 18.0f;
+	static constexpr float BOOST_CHASE_TIME = 0.6f;
 
-    MeleeEnemy(
-        Player& player
-    );
+	// アニメーション種別
+	enum class ANIM_TYPE
+	{
+		IDLE,
+		RUN,
+		FAST_RUN,
+		ATTACK01,
+		ATTACK02,
+		ATTACK03,
+		ATTACK04,
+		KAMEHAME,
+		DAMAGE,
+		GUARD,
+		GUARD_BREAK
+	};
 
-    ~MeleeEnemy(void);
+	MeleeEnemy(Player& player);
+	~MeleeEnemy(void);
 
-    void Init(void) override;
-    void Update(void) override;
-    void Draw(void) override;
+	void Init(void) override;
+	void Update(void) override;
+	void Draw(void) override;
 
-    // 位置設定
-    void SetPosition(VECTOR pos);
+	void InitAnimation(void);
 
-    void LookAtPlayer(void);
+	// 位置設定
+	void SetPosition(VECTOR pos);
 
-    // 叩き落とし開始
-    void StartSlamDown(void);
-    void GuardBurst(void);
+	void LookAtPlayer(void);
 
-    bool IsDown(void) const;
+	// 攻撃
+	bool IsAttackHitTiming(void) const;
 
-    bool IsAttackHitTiming(void) const;
+	bool HasAttackHit(void) const;
+	void SetAttackHit(void);
 
-    bool HasAttackHit(void) const;
-    void SetAttackHit(void);
+	int GetAttackCombo(void) const;
 
-    int GetAttackCombo(void) const;
-    bool IsGuard(void) const;
-    void GuardDamage(float damage);
+	// ガード
+	bool IsGuard(void) const;
+	void GuardDamage(float damage);
+	void GuardBurst(void);
 
-    void InitAnimation(void);
+	// 叩き落とし開始
+	void StartSlamDown(void);
 
-    void SetKamehameHit(
-        bool hit,
-        VECTOR dir = { 0.0f, 0.0f, 0.0f }
-    );
+	// ダウン中か
+	bool IsDown(void) const;
+
+	// かめはめ波を受けているか(dir: 押し出す方向)
+	void SetKamehameHit(bool hit, VECTOR dir = { 0.0f, 0.0f, 0.0f });
+
 private:
 
-    enum class AI_STATE
-    {
-        WAIT,           // 様子を見る
-        MOVE,           // 間合い調整
-        SIDE_MOVE,      // 横移動
-        BOOST_ATTACK,   // 高速接近から攻撃
-        ATTACK          // 近接攻撃
-    };
+	// 行動パターン
+	enum class AI_STATE
+	{
+		WAIT,			// 様子を見る
+		MOVE,			// 間合い調整
+		SIDE_MOVE,		// 横移動
+		BOOST_ATTACK,	// 高速接近から攻撃
+		ATTACK			// 近接攻撃
+	};
 
-    AI_STATE aiState_ = AI_STATE::WAIT;
+	// 攻撃の時間
+	static constexpr float ATTACK_TIME = 0.8f;
+	static constexpr float ATTACK_COOL_TIME = 10.5f;
+	static constexpr float ATTACK_HIT_START = 0.25f;
+	static constexpr float ATTACK_HIT_END = 0.45f;
 
-    float aiTimer_ = 0.0f;
+	// AIが使う入力情報
+	struct AIContext
+	{
+		float deltaTime;
+		float distance;			// プレイヤーとの距離
+		VECTOR playerPos;
+		VECTOR horizontalDir;	// プレイヤーへの水平方向(単位ベクトル)
+	};
 
-    float sideMoveDir_ = 1.0f;
-    // 
+	void DrawSyncRing(void);
 
-    Player& player_;
+	// 更新
+	bool UpdateKamehamePush(void);
+	bool UpdateKnockBack(void);
+	bool UpdateDown(float deltaTime);
+	bool UpdateDamage(float deltaTime);
+	bool UpdateGuardBreak(float deltaTime);
+	bool UpdateGuard(float deltaTime);
+	bool TryStartGuard(float distance);
+	bool UpdateAttack(float deltaTime, const VECTOR& playerPos);
 
-    std::unique_ptr<AnimationController> animationController_;
+	// 攻撃の補助
+	void FollowPlayerWhileAttacking(const VECTOR& playerPos);
+	void AdvanceCombo(void);
+	void LookAtPlayerWithPitchLimit(const VECTOR& playerPos);
 
-    VECTOR targetPos;
+	// 状態の補助
+	void SetAIState(AI_STATE state);
+	void ReturnToWait(void);
+	void ResetAttack(void);
+	void CancelBoostChase(void);
 
-    Quaternion damageRot_;
+	// AI(現在は Update から呼んでいない)
+	void UpdateAI(const AIContext& ctx);
+	void UpdateAIWait(const AIContext& ctx);
+	void UpdateAISideMove(const AIContext& ctx);
+	void UpdateAIMove(const AIContext& ctx);
+	void UpdateAIBoostAttack(const AIContext& ctx);
+	void UpdateAIAttack(const AIContext& ctx);
 
-    VECTOR kamehamePushDir_ =
-    {
-        0.0f,
-        0.0f,
-        0.0f
-    };
+	// AI
+	AI_STATE aiState_ = AI_STATE::WAIT;
+	float aiTimer_ = 0.0f;
 
-    // 移動速度
-    float moveSpeed_;
+	// 横移動の向き(1.0f / -1.0f)
+	float sideMoveDir_ = 1.0f;
 
-    // 高速接近
-    bool isBoostChase_;
-    float boostChaseTimer_;
+	Player& player_;
 
-    // この距離まで近づいたら止まる
-    float stopRange_;
+	std::unique_ptr<AnimationController> animationController_;
 
-    // 攻撃中
-    bool isAttack_;
+	VECTOR targetPos;
 
-    // 何段目の攻撃か
-    int attackCombo_;
+	Quaternion damageRot_;
 
-    // 攻撃開始からの時間
-    float attackTimer_;
+	// かめはめ波で押し出される方向
+	VECTOR kamehamePushDir_ = { 0.0f, 0.0f, 0.0f };
 
-    // 攻撃のクールタイム
-    float attackCoolTimer_;
-    bool isAttackWait_;
-    float attackWaitTimer_;
+	// 移動速度
+	float moveSpeed_;
 
-    static constexpr float ATTACK_TIME = 0.8f;
-    static constexpr float ATTACK_COOL_TIME = 10.5f;
-    static constexpr float ATTACK_HIT_START = 0.25f;
-    static constexpr float ATTACK_HIT_END = 0.45f;
+	// 高速接近
+	bool isBoostChase_;
+	float boostChaseTimer_;
 
-    // プレイヤーに当たったか
-    bool hasAttackHit_;
+	// この距離まで近づいたら止まる
+	float stopRange_;
 
-    bool showSurprise_;
+	// 攻撃中
+	bool isAttack_;
 
-    float surpriseTimer_;
+	// 何段目の攻撃か
+	int attackCombo_;
 
-    int surpriseHandle_;
+	// 攻撃開始からの時間
+	float attackTimer_;
 
-    void DrawSyncRing(void);
+	// 攻撃のクールタイム
+	float attackCoolTimer_;
+	bool isAttackWait_;
+	float attackWaitTimer_;
 
-    // ダメージ中
-    bool isDamage_;
-    float damageTimer_;
+	// プレイヤーに当たったか
+	bool hasAttackHit_;
 
-    bool isKamehameHit_ = false;
-    float kamehamePushSpeed_ = 0.0f;
+	// ダメージ中
+	bool isDamage_;
+	float damageTimer_;
 
-    // ガード
-    bool isGuard_;
-    float guardTimer_;
-    float guardHp_;
+	// かめはめ波を受けている
+	bool isKamehameHit_ = false;
+	float kamehamePushSpeed_ = 0.0f;
 
-    // ガードブレイク
-    bool isGuardBreak_;
-    float guardBreakTimer_;
-    float guardCoolTimer_;
+	// ガード
+	bool isGuard_;
+	float guardTimer_;
+	float guardHp_;
 
-    // 叩き落とし中
-    bool isSlamDown_;
+	// ガードブレイク
+	bool isGuardBreak_;
+	float guardBreakTimer_;
+	float guardCoolTimer_;
 
-    // ダウン中
-    bool isDown_;
-    float downTimer_;
+	// 叩き落とし中
+	bool isSlamDown_;
+
+	// ダウン中
+	bool isDown_;
+	float downTimer_;
+
 };

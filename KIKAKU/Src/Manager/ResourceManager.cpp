@@ -44,8 +44,12 @@ void ResourceManager::Init(void)
 	resourcesMap_.emplace(SRC::SPEECH_BALLOON, std::move(res));
 	
 	// プレイヤー
-	res = std::make_unique<RES>(RES_T::MODEL, PATH_MDL + "Player/新プレイヤー.mv1");
+	res = std::make_unique<RES>(RES_T::MODEL, PATH_MDL + "Player/player.mv1");
 	resourcesMap_.emplace(SRC::PLAYER, std::move(res));
+
+	// 進化したプレイヤー
+	res = std::make_unique<RES>(RES_T::MODEL, PATH_MDL + "Player/EVplayer.mv1");
+	resourcesMap_.emplace(SRC::EVPLAY_, std::move(res));
 
 	// 敵
 	res = std::make_unique<RES>(RES_T::MODEL, PATH_MDL + "Enemy/enemykyara.mv1");

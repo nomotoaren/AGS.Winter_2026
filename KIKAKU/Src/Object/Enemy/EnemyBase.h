@@ -3,82 +3,70 @@
 
 class EnemyBase : public ActorBase
 {
+
 public:
 
-    EnemyBase(void);
-    virtual ~EnemyBase(void);
+	// SYNC攻撃を受け付ける時間
+	static constexpr float SYNC_TIME = 1.5f;
 
-    void Init(void) override = 0;
-    void Update(void) override = 0;
-    void Draw(void) override = 0;
+	EnemyBase(void);
+	virtual ~EnemyBase(void);
 
-    // ダメージ
-    virtual void Damage(int damage);
+	void Init(void) override = 0;
+	void Update(void) override = 0;
+	void Draw(void) override = 0;
 
-    // 死亡判定
-    bool IsDead(void) const;
+	// ダメージ
+	virtual void Damage(int damage);
 
-    // HP
-    int GetHp(void) const;
+	// 死亡判定
+	bool IsDead(void) const;
 
-    // 攻撃を受ける半径
-    float GetHitRadius(void) const;
+	// HP取得
+	int GetHp(void) const;
 
-    // 時間停止中のダメージを蓄積
-    void AddPendingDamage(int damage);
+	// 攻撃を受ける半径
+	float GetHitRadius(void) const;
 
-    // 蓄積ダメージを適用
-    void ApplyPendingDamage();
+	// ノックバック
+	void AddKnockBack(VECTOR dir, float power);
 
-    // 蓄積ダメージ取得
-    int GetPendingDamage(void) const;
+	// SYNC受付開始
+	void StartSyncWindow(void);
 
-    // ノックバック
-    void AddKnockBack(
-        VECTOR dir,
-        float power
-    );
+	// SYNC受付時間更新
+	void UpdateSyncWindow(float deltaTime);
 
+	// SYNC可能か
+	bool IsSyncReady(void) const;
 
-	//-------------------------
-    // SYNC ATTACK
-	//-------------------------
-    // SYNC受付開始
-    void StartSyncWindow(void);
+	// SYNC受付終了
+	void EndSyncWindow(void);
 
-    // SYNC受付時間更新
-    void UpdateSyncWindow(float deltaTime);
-
-    // SYNC可能か
-    bool IsSyncReady(void) const;
-
-    // SYNC受付終了
-    void EndSyncWindow(void);
-
-    float GetSyncRate(void) const;
+	// SYNC受付の進行率
+	float GetSyncRate(void) const;
 
 protected:
 
-    VECTOR knockBackPow_;
+	// ノックバック量
+	VECTOR knockBackPow_;
 
-    int hp_;
+	// HP
+	int hp_;
 
-    bool isDead_;
+	// 死亡しているか
+	bool isDead_;
 
-    float hitRadius_;
+	// 攻撃を受ける半径
+	float hitRadius_;
 
-    // 時間停止中に蓄積したダメージ
-    int pendingDamage_;
+	// 時間停止中に蓄積したダメージ
+	int pendingDamage_;
 
-	//-------------------------
-    // SYNC ATTACK
-	//------------------------- 
-    // SYNC受付中か
-    bool isSyncReady_;
+	// SYNC受付中か
+	bool isSyncReady_;
 
-    // SYNC受付時間
-    float syncTimer_;
+	// SYNC受付の経過時間
+	float syncTimer_;
 
-    // SYNC可能時間
-    static constexpr float SYNC_TIME = 1.5f;
 };

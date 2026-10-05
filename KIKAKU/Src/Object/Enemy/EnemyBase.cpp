@@ -1,163 +1,120 @@
 #include "EnemyBase.h"
 #include "../../Utility/AsoUtility.h"
 
-EnemyBase::EnemyBase(void)
-    :
-    hp_(1),
-    isDead_(false),
-    hitRadius_(50.0f),
-    pendingDamage_(0),
-    isSyncReady_(false),
-    syncTimer_(0.0f)
+namespace
 {
-    knockBackPow_ =
-        AsoUtility::VECTOR_ZERO;
+	// 「ゼロ扱い」にする長さ
+	constexpr float kEpsilon = 0.001f;
+}
+
+EnemyBase::EnemyBase(void)
+	:
+	knockBackPow_(AsoUtility::VECTOR_ZERO),
+	hp_(1),
+	isDead_(false),
+	hitRadius_(50.0f),
+	pendingDamage_(0),
+	isSyncReady_(false),
+	syncTimer_(0.0f)
+{
 }
 
 EnemyBase::~EnemyBase(void)
 {
 }
 
+//------------------------------------------------------------
+// ダメージ・HP
+//------------------------------------------------------------
 void EnemyBase::Damage(int damage)
 {
-    if (isDead_)
-    {
-        return;
-    }
+	if (isDead_)
+	{
+		return;
+	}
 
-    hp_ -= damage;
+	hp_ -= damage;
 
-    if (hp_ <= 0)
-    {
-        hp_ = 0;
-        isDead_ = true;
-    }
+	if (hp_ <= 0)
+	{
+		hp_ = 0;
+		isDead_ = true;
+	}
 }
 
 bool EnemyBase::IsDead(void) const
 {
-    return isDead_;
+	return isDead_;
 }
 
 int EnemyBase::GetHp(void) const
 {
-    return hp_;
+	return hp_;
 }
 
 float EnemyBase::GetHitRadius(void) const
 {
-    return hitRadius_;
+	return hitRadius_;
 }
 
-void EnemyBase::AddPendingDamage(int damage)
+void EnemyBase::AddKnockBack(VECTOR dir, float power)
 {
-    if (isDead_)
-    {
-        return;
-    }
+	if (isDead_ || VSize(dir) <= kEpsilon)
+	{
+		return;
+	}
 
-    pendingDamage_ += damage;
+	knockBackPow_ = VScale(VNorm(dir), power);
 }
 
-void EnemyBase::ApplyPendingDamage(void)
-{
-    if (isDead_)
-    {
-        pendingDamage_ = 0;
-        return;
-    }
-
-    if (pendingDamage_ <= 0)
-    {
-        return;
-    }
-
-    Damage(pendingDamage_);
-
-    pendingDamage_ = 0;
-}
-
-int EnemyBase::GetPendingDamage(void) const
-{
-    return pendingDamage_;
-}
-
-void EnemyBase::AddKnockBack(VECTOR dir,  float power)
-{
-    if (isDead_)
-    {
-        return;
-    }
-
-    if (VSize(dir) <= 0.001f)
-    {
-        return;
-    }
-
-    dir =
-        VNorm(dir);
-
-    knockBackPow_ =
-        VScale(
-            dir,
-            power
-        );
-}
-
+//------------------------------------------------------------
+// SYNC ATTACK
+//------------------------------------------------------------
 void EnemyBase::StartSyncWindow(void)
 {
-    isSyncReady_ = true;
-
-    syncTimer_ = 0.0f;
+	isSyncReady_ = true;
+	syncTimer_ = 0.0f;
 }
 
 void EnemyBase::UpdateSyncWindow(float deltaTime)
 {
-    if (!isSyncReady_)
-    {
-        return;
-    }
+	if (!isSyncReady_)
+	{
+		return;
+	}
 
-    syncTimer_ += deltaTime;
+	syncTimer_ += deltaTime;
 
-    if (syncTimer_ >= SYNC_TIME)
-    {
-        EndSyncWindow();
-    }
+	// 受付時間を過ぎたら終了
+	if (syncTimer_ >= SYNC_TIME)
+	{
+		EndSyncWindow();
+	}
 }
 
 bool EnemyBase::IsSyncReady(void) const
 {
-    return isSyncReady_;
+	return isSyncReady_;
 }
 
 void EnemyBase::EndSyncWindow(void)
 {
-    isSyncReady_ = false;
-
-    syncTimer_ = 0.0f;
+	isSyncReady_ = false;
+	syncTimer_ = 0.0f;
 }
 
+// 受付開始時が 1.0、受付終了時が 0.0 になる残り時間の割合
 float EnemyBase::GetSyncRate(void) const
 {
-    if (!isSyncReady_)
-    {
-        return 0.0f;
-    }
+	if (!isSyncReady_)
+	{
+		return 0.0f;
+	}
 
-    float rate =
-        1.0f -
-        syncTimer_ / SYNC_TIME;
+	float rate = 1.0f - syncTimer_ / SYNC_TIME;
 
-    if (rate < 0.0f)
-    {
-        rate = 0.0f;
-    }
+	if (rate < 0.0f) { rate = 0.0f; }
+	if (rate > 1.0f) { rate = 1.0f; }
 
-    if (rate > 1.0f)
-    {
-        rate = 1.0f;
-    }
-
-    return rate;
+	return rate;
 }

@@ -13,7 +13,6 @@ class Capsule;
 
 class Player : public ActorBase
 {
-
 public:
 
 	// スピード
@@ -183,7 +182,7 @@ public:
 
 private:
 
-	// 定数グループ（インスタンスごとに持たせない、アクセスは Player::Constants::Name）
+	// 定数グループ
 	struct Constants
 	{
 		// 汎用しきい値 / 減衰
@@ -221,7 +220,26 @@ private:
 		static constexpr float AttackFollowRate = 0.25f;
 		static constexpr float AttackDistance = 90.0f;
 		static constexpr float ChaseSpeed = 18.0f;
+		static constexpr float ChaseStopDistance = 80.0f;
 		static constexpr float NextAttackPlayRateThreshold = 0.75f;
+		static constexpr float Combo8FollowEnd = 0.50f;		// 8段目で敵への追従をやめる時間
+
+		// コンボ中の瞬間移動
+		static constexpr float WarpDistance = 90.0f;		// 4,6,7段目
+		static constexpr float WarpBackDistance = 130.0f;	// 8段目の手前距離
+		static constexpr float WarpHeight = 200.0f;			// 8段目の高さ
+
+		// 気弾
+		static constexpr float KiBlastShotTime = 0.20f;
+		static constexpr float KiBlastEndTime = 0.45f;
+
+		// ガード
+		static constexpr float GuardMaxHp = 100.0f;
+		static constexpr float GuardRecoverSpeed = 25.0f;
+		static constexpr float GuardRecoverDelay = 2.0f;
+		static constexpr float GuardBreakTime = 3.0f;
+		static constexpr float GuardBurstKiCost = 20.0f;
+		static constexpr float GuardBurstTime = 0.5f;
 
 		// 汎用比較
 		static constexpr float Epsilon = 0.001f;
@@ -354,13 +372,31 @@ private:
 	void UpdateNone(void);
 	void UpdatePlay(void);
 
+	// 更新
+	void UpdateKnockBack(void);
+	bool UpdateDamage(void);
+	void UpdateAfterImages(void);
+
 	// 描画系
 	void DrawShadow(void);
 	void DrawKiBlast(void);
+	void DrawAfterImage(const MATRIX& matrix, float opacity, bool disableLighting);
+	void DrawKamehameChargeModel(const VECTOR& pos, float scale, float rotSpeed);
+	void UpdateKamehameLight(const VECTOR& chargePos);
+	void SetKamehameLight(bool enable);
 
 	// 操作
 	void ProcessMove(void);
 	void ProcessJump(void);
+	void PlayMoveAnimation(bool isRun);
+
+	// ベクトル・向きの補助
+	static VECTOR ToHorizontal(VECTOR v);		// Y成分を捨てる
+	static VECTOR NormalizeSafe(VECTOR v);		// 長さがあるときだけ正規化
+	void FaceDirection(VECTOR dir);				// 正規化済みの方向を向く
+	bool FaceHorizontal(VECTOR dir);			// 水平方向だけ見て向く
+	void SetLockOnPitch(VECTOR dir);			// ロックオン時の上下の傾き
+	bool GetMoveBasis(VECTOR& forward, VECTOR& right);
 
 	// 回転
 	void SetGoalRotate(double rotRad);
@@ -379,12 +415,23 @@ private:
 
 	// 攻撃関連
 	void UpdateAttack(void);
+	void StartAttack(void);
+	void ResetAttackState(void);
+	void FinishAttack(void);
+	void FollowAttackTarget(void);
+	void AdvanceCombo(void);
+	void LeaveAfterImage(void);
 	void UpdateKiBlast(void);
+	void ShotKiBlast(void);
 	void UpdateKamehame(void);
 
 	// 高速追撃
 	void UpdateCharge(void);
+
+	// 気溜め
 	void UpdateChase(void);
+	void StopCharge(void);
+	void BeginChargeEnding(void);
 
 	void UpdateDodge(void);
 	void UpdateGuard(void);
