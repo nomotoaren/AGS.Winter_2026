@@ -18,6 +18,12 @@ AnimationController::AnimationController(int modelId)
 
 AnimationController::~AnimationController(void)
 {
+	// モデルに付いているアニメーションを先に外す
+	if (playType_ != -1)
+	{
+		MV1DetachAnim(modelId_, playAnim_.attachNo);
+	}
+
 	for (const auto& anim : animations_)
 	{
 		MV1DeleteModel(anim.second.model);

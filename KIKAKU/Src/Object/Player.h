@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include <memory>
 #include <vector>
 #include <map>
@@ -6,6 +7,7 @@
 #include <DxLib.h>
 #include "ActorBase.h"
 #include "KiBlast.h"
+#include "../Manager/ResourceManager.h"	// FormData が ResourceManager::SRC を使うため
 
 class AnimationController;
 class Collider;
@@ -57,6 +59,24 @@ public:
 		DEAD,
 		VICTORY,
 		END
+	};
+
+	// 形態(Player.cpp の kFormData から参照するので public)
+	enum class FORM
+	{
+		BASE,
+		SUPER,
+		MAX
+	};
+
+	// 形態ごとのデータ
+	struct FormData
+	{
+		ResourceManager::SRC model;	// モデル
+		const char* animDir;		// アニメーションのフォルダ
+		float scale;				// モデルのスケール
+		float speedRate;			// 移動速度の倍率
+		float attackRate;			// 攻撃力の倍率
 	};
 
 	// アニメーション種別
@@ -139,11 +159,13 @@ public:
 
 	bool IsRecording(void) const;
 
+	// かめはめ波
 	void DrawKamehame(void);
 
 	bool IsKamehameBeam(void) const;
 	VECTOR GetKamehameStartPos(void) const;
 	VECTOR GetKamehameEndPos(void) const;
+	VECTOR GetKamehameDir(void) const { return kamehameDir_; }	// 敵側の判定用
 	float GetKamehameRadius(void) const;
 
 	bool IsKamehame(void) const;
@@ -180,6 +202,10 @@ public:
 	bool IsGuardBurst(void) const;
 	bool IsGuardBurstTrigger(void) const;
 
+	// 変身
+	bool IsTransforming(void) const;
+	float GetAttackRate(void) const;	// ダメージ計算側で damage * GetAttackRate() とする
+
 private:
 
 	// 定数グループ
@@ -215,6 +241,7 @@ private:
 		static constexpr float BoostMaxSpeed = 45.0f;
 		static constexpr float BoostInitialDelay = 0.10f;
 		static constexpr float BoostAccelWindow = 0.20f;
+		static constexpr float BoostMaxDuration = 2.0f;
 
 		// 追尾・攻撃
 		static constexpr float AttackFollowRate = 0.25f;
@@ -232,6 +259,9 @@ private:
 		// 気弾
 		static constexpr float KiBlastShotTime = 0.20f;
 		static constexpr float KiBlastEndTime = 0.45f;
+
+		// かめはめ波の狙い位置
+		static constexpr float EnemyCenterHeight = 100.0f;	// 敵の足元から中心までの高さ
 
 		// ガード
 		static constexpr float GuardMaxHp = 100.0f;
@@ -320,7 +350,7 @@ private:
 
 	bool isAttack04Move_;
 	float attack04MoveTimer_;
-	// 高速移動の残像
+	// 攻撃時の残像
 	int afterImageModel_;
 	bool isAfterImage_;
 	float afterImageTimer_;
@@ -361,7 +391,9 @@ private:
 	// 死亡
 	bool isDead_;
 
-	void InitAnimation(void);
+	// 初期化
+	void InitAnimation(const std::string& animDir);
+	void InitFrames(void);
 
 	// 状態遷移
 	void ChangeState(STATE state);
@@ -427,6 +459,7 @@ private:
 
 	// 高速追撃
 	void UpdateCharge(void);
+	void EndBoostChase(void);
 
 	// 気溜め
 	void UpdateChase(void);
@@ -435,6 +468,10 @@ private:
 
 	void UpdateDodge(void);
 	void UpdateGuard(void);
+
+	// 変身
+	void UpdateTransform(void);
+	void ApplyForm(FORM form);
 
 	float attackEndTimer_;
 
@@ -477,4 +514,11 @@ private:
 
 	// 空中
 	bool isFlying_;
+
+	// 変身
+	FORM form_;
+	FORM nextForm_;
+	bool isTransforming_;
+	bool isTransformSwapped_;
+	float transformTimer_;
 };

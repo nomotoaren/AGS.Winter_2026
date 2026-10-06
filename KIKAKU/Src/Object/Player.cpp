@@ -14,9 +14,20 @@
 #include "Player.h"
 #include "../Manager/EffekseerEffect.h"
 
-// 定数・ヘルパー(このcppの中だけで使う)
 namespace
 {
+	// 変身まわり
+	constexpr float TRANSFORM_SWAP_TIME = 1.2f;	// モデル差し替えのタイミング
+	constexpr float TRANSFORM_END_TIME = 2.0f;	// 変身演出の終了
+	constexpr float TRANSFORM_KI_COST = 30.0f;	// 変身に必要な気
+
+	// 形態ごとのデータ
+	const Player::FormData kFormData[(int)Player::FORM::MAX] =
+	{
+		{ ResourceManager::SRC::PLAYER,   "Player/Animation/", 1.5f, 1.5f, 1.5f },
+		{ ResourceManager::SRC::EVPLAY_,  "Player/AnimationEV/", 0.8f, 0.8f, 0.8f },
+	};
+
 	constexpr int kMaxCombo = 8;
 
 	// コンボごとの攻撃判定時間(index 0 = 1段目)
@@ -144,7 +155,14 @@ Player::Player(void)
 	capsule_(nullptr),
 
 	kamehameChargeModel_(-1),
-	kamehameBeamModel_(-1)
+	kamehameBeamModel_(-1),
+
+	// 変身
+	form_(FORM::BASE),
+	isTransforming_(false),
+	isTransformSwapped_(false),
+	transformTimer_(0.0f),
+	nextForm_(FORM::BASE)
 {
 	// 状態管理
 	stateChanges_.emplace(STATE::NONE, std::bind(&Player::ChangeStateNone, this));
@@ -176,11 +194,10 @@ void Player::Init(void)
 	transform_.Update();
 
 	// アニメーションの設定
-	InitAnimation();
+	InitAnimation(kFormData[(int)FORM::BASE].animDir);
 
 	// 手のフレーム(かめはめ波・気弾の発射位置用)
-	leftHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:LeftHand");
-	rightHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:RightHand");
+	InitFrames();
 
 	// かめはめ波用ライト
 	kamehameLightHandle_ =
@@ -200,10 +217,9 @@ void Player::Init(void)
 	ChangeState(STATE::PLAY);
 }
 
-void Player::InitAnimation(void)
+void Player::InitAnimation(const std::string& animDir)
 {
-	std::string path = Application::PATH_MODEL + "Player/Animation/";
-	std::string EVpath = Application::PATH_MODEL + "Player/AnimationEV";
+	std::string path = Application::PATH_MODEL + animDir;
 	animationController_ = std::make_unique<AnimationController>(transform_.modelId);
 
 	animationController_->Add((int)ANIM_TYPE::IDLE, path + "Idle.mv1", 20.0f);
@@ -241,6 +257,130 @@ void Player::InitAnimation(void)
 	animationController_->Add((int)ANIM_TYPE::GUARD_BREAK, path + "GuardBreak.mv1", 20.0f);
 
 	animationController_->Play((int)ANIM_TYPE::IDLE);
+}
+
+// 手のフレームを探す
+void Player::InitFrames(void)
+{
+	leftHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:LeftHand");
+	rightHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:RightHand");
+}
+
+// 形態を適用する
+void Player::ApplyForm(FORM form)
+{
+	const FormData& data = kFormData[(int)form];
+
+	// アニメーションのリセット
+	animationController_.reset();
+
+	const int oldModel = transform_.modelId;
+
+	// 新しいモデルに差し替え
+	const int newModel = resMng_.LoadModelDuplicate(data.model);
+	transform_.SetModel(newModel);
+	transform_.scl = { data.scale, data.scale, data.scale };
+	transform_.quaRotLocal =
+		Quaternion::Euler({ 0.0f, AsoUtility::Deg2RadF(180.0f), 0.0f });
+	transform_.Update();
+
+	// アニメーション・手のフレームを作り直す
+	InitAnimation(data.animDir);
+	InitFrames();
+
+	// 残像用モデルを作り直す
+	if (afterImageModel_ != -1)
+	{
+		MV1DeleteModel(afterImageModel_);
+	}
+	afterImageModel_ = MV1DuplicateModel(newModel);
+
+	// 古いモデルの行列で作った残像は使えないので消す
+	boostAfterImages_.clear();
+	isAfterImage_ = false;
+
+	form_ = form;
+}
+
+void Player::UpdateTransform(void)
+{
+	auto& ins = InputManager::GetInstance();
+
+	// 開始
+	if (!isTransforming_ &&
+		!isAttack_ &&
+		!isKamehame_ &&
+		!isKiBlast_ &&
+		!isCharging_ &&
+		!isChargeEnding_ &&
+		!isBoostChase_ &&
+		ins.IsTrgDown(KEY_INPUT_G))
+	{
+		const FORM next = (form_ == FORM::BASE) ? FORM::SUPER : FORM::BASE;
+
+		// 変身は ki 消費、元に戻るときは消費なし
+		if (next == FORM::BASE || UseKi(TRANSFORM_KI_COST))
+		{
+			isTransforming_ = true;
+			isTransformSwapped_ = false;
+			transformTimer_ = 0.0f;
+			nextForm_ = next;
+
+			movePow_ = AsoUtility::VECTOR_ZERO;
+
+			// 溜めモーションを流用
+			animationController_->Play((int)ANIM_TYPE::CHARGE, true, 0.0f, 45.0f);
+			animationController_->SetEndLoop(40.0f, 45.0f, 5.0f);
+
+			EffekseerEffect::GetInstance()->PlayChargeEffect(transform_.pos);
+		}
+	}
+
+	if (!isTransforming_)
+	{
+		return;
+	}
+
+	movePow_ = AsoUtility::VECTOR_ZERO;
+	transformTimer_ += scnMng_.GetDeltaTime();
+
+	EffekseerEffect::GetInstance()->UpdateChargeEffect(transform_.pos);
+
+	// 演出の途中でモデルを差し替える
+	if (!isTransformSwapped_ && transformTimer_ >= TRANSFORM_SWAP_TIME)
+	{
+		isTransformSwapped_ = true;
+
+		ApplyForm(nextForm_);
+
+		// 差し替えたあともう一度溜めモーションを再生
+		animationController_->Play((int)ANIM_TYPE::CHARGE, true, 0.0f, 45.0f);
+		animationController_->SetEndLoop(40.0f, 45.0f, 5.0f);
+
+		mainCamera.StartShake(0.3f, 6.0f);
+	}
+
+	// 終了
+	if (transformTimer_ >= TRANSFORM_END_TIME)
+	{
+		isTransforming_ = false;
+		transformTimer_ = 0.0f;
+
+		animationController_->ClearEndLoop();
+		EffekseerEffect::GetInstance()->StopChargeEffect();
+
+		animationController_->Play((int)ANIM_TYPE::IDLE);
+	}
+}
+
+bool Player::IsTransforming(void) const
+{
+	return isTransforming_;
+}
+
+float Player::GetAttackRate(void) const
+{
+	return kFormData[(int)form_].attackRate;
 }
 
 void Player::Update(void)
@@ -376,6 +516,16 @@ void Player::UpdatePlay(void)
 		return;
 	}
 
+	// 変身
+	UpdateTransform();
+
+	// 変身中は他の処理をしない
+	if (isTransforming_)
+	{
+		Collision();
+		return;
+	}
+
 	// 気溜め
 	UpdateChase();
 
@@ -398,8 +548,6 @@ void Player::UpdatePlay(void)
 
 	// 追撃移動
 	UpdateCharge();
-
-	// ProcessJump();
 
 	Rotate();
 
@@ -659,7 +807,8 @@ void Player::ProcessMove(void)
 	{
 		const bool isRun = ins.IsNew(KEY_INPUT_RSHIFT);
 
-		speed_ = isRun ? SPEED_RUN : SPEED_MOVE;
+		// 形態ごとの速度倍率をかける
+		speed_ = (isRun ? SPEED_RUN : SPEED_MOVE) * kFormData[(int)form_].speedRate;
 		moveDir_ = dir;
 		movePow_ = VScale(dir, speed_);
 
@@ -1180,15 +1329,28 @@ void Player::UpdateKamehame(void)
 
 	kamehameTimer_ += scnMng_.GetDeltaTime();
 
-	// ビーム発射
+	// チャージ中は敵を追従して照準を合わせる
+	if (!isKamehameBeam_ && isLockOn_ && hasAttackTarget_)
+	{
+		// 足元ではなく敵の中心(胸あたり)を狙う
+		VECTOR aimPos = attackTargetPos_;
+		aimPos.y += Constants::EnemyCenterHeight;
+
+		VECTOR aim = VSub(aimPos, GetKamehameStartPos());
+
+		if (VSize(aim) > Constants::Epsilon)
+		{
+			kamehameDir_ = VNorm(aim);
+
+			// 体も敵の方へ向ける(水平のみ)
+			FaceHorizontal(aim);
+		}
+	}
+
+	// ビーム発射(この時点の kamehameDir_ で固定される)
 	if (!isKamehameBeam_ && kamehameTimer_ >= KAMEHAME_SHOT_TIME)
 	{
-		if (isLockOn_ && hasAttackTarget_)
-		{
-			kamehameDir_ = ToHorizontal(VSub(attackTargetPos_, GetKamehameStartPos()));
-			kamehameDir_ = NormalizeSafe(kamehameDir_);
-		}
-		else
+		if (VSize(kamehameDir_) <= Constants::Epsilon)
 		{
 			kamehameDir_ = GetForward();
 		}
@@ -1261,14 +1423,14 @@ void Player::DrawKamehame(void)
 		DrawKamehameChargeModel(chargePos, 0.1f * (1.0f - t), 5.0f);
 	}
 
-	// ビーム本体
-	VECTOR forward = GetForward();
+	// ビーム本体(発射時に固定した kamehameDir_ を使う)
+	VECTOR forward = kamehameDir_;
 
 	MV1SetPosition(kamehameBeamModel_, VAdd(chargePos, VScale(forward, 20.0f)));
 
 	float rotY = atan2f(forward.x, forward.z);
 	float horizontal = sqrtf(forward.x * forward.x + forward.z * forward.z);
-	float rotX = atan2f(forward.y, horizontal);
+	float rotX = -atan2f(forward.y, horizontal);	// 上下が逆なら符号を反転
 
 	MV1SetRotationXYZ(kamehameBeamModel_, { rotX, rotY, 0.0f });
 	MV1SetScale(kamehameBeamModel_, { 0.5f, 0.5f, 1.0f });	// ビームサイズ
@@ -1346,7 +1508,13 @@ VECTOR Player::GetKamehameStartPos(void) const
 
 VECTOR Player::GetKamehameEndPos(void) const
 {
-	VECTOR dir = NormalizeSafe(GetForward());
+	VECTOR dir = NormalizeSafe(kamehameDir_);
+
+	// 発射前などで未設定なら正面を使う
+	if (VSize(dir) <= Constants::Epsilon)
+	{
+		dir = NormalizeSafe(GetForward());
+	}
 
 	return VAdd(GetKamehameStartPos(), VScale(dir, KAMEHAME_BEAM_LENGTH));
 }
@@ -1617,21 +1785,11 @@ void Player::UpdateBoostChase(void)
 		ins.IsTrgDown(KEY_INPUT_SPACE))
 	{
 		isBoostChase_ = true;
-
 		boostChaseTimer_ = 0.0f;
 		boostAfterImageTimer_ = 0.0f;
-
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
 		animationController_->Play((int)ANIM_TYPE::BOOST_CHASE);
-	}
-
-	// 攻撃したら終了
-	if (isBoostChase_ && isAttack_)
-	{
-		isBoostChase_ = false;
-		boostChaseTimer_ = 0.0f;
-		return;
 	}
 
 	if (!isBoostChase_)
@@ -1639,23 +1797,34 @@ void Player::UpdateBoostChase(void)
 		return;
 	}
 
+	// 攻撃した / ターゲットを失った / ロックオン解除 → 終了
+	if (isAttack_ || !hasAttackTarget_ || !isLockOn_)
+	{
+		EndBoostChase();
+		return;
+	}
+
 	boostChaseTimer_ += scnMng_.GetDeltaTime();
 
-	// 敵への方向
+	// 保険のタイムアウト
+	if (boostChaseTimer_ > Constants::BoostMaxDuration)
+	{
+		EndBoostChase();
+		return;
+	}
+
 	VECTOR dir = VSub(attackTargetPos_, transform_.pos);
 	float distance = VSize(dir);
 
 	if (distance <= Constants::Epsilon)
 	{
-		isBoostChase_ = false;
-		boostChaseTimer_ = 0.0f;
+		EndBoostChase();
 		return;
 	}
 
 	dir = VNorm(dir);
-
-	// 敵の方を向く
 	FaceDirection(dir);
+	SetLockOnPitch(dir);
 
 	// 最初は一瞬その場で構える
 	if (boostChaseTimer_ < Constants::BoostInitialDelay)
@@ -1664,15 +1833,10 @@ void Player::UpdateBoostChase(void)
 		return;
 	}
 
-	// 敵の手前で停止
-	if (distance <= Constants::BoostStopDistance)
+	// 敵の手前で停止(少し余裕を持たせる)
+	if (distance <= Constants::BoostStopDistance + 1.0f)
 	{
-		isBoostChase_ = false;
-		boostChaseTimer_ = 0.0f;
-
-		movePow_ = AsoUtility::VECTOR_ZERO;
-
-		animationController_->Play((int)ANIM_TYPE::IDLE);
+		EndBoostChase();
 		return;
 	}
 
@@ -1690,7 +1854,6 @@ void Player::UpdateBoostChase(void)
 
 	// 敵を通り抜けないようにする
 	float moveDistance = distance - Constants::BoostStopDistance;
-
 	if (moveDistance > boostSpeed)
 	{
 		moveDistance = boostSpeed;
@@ -1706,11 +1869,20 @@ void Player::UpdateBoostChase(void)
 		BoostAfterImage image;
 		image.matrix = MV1GetMatrix(transform_.modelId);
 		image.timer = Constants::BoostAfterImageDuration;
-
 		boostAfterImages_.push_back(image);
 
 		boostAfterImageTimer_ = Constants::BoostAfterImageInterval;
 	}
+}
+
+// 高速接近を終了する
+void Player::EndBoostChase(void)
+{
+	isBoostChase_ = false;
+	boostChaseTimer_ = 0.0f;
+	movePow_ = AsoUtility::VECTOR_ZERO;
+
+	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
 // 回避(LSHIFT)
@@ -1923,7 +2095,8 @@ bool Player::IsGuardBurstTrigger(void) const { return guardBurstTrigger_; }
 // ダメージ
 void Player::Damage(int damage)
 {
-	if (isDead_)
+	// 死亡中・変身中は無敵
+	if (isDead_ || isTransforming_)
 	{
 		return;
 	}
