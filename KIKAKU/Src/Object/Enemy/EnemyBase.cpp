@@ -67,6 +67,46 @@ void EnemyBase::AddKnockBack(VECTOR dir, float power)
 	knockBackPow_ = VScale(VNorm(dir), power);
 }
 
+void EnemyBase::PushOut(const VECTOR& offset)
+{
+	if (isDead_)
+	{
+		return;
+	}
+
+	transform_.pos = VAdd(transform_.pos, offset);
+}
+
+//------------------------------------------------------------
+// HPバー(HUD)
+//------------------------------------------------------------
+
+// 各敵の Init の最後で1回呼ぶ。maxHp はその時点の hp_ を渡すとよい
+void EnemyBase::InitHud(const std::string& name, int maxHp)
+{
+	hud_.Init();
+	hud_.SetName(name);
+	hud_.SetIconText(name.substr(0, 1));
+	hud_.SetMaxHp(maxHp);
+}
+
+// 各敵の Update で、isDead_ チェックの直後に呼ぶ
+void EnemyBase::UpdateHud(void)
+{
+	hud_.Update(hp_);
+}
+
+// 各敵の Draw の最後で呼ぶ(2D描画なので3D描画のあと)
+void EnemyBase::DrawHud(void)
+{
+	if (isDead_)
+	{
+		return;
+	}
+
+	hud_.Draw();
+}
+
 //------------------------------------------------------------
 // SYNC ATTACK
 //------------------------------------------------------------

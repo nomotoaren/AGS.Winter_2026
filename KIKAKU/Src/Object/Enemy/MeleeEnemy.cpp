@@ -157,6 +157,8 @@ void MeleeEnemy::Init(void)
 		Quaternion::Euler(0.0f, AsoUtility::Deg2RadF(180.0f), 0.0f);
 
 	transform_.Update();
+
+	InitHud("ENEMY", hp_);
 }
 
 void MeleeEnemy::InitAnimation(void)
@@ -185,6 +187,8 @@ void MeleeEnemy::Update(void)
 	{
 		return;
 	}
+
+	UpdateHud();
 
 	const float deltaTime = SceneManager::GetInstance().GetDeltaTime();
 
@@ -796,11 +800,14 @@ void MeleeEnemy::Draw(void)
 	SetUseLighting(TRUE);
 
 	// デバッグ表示
-	const int white = GetColor(255, 255, 255);
+	//const int white = GetColor(255, 255, 255);
 
-	DrawFormatString(20, 180, white, "Enemy HP : %d", hp_);
-	DrawFormatString(20, 200, white, "Attack:%d Combo:%d Timer:%.2f Cool:%.2f",
-		isAttack_, attackCombo_, attackTimer_, attackCoolTimer_);
+	//DrawFormatString(20, 180, white, "Enemy HP : %d", hp_);
+	//DrawFormatString(20, 200, white, "Attack:%d Combo:%d Timer:%.2f Cool:%.2f",
+	//	isAttack_, attackCombo_, attackTimer_, attackCoolTimer_);
+
+	// HPバー(2D)
+	DrawHud();
 }
 
 // 足元に、残り時間で縮む同期リングを描く

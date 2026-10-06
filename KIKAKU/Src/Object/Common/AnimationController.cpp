@@ -1,6 +1,58 @@
+#include <map>
 #include <DxLib.h>
 #include "../../Manager/SceneManager.h"
 #include "AnimationController.h"
+
+namespace
+{
+	// アニメーションファイルに複数のアニメが入っているとき、
+	// 一番長いもの(=本体のモーション)の番号を返す。
+	// ダミーの "Armature|..." などが混ざっていても拾わないようにする
+	int FindMainAnimIndex(int animModel)
+	{
+		const int num = MV1GetAnimNum(animModel);
+
+		int best = 0;
+		float bestTime = -1.0f;
+
+		for (int i = 0; i < num; i++)
+		{
+			const float t = MV1GetAnimTotalTime(animModel, i);
+			if (t > bestTime)
+			{
+				bestTime = t;
+				best = i;
+			}
+		}
+
+		return best;
+	}
+
+	// アニメーションファイルを1回だけ読み込んでおき、以降は複製して使う
+	// (ファイルを毎回読むと、変身などでモデルを作り直すときにカクつくため)
+	int LoadAnimModelCached(const std::string& path)
+	{
+		static std::map<std::string, int> cache;
+
+		auto it = cache.find(path);
+
+		if (it == cache.end())
+		{
+			it = cache.emplace(path, MV1LoadModel(path.c_str())).first;
+		}
+
+		int dup = (it->second != -1) ? MV1DuplicateModel(it->second) : -1;
+
+		// 元のデータが無効になっていたら(シーン切り替えなど)、読み直す
+		if (dup == -1)
+		{
+			it->second = MV1LoadModel(path.c_str());
+			dup = (it->second != -1) ? MV1DuplicateModel(it->second) : -1;
+		}
+
+		return dup;
+	}
+}
 
 AnimationController::AnimationController(int modelId)
 {
@@ -18,8 +70,8 @@ AnimationController::AnimationController(int modelId)
 
 AnimationController::~AnimationController(void)
 {
-	// モデルに付いているアニメーションを先に外す
-	if (playType_ != -1)
+	// 再生中のアニメを先にモデルから外す(付いたままアニメ元を消すと例外になる)
+	if (playType_ != -1 && playAnim_.attachNo >= 0)
 	{
 		MV1DetachAnim(modelId_, playAnim_.attachNo);
 	}
@@ -35,7 +87,7 @@ void AnimationController::Add(int type, const std::string& path, float speed)
 
 	Animation anim;
 
-	anim.model = MV1LoadModel(path.c_str());
+	anim.model = LoadAnimModelCached(path);
 	anim.animIndex = type;
 	anim.speed = speed;
 
@@ -55,9 +107,15 @@ void AnimationController::Add(int type, const std::string& path, float speed)
 
 }
 
-void AnimationController::Play(int type, bool isLoop, 
+void AnimationController::Play(int type, bool isLoop,
 	float startStep, float endStep, bool isStop, bool isForce)
 {
+
+	// 登録されていない種類は再生しない(空のデータで再生するとTポーズになる)
+	if (animations_.count(type) == 0)
+	{
+		return;
+	}
 
 	if (playType_ != type || isForce) {
 
@@ -75,12 +133,7 @@ void AnimationController::Play(int type, bool isLoop,
 		playAnim_.step = startStep;
 
 		// モデルにアニメーションを付ける
-		int animIdx = 0;
-		if (MV1GetAnimNum(playAnim_.model) > 1)
-		{
-			// アニメーションが複数保存されていたら、番号1を指定
-			animIdx = 1;
-		}
+		const int animIdx = FindMainAnimIndex(playAnim_.model);
 		playAnim_.attachNo = MV1AttachAnim(modelId_, animIdx, playAnim_.model);
 
 		// アニメーション総時間の取得
@@ -165,7 +218,7 @@ void AnimationController::Update(void)
 						playAnim_.totalTime = stepEndLoopStart_;
 					}
 					playAnim_.speed = endLoopSpeed_;
-					
+
 				}
 				else
 				{
@@ -210,12 +263,7 @@ int AnimationController::CopyPose(int modelId)
 	Animation anim =
 		animations_[playType_];
 
-	int animIdx = 0;
-
-	if (MV1GetAnimNum(anim.model) > 1)
-	{
-		animIdx = 1;
-	}
+	const int animIdx = FindMainAnimIndex(anim.model);
 
 	int attachNo =
 		MV1AttachAnim(

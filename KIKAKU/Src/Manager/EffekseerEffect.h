@@ -70,11 +70,23 @@ public:
         float rotY
     );
 
-    void PlayChargeEffect(const VECTOR& pos);
+    // 気溜め(useTransformColor = true のときは、変身のエフェクトと同じ色にする)
+    void PlayChargeEffect(const VECTOR& pos, bool useTransformColor = false);
 
     void UpdateChargeEffect(const VECTOR& pos);
 
     void StopChargeEffect(void);
+
+    // 変身の瞬間の爆発エフェクト
+    void PlayTransformEffect(const VECTOR& pos);
+
+    // かめはめ波(溜め → 発射 が1つのエフェクトになっている)
+    //   speed: 再生速度(発射の瞬間を、ゲーム側の発射タイミングに合わせる)
+    void PlayKamehameEffect(const VECTOR& pos, const VECTOR& dir, float scale, float speed);
+    void UpdateKamehameEffect(const VECTOR& pos, const VECTOR& dir);	// 溜め中に手元へ追従させる
+    void SetKamehameEffectScale(float x, float y, float z);			// 発射時にビームを長くする
+    void SetKamehameEffectSpeed(float speed);
+    void StopKamehameEffect(void);
 
 private:
     int shalshutEffectId_;
@@ -120,4 +132,12 @@ private:
 
     int chargeEffectId_;
     int playChargeEffectHandle_;
+
+    // 変身の爆発エフェクト
+    int transformEffectId_;
+    int playTransformEffectHandle_;
+
+    // かめはめ波
+    int kamehameEffectId_ = -1;
+    int playKamehameEffectHandle_ = -1;
 };

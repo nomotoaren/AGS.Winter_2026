@@ -19,6 +19,15 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Src\Object\Player\PlayerAttack.cpp" />
+    <ClCompile Include="Src\Object\Player\PlayerGuard.cpp" />
+    <ClCompile Include="Src\Object\Player\PlayerBoostChase.cpp" />
+    <ClCompile Include="Src\Object\Player\PlayerTransform.cpp" />
+    <ClCompile Include="Src\Object\Player\PlayerKamehameha.cpp" />
+    <ClCompile Include="Src\Object\Player\PlayerConfig.cpp" />
+    <ClCompile Include="Src\Manager\Padinput.cpp" />
+    <ClCompile Include="Src\Object\Enemy\Enemyhud.cpp" />
+    <ClCompile Include="Src\Object\Player\PlayerHud.cpp" />
     <ClCompile Include="Src\Object\KiBlast.cpp" />
     <ClCompile Include="Src\Manager\EffekseerEffect.cpp" />
     <ClCompile Include="Src\Object\Enemy\MeleeEnemy.cpp" />
@@ -43,7 +52,7 @@
     <ClCompile Include="Src\Object\Common\SpeechBalloon.cpp" />
     <ClCompile Include="Src\Object\Common\Transform.cpp" />
     <ClCompile Include="Src\Object\Planet.cpp" />
-    <ClCompile Include="Src\Object\Player.cpp" />
+    <ClCompile Include="Src\Object\Player\Player.cpp" />
     <ClCompile Include="Src\Object\SkyDome.cpp" />
     <ClCompile Include="Src\Object\Stage.cpp" />
     <ClCompile Include="Src\Scene\GameScene.cpp" />
@@ -55,6 +64,15 @@
     <ClCompile Include="Src\Controller\TimeStopController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Src\Object\Player\PlayerAttack.h" />
+    <ClInclude Include="Src\Object\Player\PlayerGuard.h" />
+    <ClInclude Include="Src\Object\Player\PlayerBoostChase.h" />
+    <ClInclude Include="Src\Object\Player\PlayerTransform.h" />
+    <ClInclude Include="Src\Object\Player\PlayerKamehameha.h" />
+    <ClInclude Include="Src\Object\Player\PlayerConfig.h" />
+    <ClInclude Include="Src\Manager\Padinput.h" />
+    <ClInclude Include="Src\Object\Enemy\Enemyhud.h" />
+    <ClInclude Include="Src\Object\Player\PlayerHud.h" />
     <ClInclude Include="Src\Object\KiBlast.h" />
     <ClInclude Include="Src\Manager\EffekseerEffect.h" />
     <ClInclude Include="Src\Object\Enemy\MeleeEnemy.h" />
@@ -79,7 +97,7 @@
     <ClInclude Include="Src\Object\Common\SpeechBalloon.h" />
     <ClInclude Include="Src\Object\Common\Transform.h" />
     <ClInclude Include="Src\Object\Planet.h" />
-    <ClInclude Include="Src\Object\Player.h" />
+    <ClInclude Include="Src\Object\Player\Player.h" />
     <ClInclude Include="Src\Object\SkyDome.h" />
     <ClInclude Include="Src\Object\Stage.h" />
     <ClInclude Include="Src\Scene\GameScene.h" />

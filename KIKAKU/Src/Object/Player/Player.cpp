@@ -1,47 +1,37 @@
 #include <string>
 #include <cmath>
+#include <cfloat>
 #include <algorithm>
-#include "../Application.h"
-#include "../Utility/AsoUtility.h"
-#include "../Manager/InputManager.h"
-#include "../Manager/SceneManager.h"
-#include "../Manager/ResourceManager.h"
-#include "../Manager/Camera.h"
-#include "Common/AnimationController.h"
-#include "Common/Capsule.h"
-#include "Common/Collider.h"
-#include "Planet.h"
+#include <filesystem>
+#include "../../Application.h"
+#include "../../Utility/AsoUtility.h"
+#include "../../Manager/InputManager.h"
+#include "../../Manager/PadInput.h"
+#include "../../Manager/SceneManager.h"
+#include "../../Manager/ResourceManager.h"
+#include "../../Manager/Camera.h"
+#include "../Common/AnimationController.h"
+#include "../Common/Capsule.h"
+#include "../Common/Collider.h"
+#include "../Planet.h"
 #include "Player.h"
-#include "../Manager/EffekseerEffect.h"
+#include "PlayerConfig.h"
+#include "../../Manager/EffekseerEffect.h"
 
+namespace cfg = PlayerConfig;
+
+// 定数・ヘルパー(このcppの中だけで使う)
+// 調整用の数字は PlayerConfig.h にまとめてある
 namespace
 {
-	// 変身まわり
-	constexpr float TRANSFORM_SWAP_TIME = 1.2f;	// モデル差し替えのタイミング
-	constexpr float TRANSFORM_END_TIME = 2.0f;	// 変身演出の終了
-	constexpr float TRANSFORM_KI_COST = 30.0f;	// 変身に必要な気
+	// かめはめ波のエフェクト速度用: 前回の時刻(マイクロ秒)
 
-	// 形態ごとのデータ
+	// 形態ごとのデータ(model, animDir, scale, speedRate, attackRate)
+	// ※ Player::FORM / Player::FormData は public にしておくこと
 	const Player::FormData kFormData[(int)Player::FORM::MAX] =
 	{
-		{ ResourceManager::SRC::PLAYER,   "Player/Animation/", 1.5f, 1.5f, 1.5f },
-		{ ResourceManager::SRC::EVPLAY_,  "Player/AnimationEV/", 0.8f, 0.8f, 0.8f },
-	};
-
-	constexpr int kMaxCombo = 8;
-
-	// コンボごとの攻撃判定時間(index 0 = 1段目)
-	struct HitWindow { float start; float end; };
-	constexpr HitWindow kHitWindows[kMaxCombo] =
-	{
-		{ 0.20f, 0.30f },	// 1
-		{ 0.30f, 0.40f },	// 2
-		{ 0.25f, 0.35f },	// 3
-		{ 0.30f, 0.40f },	// 4
-		{ 0.35f, 0.45f },	// 5
-		{ 0.30f, 0.40f },	// 6
-		{ 0.40f, 0.50f },	// 7
-		{ 0.50f, 0.60f },	// 8
+		{ ResourceManager::SRC::PLAYER,   "Player/Animation/", 1.5f, 1.0f, 1.0f },
+		{ ResourceManager::SRC::EVPLAY_,  "Player/AnimationEV/", 0.8f, 0.8f, 2.0f },
 	};
 
 	// WASDのどれかが押されているか
@@ -50,7 +40,8 @@ namespace
 		return ins.IsNew(KEY_INPUT_W) ||
 			ins.IsNew(KEY_INPUT_A) ||
 			ins.IsNew(KEY_INPUT_S) ||
-			ins.IsNew(KEY_INPUT_D);
+			ins.IsNew(KEY_INPUT_D) ||
+			PadInput::IsStickTilted();
 	}
 }
 
@@ -84,15 +75,9 @@ Player::Player(void)
 	isRecording_(false),
 
 	// 攻撃関連
-	isAttack_(false),
-	combo_(0),
-	nextAttack_(false),
 	hasAttackTarget_(false),
 	attackTargetPos_(AsoUtility::VECTOR_ZERO),
 	canChase_(false),
-	isChasing_(false),
-	isAttack04Move_(false),
-	attack04MoveTimer_(0.0f),
 	afterImageModel_(-1),
 	isAfterImage_(false),
 	afterImageTimer_(0.0f),
@@ -111,8 +96,6 @@ Player::Player(void)
 
 	// ロックオン
 	isLockOn_(false),
-	isBoostChase_(false),
-	boostChaseTimer_(0.0f),
 	lockOnPitch_(0.0f),
 
 	// 回避
@@ -121,47 +104,24 @@ Player::Player(void)
 	dodgeDir_(AsoUtility::VECTOR_ZERO),
 
 	// ガード
-	isGuard_(false),
-	guardHp_(100.0f),
-	isGuardBreak_(false),
-	guardBreakTimer_(0.0f),
-	guardRecoverTimer_(0.0f),
-	isGuardBurst_(false),
-	guardBurstTimer_(0.0f),
-	guardBurstTrigger_(false),
 
 	// 空中
 	isFlying_(false),
 
 	// 残像
-	boostAfterImageTimer_(0.0f),
 	afterImageAttachNo_(-1),
-	attackTimer_(0.0f),
-	hasAttackHit_(false),
-	attackTrigger_(false),
 
 	hp_(100),
 	isDead_(false),
 
 	attackEndTimer_(0.0f),
-	isKamehame_(false),
-	kamehameTimer_(0.0f),
-	isKamehameBeam_(false),
-	leftHandFrame_(-1),
 	rightHandFrame_(-1),
-	kamehameLightHandle_(-1),
-	kamehameDir_(AsoUtility::VECTOR_ZERO),
 
 	capsule_(nullptr),
 
-	kamehameChargeModel_(-1),
-	kamehameBeamModel_(-1),
 
 	// 変身
 	form_(FORM::BASE),
-	isTransforming_(false),
-	isTransformSwapped_(false),
-	transformTimer_(0.0f),
 	nextForm_(FORM::BASE)
 {
 	// 状態管理
@@ -180,12 +140,6 @@ void Player::Init(void)
 
 	afterImageModel_ = MV1DuplicateModel(transform_.modelId);
 
-	kamehameChargeModel_ =
-		ResourceManager::GetInstance().LoadModelDuplicate(ResourceManager::SRC::CHARGE);
-
-	kamehameBeamModel_ =
-		ResourceManager::GetInstance().LoadModelDuplicate(ResourceManager::SRC::KAMEHAMEHA);
-
 	transform_.scl = { 1.5f, 1.5f, 1.5f };
 	transform_.pos = { 0.0f, 1000.0f, 0.0f };
 	transform_.quaRot = Quaternion();
@@ -199,10 +153,8 @@ void Player::Init(void)
 	// 手のフレーム(かめはめ波・気弾の発射位置用)
 	InitFrames();
 
-	// かめはめ波用ライト
-	kamehameLightHandle_ =
-		CreatePointLightHandle(transform_.pos, 700.0f, 0.0f, 0.003f, 0.0f);
-	SetLightEnableHandle(kamehameLightHandle_, false);
+	// かめはめ波(気弾・ビームのモデルとライト)
+	kamehame_.Init(transform_.pos);
 
 	// カプセルコライダ
 	capsule_ = std::make_unique<Capsule>(transform_);
@@ -213,70 +165,95 @@ void Player::Init(void)
 	// 丸影画像
 	imgShadow_ = resMng_.Load(ResourceManager::SRC::PLAYER_SHADOW).handleId_;
 
+	// 変身後のモデル・アニメを先に読み込んでおく(変身の瞬間にカクつくのを防ぐ)
+	ApplyForm(FORM::SUPER);
+	ApplyForm(FORM::BASE);
+
+	// HUD
+	hud_.Init();
+	hud_.SetName("PLAYER");
+	hud_.SetIconText("P");
+
 	// 初期状態
 	ChangeState(STATE::PLAY);
 }
 
 void Player::InitAnimation(const std::string& animDir)
 {
-	std::string path = Application::PATH_MODEL + animDir;
+	const std::string basePath =
+		Application::PATH_MODEL + kFormData[(int)FORM::BASE].animDir;
+	const std::string path = Application::PATH_MODEL + animDir;
+
 	animationController_ = std::make_unique<AnimationController>(transform_.modelId);
 
-	animationController_->Add((int)ANIM_TYPE::IDLE, path + "Idle.mv1", 20.0f);
+	// 形態のフォルダにファイルがあればそれを使い、なければ通常形態のものを使う
+	auto add = [&](ANIM_TYPE type, const char* file, float speed)
+		{
+			std::string full = path + file;
+
+			if (!std::filesystem::exists(full))
+			{
+				full = basePath + file;
+			}
+
+			animationController_->Add((int)type, full, speed);
+		};
+
+	add(ANIM_TYPE::IDLE, "Idle.mv1", 20.0f);
 
 	// 移動
-	animationController_->Add((int)ANIM_TYPE::RUN, path + "Walk.mv1", 40.0f);
-	animationController_->Add((int)ANIM_TYPE::FAST_RUN, path + "Running.mv1", 40.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_LEFT, path + "LSWalking.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_RIGHT, path + "RSWalking.mv1", 40.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_LEFT_RUN, path + "Left Strafe.mv1", 40.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_RIGHT_RUN, path + "Right Strafe.mv1", 40.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_BACK, path + "Walking Back.mv1", 40.0f);
-	animationController_->Add((int)ANIM_TYPE::LOCK_BACK_RUN, path + "Running Back.mv1", 40.0f);
-	animationController_->Add((int)ANIM_TYPE::BOOST_CHASE, path + "Flying.mv1", 40.0f);
+	add(ANIM_TYPE::RUN, "Walk.mv1", 40.0f);
+	add(ANIM_TYPE::FAST_RUN, "Running.mv1", 40.0f);
+	add(ANIM_TYPE::LOCK_LEFT, "LSWalking.mv1", 60.0f);
+	add(ANIM_TYPE::LOCK_RIGHT, "RSWalking.mv1", 40.0f);
+	add(ANIM_TYPE::LOCK_LEFT_RUN, "Left Strafe.mv1", 40.0f);
+	add(ANIM_TYPE::LOCK_RIGHT_RUN, "Right Strafe.mv1", 40.0f);
+	add(ANIM_TYPE::LOCK_BACK, "Walking Back.mv1", 40.0f);
+	add(ANIM_TYPE::LOCK_BACK_RUN, "Running Back.mv1", 40.0f);
+	add(ANIM_TYPE::BOOST_CHASE, "Flying.mv1", 40.0f);
 
 	// 攻撃
-	animationController_->Add((int)ANIM_TYPE::ATTACK01, path + "Attack02.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK02, path + "Attack01.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK03, path + "Attack03.mv1", 80.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK04, path + "Attack04.mv1", 80.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK05, path + "Attack05.mv1", 85.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK06, path + "Attack01.mv1", 80.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK07, path + "Attack07.mv1", 65.0f);
-	animationController_->Add((int)ANIM_TYPE::ATTACK08, path + "Attack08.mv1", 65.0f);
+	add(ANIM_TYPE::ATTACK01, "Attack02.mv1", 60.0f);
+	add(ANIM_TYPE::ATTACK02, "Attack01.mv1", 60.0f);
+	add(ANIM_TYPE::ATTACK03, "Attack03.mv1", 80.0f);
+	add(ANIM_TYPE::ATTACK04, "Attack04.mv1", 80.0f);
+	add(ANIM_TYPE::ATTACK05, "Attack05.mv1", 85.0f);
+	add(ANIM_TYPE::ATTACK06, "Attack01.mv1", 80.0f);
+	add(ANIM_TYPE::ATTACK07, "Attack07.mv1", 65.0f);
+	add(ANIM_TYPE::ATTACK08, "Attack08.mv1", 65.0f);
 
 	// 気技
-	animationController_->Add((int)ANIM_TYPE::KI_BLAST, path + "KiBlast.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::KAMEHAME, path + "Special.mv1", 20.0f);
-	animationController_->Add((int)ANIM_TYPE::CHARGE, path + "pawer.mv1", 40.0f);
+	add(ANIM_TYPE::KI_BLAST, "KiBlast.mv1", 60.0f);
+	add(ANIM_TYPE::KAMEHAME, "Special.mv1", 20.0f);
+	add(ANIM_TYPE::CHARGE, "pawer.mv1", 40.0f);
 
 	// 被弾・ガード
-	animationController_->Add((int)ANIM_TYPE::DAMAGE, path + "Damege.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::GUARD, path + "Block.mv1", 60.0f);
-	animationController_->Add((int)ANIM_TYPE::GUARD_BURST, path + "pawer.mv1", 100.0f);
-	animationController_->Add((int)ANIM_TYPE::GUARD_BREAK, path + "GuardBreak.mv1", 20.0f);
+	add(ANIM_TYPE::DAMAGE, "Damege.mv1", 60.0f);
+	add(ANIM_TYPE::GUARD, "Block.mv1", 60.0f);
+	add(ANIM_TYPE::GUARD_BURST, "pawer.mv1", 100.0f);
+	add(ANIM_TYPE::GUARD_BREAK, "GuardBreak.mv1", 20.0f);
 
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
-// 手のフレームを探す
+// 手のフレームを探す(モデルを差し替えたら再取得が必要)
 void Player::InitFrames(void)
 {
-	leftHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:LeftHand");
+	kamehame_.SetModel(transform_.modelId);
 	rightHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:RightHand");
 }
 
-// 形態を適用する
+// 形態を適用する(モデル・アニメ・スケール・残像用モデルを作り直す)
 void Player::ApplyForm(FORM form)
 {
 	const FormData& data = kFormData[(int)form];
 
-	// アニメーションのリセット
+	// 1. アニメ管理は古いモデルが生きているうちに破棄する
 	animationController_.reset();
 
 	const int oldModel = transform_.modelId;
 
-	// 新しいモデルに差し替え
+	// 2. 新しいモデルに差し替え
 	const int newModel = resMng_.LoadModelDuplicate(data.model);
 	transform_.SetModel(newModel);
 	transform_.scl = { data.scale, data.scale, data.scale };
@@ -284,11 +261,11 @@ void Player::ApplyForm(FORM form)
 		Quaternion::Euler({ 0.0f, AsoUtility::Deg2RadF(180.0f), 0.0f });
 	transform_.Update();
 
-	// アニメーション・手のフレームを作り直す
+	// 3. アニメーション・手のフレームを作り直す
 	InitAnimation(data.animDir);
 	InitFrames();
 
-	// 残像用モデルを作り直す
+	// 4. 残像用モデルを作り直す
 	if (afterImageModel_ != -1)
 	{
 		MV1DeleteModel(afterImageModel_);
@@ -299,83 +276,84 @@ void Player::ApplyForm(FORM form)
 	boostAfterImages_.clear();
 	isAfterImage_ = false;
 
+	// 5. 古いモデルを削除(これを消すと変身後のアニメが再生されなかったので残す)
+	MV1DeleteModel(oldModel);
+
 	form_ = form;
 }
 
+// 変身(Gキー)
+//   流れは PlayerTransform に任せ、モデル差し替えとアニメ再生だけここで行う
 void Player::UpdateTransform(void)
 {
 	auto& ins = InputManager::GetInstance();
 
 	// 開始
-	if (!isTransforming_ &&
-		!isAttack_ &&
-		!isKamehame_ &&
+	if (!formChange_.IsActive() &&
+		!attack_.IsAttack() &&
+		!kamehame_.IsActive() &&
 		!isKiBlast_ &&
 		!isCharging_ &&
 		!isChargeEnding_ &&
-		!isBoostChase_ &&
-		ins.IsTrgDown(KEY_INPUT_G))
+		!boostChase_.IsActive() &&
+		((ins.IsNew(KEY_INPUT_H) &&	// フォームチェンジパレット(H)を開いている間だけ変身できる
+			ins.IsTrgDown(KEY_INPUT_G)) ||
+			PadInput::IsTransformTrg()))	// パッド: L2+R2 を押しながら □
 	{
 		const FORM next = (form_ == FORM::BASE) ? FORM::SUPER : FORM::BASE;
 
 		// 変身は ki 消費、元に戻るときは消費なし
-		if (next == FORM::BASE || UseKi(TRANSFORM_KI_COST))
+		if (next == FORM::BASE || UseKi(cfg::Transform::KI_COST))
 		{
-			isTransforming_ = true;
-			isTransformSwapped_ = false;
-			transformTimer_ = 0.0f;
 			nextForm_ = next;
 
 			movePow_ = AsoUtility::VECTOR_ZERO;
 
-			// 溜めモーションを流用
-			animationController_->Play((int)ANIM_TYPE::CHARGE, true, 0.0f, 45.0f);
-			animationController_->SetEndLoop(40.0f, 45.0f, 5.0f);
+			// 溜めモーションを最初から最後まで1回だけ流す(ループしない)
+			animationController_->ClearEndLoop();
+			animationController_->Play((int)ANIM_TYPE::CHARGE, false,
+				0.0f, cfg::Transform::ANIM_END_STEP, false, true);
 
-			EffekseerEffect::GetInstance()->PlayChargeEffect(transform_.pos);
+			formChange_.Start(next == FORM::SUPER, transform_.pos);
 		}
 	}
 
-	if (!isTransforming_)
+	if (!formChange_.IsActive())
 	{
 		return;
 	}
 
 	movePow_ = AsoUtility::VECTOR_ZERO;
-	transformTimer_ += scnMng_.GetDeltaTime();
 
-	EffekseerEffect::GetInstance()->UpdateChargeEffect(transform_.pos);
+	const PlayerTransform::Result result =
+		formChange_.Update(scnMng_.GetDeltaTime(), transform_.pos, animationController_->IsEnd());
 
-	// 演出の途中でモデルを差し替える
-	if (!isTransformSwapped_ && transformTimer_ >= TRANSFORM_SWAP_TIME)
+	// モーションの途中でモデルを差し替える
+	if (result.swap)
 	{
-		isTransformSwapped_ = true;
-
 		ApplyForm(nextForm_);
 
-		// 差し替えたあともう一度溜めモーションを再生
-		animationController_->Play((int)ANIM_TYPE::CHARGE, true, 0.0f, 45.0f);
-		animationController_->SetEndLoop(40.0f, 45.0f, 5.0f);
+		// 差し替え後は、同じ再生位置から続きを流す(最初からにしない)
+		animationController_->ClearEndLoop();
+		animationController_->Play((int)ANIM_TYPE::CHARGE, false,
+			result.step, cfg::Transform::ANIM_END_STEP, false, true);
 
-		mainCamera.StartShake(0.3f, 6.0f);
+		// 変身するときだけ、画面揺れを出す(元に戻るときは演出なし)
+		if (formChange_.IsToSuper())
+		{
+			mainCamera.StartShake(0.3f, 6.0f);
+		}
 	}
 
-	// 終了
-	if (transformTimer_ >= TRANSFORM_END_TIME)
+	if (result.finished)
 	{
-		isTransforming_ = false;
-		transformTimer_ = 0.0f;
-
-		animationController_->ClearEndLoop();
-		EffekseerEffect::GetInstance()->StopChargeEffect();
-
 		animationController_->Play((int)ANIM_TYPE::IDLE);
 	}
 }
 
 bool Player::IsTransforming(void) const
 {
-	return isTransforming_;
+	return formChange_.IsActive();
 }
 
 float Player::GetAttackRate(void) const
@@ -383,8 +361,20 @@ float Player::GetAttackRate(void) const
 	return kFormData[(int)form_].attackRate;
 }
 
+int Player::GetAttackDamage(int baseDamage) const
+{
+	const int damage = static_cast<int>(std::lround(baseDamage * GetAttackRate()));
+	return damage < 1 ? 1 : damage;
+}
+
 void Player::Update(void)
 {
+	// パッドの入力を更新(1フレームに1回)
+	PadInput::Update();
+
+	// HUDはダメージ中も更新する
+	hud_.Update(*this);
+
 	UpdateKnockBack();
 
 	// ダメージ中は通常の更新をしない
@@ -397,7 +387,7 @@ void Player::Update(void)
 	stateUpdate_();
 
 	// ロックオン中は上下の傾きも反映する
-	if (isLockOn_ && hasAttackTarget_ && !isAttack_)
+	if (isLockOn_ && hasAttackTarget_ && !attack_.IsAttack())
 	{
 		transform_.quaRot =
 			playerRotY_.Mult(Quaternion::Euler({ lockOnPitch_, 0.0f, 0.0f }));
@@ -411,6 +401,13 @@ void Player::Update(void)
 	animationController_->Update();
 
 	UpdateAfterImages();
+}
+
+// 敵と重ならないように位置をずらす
+void Player::PushOut(const VECTOR& offset)
+{
+	transform_.pos = VAdd(transform_.pos, offset);
+	transform_.Update();
 }
 
 void Player::UpdateKnockBack(void)
@@ -504,13 +501,12 @@ void Player::UpdateNone(void)
 
 void Player::UpdatePlay(void)
 {
-	attackTrigger_ = false;
+	attack_.BeginFrame();
 
 	UpdateGuard();
-	UpdateGuardBurst();
 
 	// ガード系の状態中は移動などを受け付けない
-	if (isGuard_ || isGuardBreak_ || isGuardBurst_)
+	if (guard_.IsBusy())
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
 		return;
@@ -519,8 +515,8 @@ void Player::UpdatePlay(void)
 	// 変身
 	UpdateTransform();
 
-	// 変身中は他の処理をしない
-	if (isTransforming_)
+	// 変身中は他の処理をしない(重力・押し出しだけ処理する)
+	if (formChange_.IsActive())
 	{
 		Collision();
 		return;
@@ -541,7 +537,7 @@ void Player::UpdatePlay(void)
 	UpdateBoostChase();
 	UpdateDodge();
 
-	if (!isBoostChase_ && !isDodge_)
+	if (!boostChase_.IsActive() && !isDodge_)
 	{
 		ProcessMove();
 	}
@@ -560,15 +556,6 @@ void Player::UpdatePlay(void)
 
 void Player::Draw(void)
 {
-	const int white = GetColor(255, 255, 255);
-
-	// デバッグ表示
-	DrawFormatString(10, 100, white, "KI : %.1f / %.1f", ki_, MAX_KI);
-	DrawFormatString(10, 120, white, "GUARD : %.1f / 100.0", guardHp_);
-	DrawFormatString(10, 300, white, "Combo : %d  AttackTime : %.2f", combo_, attackTimer_);
-	DrawFormatString(10, 320, white, "Attack:%d HitTiming:%d HasHit:%d Chase:%d",
-		isAttack_, IsAttackHitTiming(), hasAttackHit_, isChasing_);
-
 	// 攻撃時の残像
 	if (isAfterImage_)
 	{
@@ -588,6 +575,10 @@ void Player::Draw(void)
 
 	DrawKiBlast();
 	DrawKamehame();
+
+	// HUD(2D)は3D描画のあとに描く
+	hud_.Draw(*this);
+
 }
 
 void Player::DrawAfterImage(const MATRIX& matrix, float opacity, bool disableLighting)
@@ -734,12 +725,16 @@ bool Player::GetMoveBasis(VECTOR& forward, VECTOR& right)
 {
 	if (isLockOn_ && hasAttackTarget_)
 	{
-		forward = ToHorizontal(VSub(attackTargetPos_, transform_.pos));
+		const VECTOR toTarget = ToHorizontal(VSub(attackTargetPos_, transform_.pos));
 
-		bool valid = VSize(forward) > Constants::Epsilon;
-		forward = NormalizeSafe(forward);
-		right = VGet(forward.z, 0.0f, -forward.x);
-		return valid;
+		// 敵がほぼ真上・真下にいるときは、向きが定まらず動けなくなるので、
+		// この条件を満たすときだけ敵方向を基準にする(満たさなければ下のカメラ基準へ)
+		if (VSize(toTarget) > cfg::Move::LOCK_BASIS_MIN_DISTANCE)
+		{
+			forward = VNorm(toTarget);
+			right = VGet(forward.z, 0.0f, -forward.x);
+			return true;
+		}
 	}
 
 	Quaternion cameraRot = mainCamera.GetQuaRotOutX();
@@ -756,25 +751,17 @@ void Player::LeaveAfterImage(void)
 	afterImageTimer_ = Constants::AfterImageDuration;
 }
 
-void Player::SetKamehameLight(bool enable)
-{
-	if (kamehameLightHandle_ != -1)
-	{
-		SetLightEnableHandle(kamehameLightHandle_, enable);
-	}
-}
-
 void Player::ProcessMove(void)
 {
 	auto& ins = InputManager::GetInstance();
 
-	if (isKamehame_)
+	if (kamehame_.IsActive())
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
 		return;
 	}
 
-	if (isAttack_ || isChasing_)
+	if (attack_.IsAttack() || attack_.IsChasing())
 	{
 		return;
 	}
@@ -794,10 +781,22 @@ void Player::ProcessMove(void)
 	if (ins.IsNew(KEY_INPUT_D)) { dir = VAdd(dir, right); }
 	if (ins.IsNew(KEY_INPUT_A)) { dir = VSub(dir, right); }
 
-	// 上下移動(E:上昇 Q:下降)
+	// 上下移動(E:上昇 Q:下降 / パッド: R2を押しながら左スティックの上下)
 	float verticalMove = 0.0f;
 	if (ins.IsNew(KEY_INPUT_E)) { verticalMove = Constants::VerticalMoveSpeed; }
 	if (ins.IsNew(KEY_INPUT_Q)) { verticalMove = -Constants::VerticalMoveSpeed; }
+
+	// パッドの左スティック
+	if (PadInput::IsVerticalMode())
+	{
+		verticalMove = PadInput::StickY() * Constants::VerticalMoveSpeed;
+		dir = VAdd(dir, VScale(right, PadInput::StickX()));
+	}
+	else
+	{
+		dir = VAdd(dir, VScale(forward, PadInput::StickY()));
+		dir = VAdd(dir, VScale(right, PadInput::StickX()));
+	}
 
 	// 斜め移動の速度を揃える
 	dir = NormalizeSafe(dir);
@@ -858,10 +857,10 @@ void Player::PlayMoveAnimation(bool isRun)
 	// ロックオン中は入力方向に応じて後退・横移動
 	if (isLockOn_)
 	{
-		const bool w = ins.IsNew(KEY_INPUT_W);
-		const bool a = ins.IsNew(KEY_INPUT_A);
-		const bool s = ins.IsNew(KEY_INPUT_S);
-		const bool d = ins.IsNew(KEY_INPUT_D);
+		const bool w = ins.IsNew(KEY_INPUT_W) || PadInput::StickY() > 0.3f;
+		const bool a = ins.IsNew(KEY_INPUT_A) || PadInput::StickX() < -0.3f;
+		const bool s = ins.IsNew(KEY_INPUT_S) || PadInput::StickY() < -0.3f;
+		const bool d = ins.IsNew(KEY_INPUT_D) || PadInput::StickX() > 0.3f;
 
 		if (s && !w)
 		{
@@ -1028,19 +1027,30 @@ bool Player::IsEndLanding(void)
 	return true;
 }
 
+PlayerAttack::Context Player::MakeAttackContext(void) const
+{
+	PlayerAttack::Context ctx;
+	ctx.playerPos = transform_.pos;
+	ctx.targetPos = attackTargetPos_;
+	ctx.hasTarget = hasAttackTarget_;
+	ctx.deltaTime = scnMng_.GetDeltaTime();
+	return ctx;
+}
+
 void Player::UpdateAttack(void)
 {
 	auto& ins = InputManager::GetInstance();
-	const bool pushAttack = ins.IsTrgDown(KEY_INPUT_F);
+	const bool pushAttack = ins.IsTrgDown(KEY_INPUT_F) || PadInput::IsFightTrg();
 
 	// 敵がいれば追撃(接近)から始める
 	if (hasAttackTarget_ &&
-		!isAttack_ &&
-		!isKamehame_ &&
-		!isChasing_ &&
+		!attack_.IsAttack() &&
+		!kamehame_.IsActive() &&
+		!attack_.IsChasing() &&
+		!boostChase_.IsActive() &&
 		pushAttack)
 	{
-		isChasing_ = true;
+		attack_.StartChase();
 		canChase_ = false;
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
@@ -1049,40 +1059,46 @@ void Player::UpdateAttack(void)
 	}
 
 	// 攻撃開始 / 次のコンボの先行入力
-	if (!isKamehame_ && !isChasing_ && pushAttack)
+	if (!kamehame_.IsActive() && !attack_.IsChasing() && !boostChase_.IsActive() && pushAttack)
 	{
-		if (!isAttack_)
+		if (!attack_.IsAttack())
 		{
 			StartAttack();
 		}
 		else
 		{
-			nextAttack_ = true;
+			attack_.RequestNext();
 		}
 	}
 
 	// 攻撃中
-	if (isAttack_)
+	if (attack_.IsAttack())
 	{
-		attackTimer_ += scnMng_.GetDeltaTime();
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
-		FollowAttackTarget();
+		const PlayerAttack::ComboResult result = attack_.UpdateCombo(
+			MakeAttackContext(),
+			animationController_->GetPlayRate(),
+			animationController_->IsEnd());
 
-		const float attackRate = animationController_->GetPlayRate();
-		const bool wantNext = nextAttack_ && combo_ < kMaxCombo;
-
-		if (animationController_->IsEnd() ||
-			(wantNext && attackRate >= Constants::NextAttackPlayRateThreshold))
+		// 敵の方を向き、通常コンボ中は一定距離を保つ
+		if (VSize(result.faceDir) > Constants::Epsilon)
 		{
-			if (wantNext)
-			{
-				AdvanceCombo();
-			}
-			else
-			{
-				FinishAttack();
-			}
+			FaceHorizontal(result.faceDir);
+		}
+
+		if (result.hasFollow)
+		{
+			movePow_ = result.follow;
+		}
+
+		if (result.advance)
+		{
+			AdvanceCombo();
+		}
+		else if (result.finish)
+		{
+			FinishAttack();
 		}
 	}
 
@@ -1100,104 +1116,52 @@ void Player::UpdateAttack(void)
 // 1段目から攻撃を始める
 void Player::StartAttack(void)
 {
-	isAttack_ = true;
-	combo_ = 1;
-	nextAttack_ = false;
-
-	attackTimer_ = 0.0f;
-	hasAttackHit_ = false;
-	attackTrigger_ = true;
+	attack_.StartAttack();
 
 	animationController_->Play((int)ANIM_TYPE::ATTACK01, false);
-}
-
-// 攻撃状態をリセットする(コンボ・タイマー・ヒット情報)
-void Player::ResetAttackState(void)
-{
-	isAttack_ = false;
-	combo_ = 0;
-	nextAttack_ = false;
-	attackTimer_ = 0.0f;
-	hasAttackHit_ = false;
 }
 
 // コンボ終了
 void Player::FinishAttack(void)
 {
-	ResetAttackState();
-
-	isAttack04Move_ = false;
-	attack04MoveTimer_ = 0.0f;
+	attack_.Reset();
 
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
-// 攻撃中、敵の方を向き、通常コンボ中は一定距離を保つ
-void Player::FollowAttackTarget(void)
-{
-	if (!hasAttackTarget_)
-	{
-		return;
-	}
-
-	VECTOR toTarget = VSub(attackTargetPos_, transform_.pos);
-
-	if (VSize(toTarget) <= Constants::Epsilon)
-	{
-		return;
-	}
-
-	// 向きは横方向だけ
-	FaceHorizontal(VNorm(toTarget));
-
-	// 8段目は途中から追従しない
-	bool keepAttackPosition = (combo_ >= 1 && combo_ <= 7);
-
-	if (combo_ == kMaxCombo && attackTimer_ < Constants::Combo8FollowEnd)
-	{
-		keepAttackPosition = true;
-	}
-
-	if (!keepAttackPosition)
-	{
-		return;
-	}
-
-	VECTOR enemyDir = ToHorizontal(toTarget);
-
-	if (VSize(enemyDir) <= Constants::Epsilon)
-	{
-		return;
-	}
-
-	enemyDir = VNorm(enemyDir);
-
-	VECTOR targetPos =
-		VSub(attackTargetPos_, VScale(enemyDir, Constants::AttackDistance));
-
-	VECTOR follow = VSub(targetPos, transform_.pos);
-	movePow_ = VScale(follow, Constants::AttackFollowRate);
-}
-
-// 次のコンボへ進む(2~8段目)
+// 次のコンボへ進む(2~8段目)。位置の計算は PlayerAttack、移動とアニメはここ
 void Player::AdvanceCombo(void)
 {
-	combo_++;
-	nextAttack_ = false;
+	const PlayerAttack::ComboStep step = attack_.AdvanceCombo(MakeAttackContext());
 
-	attackTimer_ = 0.0f;
-	hasAttackHit_ = false;
-	attackTrigger_ = true;
-
-	// 残像を残して newPos へ移動し、敵の方を向く
-	auto warp = [this](VECTOR newPos)
+	// 残像を残して移動し、敵の方を向く
+	if (step.warp)
+	{
+		if (step.setAfterImagePos)
 		{
-			LeaveAfterImage();
-			transform_.pos = newPos;
-			FaceHorizontal(VSub(attackTargetPos_, transform_.pos));
-		};
+			afterImagePos_ = transform_.pos;
+		}
 
-	switch (combo_)
+		LeaveAfterImage();
+		transform_.pos = step.warpPos;
+
+		const VECTOR lookDir = VSub(attackTargetPos_, transform_.pos);
+
+		if (step.lookPitch)
+		{
+			SetLockOnPitch(lookDir);	// 上下の傾きも付ける(8段目)
+		}
+
+		FaceHorizontal(lookDir);
+	}
+
+	// 瞬間移動する段(4,6,7,8)は、移動量を消す
+	if (step.combo >= 6 || step.combo == 4)
+	{
+		movePow_ = AsoUtility::VECTOR_ZERO;
+	}
+
+	switch (step.combo)
 	{
 	case 2:
 		animationController_->Play((int)ANIM_TYPE::ATTACK02, false, 0.0f, -1.0f, false, true);
@@ -1207,96 +1171,40 @@ void Player::AdvanceCombo(void)
 		animationController_->Play((int)ANIM_TYPE::ATTACK03, false);
 		break;
 
-	case 4:	// 敵の横へ移動
-	{
-		if (hasAttackTarget_)
-		{
-			VECTOR toEnemy = ToHorizontal(VSub(attackTargetPos_, transform_.pos));
-
-			if (VSize(toEnemy) > Constants::Epsilon)
-			{
-				VECTOR dir = VNorm(toEnemy);
-				VECTOR sideDir = VGet(-dir.z, 0.0f, dir.x);
-
-				afterImagePos_ = transform_.pos;
-				warp(VAdd(attackTargetPos_, VScale(sideDir, Constants::WarpDistance)));
-			}
-		}
-
-		movePow_ = AsoUtility::VECTOR_ZERO;
+	case 4:
 		animationController_->Play((int)ANIM_TYPE::ATTACK04, false);
 		break;
-	}
 
 	case 5:
 		animationController_->Play((int)ANIM_TYPE::ATTACK05, false);
 		break;
 
-	case 6:	// 敵の反対側へ移動
-	{
-		if (hasAttackTarget_)
-		{
-			VECTOR toEnemy = ToHorizontal(VSub(attackTargetPos_, transform_.pos));
-
-			if (VSize(toEnemy) > Constants::Epsilon)
-			{
-				VECTOR dir = VNorm(toEnemy);
-				VECTOR sideDir = VGet(dir.z, 0.0f, -dir.x);
-
-				warp(VAdd(attackTargetPos_, VScale(sideDir, Constants::WarpDistance)));
-			}
-		}
-
-		movePow_ = AsoUtility::VECTOR_ZERO;
+	case 6:
 		animationController_->Play((int)ANIM_TYPE::ATTACK06, false);
 		break;
-	}
 
-	case 7:	// 敵の後ろへ移動
-	{
-		if (hasAttackTarget_)
-		{
-			VECTOR dir = VSub(attackTargetPos_, transform_.pos);
-
-			if (VSize(dir) > Constants::Epsilon)
-			{
-				dir = VNorm(dir);
-				warp(VAdd(attackTargetPos_, VScale(dir, Constants::WarpDistance)));
-			}
-		}
-
-		movePow_ = AsoUtility::VECTOR_ZERO;
+	case 7:
 		animationController_->Play((int)ANIM_TYPE::ATTACK07, false);
 		break;
-	}
 
-	case 8:	// 敵の斜め上へ移動
-	{
-		if (hasAttackTarget_)
-		{
-			VECTOR dir = ToHorizontal(VSub(attackTargetPos_, transform_.pos));
-
-			if (VSize(dir) > Constants::Epsilon)
-			{
-				dir = VNorm(dir);
-
-				LeaveAfterImage();
-
-				transform_.pos = VAdd(attackTargetPos_, VScale(dir, -Constants::WarpBackDistance));
-				transform_.pos.y += Constants::WarpHeight;
-
-				// 敵を見る(上下の傾きも設定)
-				VECTOR lookDir = VSub(attackTargetPos_, transform_.pos);
-				SetLockOnPitch(lookDir);
-				FaceHorizontal(lookDir);
-			}
-		}
-
-		movePow_ = AsoUtility::VECTOR_ZERO;
+	case 8:
 		animationController_->Play((int)ANIM_TYPE::ATTACK08, false);
 		break;
+
+	default:
+		break;
 	}
-	}
+}
+
+PlayerKamehameha::Context Player::MakeKamehameContext(void) const
+{
+	PlayerKamehameha::Context ctx;
+	ctx.playerPos = transform_.pos;
+	ctx.forward = GetForward();
+	ctx.hasTarget = isLockOn_ && hasAttackTarget_;
+	ctx.targetPos = attackTargetPos_;
+	ctx.deltaTime = scnMng_.GetDeltaTime();
+	return ctx;
 }
 
 void Player::UpdateKamehame(void)
@@ -1304,224 +1212,74 @@ void Player::UpdateKamehame(void)
 	auto& ins = InputManager::GetInstance();
 
 	// 開始
-	if (!isAttack_ &&
-		!isKamehame_ &&
+	if (!attack_.IsAttack() &&
+		!kamehame_.IsActive() &&
 		!isJump_ &&
-		!isChasing_ &&
-		ins.IsTrgDown(KEY_INPUT_R))
+		!attack_.IsChasing() &&
+		!boostChase_.IsActive() &&
+		!isDodge_ &&
+		((ins.IsNew(KEY_INPUT_TAB) &&	// 必殺技ページ(TAB)を開いている間だけ撃てる
+			ins.IsTrgDown(KEY_INPUT_R)) ||
+			PadInput::IsKamehameTrg()))	// パッド: L1 を押しながら □
 	{
 		if (UseKi(KAMEHAME_KI_COST))
 		{
-			isKamehame_ = true;
-			isKamehameBeam_ = false;
-			kamehameTimer_ = 0.0f;
-
 			movePow_ = AsoUtility::VECTOR_ZERO;
 
 			animationController_->Play((int)ANIM_TYPE::KAMEHAME, false);
+
+			kamehame_.Start(MakeKamehameContext());
 		}
 	}
 
-	if (!isKamehame_)
+	if (!kamehame_.IsActive())
 	{
 		return;
 	}
 
-	kamehameTimer_ += scnMng_.GetDeltaTime();
+	// 更新(狙う向きが返ってきたら、体もそちらへ向ける)
+	VECTOR aim = AsoUtility::VECTOR_ZERO;
+	const bool finished = kamehame_.Update(MakeKamehameContext(), aim);
 
-	// チャージ中は敵を追従して照準を合わせる
-	if (!isKamehameBeam_ && isLockOn_ && hasAttackTarget_)
+	if (VSize(aim) > Constants::Epsilon)
 	{
-		// 足元ではなく敵の中心(胸あたり)を狙う
-		VECTOR aimPos = attackTargetPos_;
-		aimPos.y += Constants::EnemyCenterHeight;
-
-		VECTOR aim = VSub(aimPos, GetKamehameStartPos());
-
-		if (VSize(aim) > Constants::Epsilon)
-		{
-			kamehameDir_ = VNorm(aim);
-
-			// 体も敵の方へ向ける(水平のみ)
-			FaceHorizontal(aim);
-		}
+		FaceHorizontal(aim);
 	}
 
-	// ビーム発射(この時点の kamehameDir_ で固定される)
-	if (!isKamehameBeam_ && kamehameTimer_ >= KAMEHAME_SHOT_TIME)
+	if (finished)
 	{
-		if (VSize(kamehameDir_) <= Constants::Epsilon)
-		{
-			kamehameDir_ = GetForward();
-		}
-
-		isKamehameBeam_ = true;
-	}
-
-	// 終了
-	if (kamehameTimer_ >= KAMEHAME_END_TIME)
-	{
-		isKamehame_ = false;
-		isKamehameBeam_ = false;
-		kamehameTimer_ = 0.0f;
-
 		animationController_->Play((int)ANIM_TYPE::IDLE);
 	}
 }
 
 void Player::DrawKamehame(void)
 {
-	// 使っていなければライトを消して終了
-	if (!isKamehame_)
-	{
-		SetKamehameLight(false);
-		return;
-	}
-
-	// 手のボーンが見つかっていない
-	if (leftHandFrame_ == -1 || rightHandFrame_ == -1)
-	{
-		return;
-	}
-
-	// 左右の手の真ん中
-	const VECTOR chargePos = GetKamehameStartPos();
-
-	UpdateKamehameLight(chargePos);
-
-	// チャージ中
-	if (!isKamehameBeam_)
-	{
-		float rate = kamehameTimer_ / KAMEHAME_SHOT_TIME;
-		if (rate > 1.0f) { rate = 1.0f; }
-
-		float scale = 0.08f + rate * 0.14f;
-
-		// 発射直前は少し膨らませる
-		if (rate > 0.85f)
-		{
-			float burstRate = (rate - 0.85f) / 0.15f;
-			scale += burstRate * 0.06f;
-		}
-
-		DrawKamehameChargeModel(chargePos, scale, 3.0f);
-		return;
-	}
-
-	// 発射中: 手元の気弾
-	DrawKamehameChargeModel(chargePos, 0.18f, 5.0f);
-
-	// 発射直後は手元の気弾が小さくなっていく
-	float beamTime = kamehameTimer_ - KAMEHAME_SHOT_TIME;
-
-	if (beamTime < KAMEHAME_TRANSITION_TIME)
-	{
-		float t = beamTime / KAMEHAME_TRANSITION_TIME;
-		if (t < 0.0f) { t = 0.0f; }
-		if (t > 1.0f) { t = 1.0f; }
-
-		DrawKamehameChargeModel(chargePos, 0.1f * (1.0f - t), 5.0f);
-	}
-
-	// ビーム本体(発射時に固定した kamehameDir_ を使う)
-	VECTOR forward = kamehameDir_;
-
-	MV1SetPosition(kamehameBeamModel_, VAdd(chargePos, VScale(forward, 20.0f)));
-
-	float rotY = atan2f(forward.x, forward.z);
-	float horizontal = sqrtf(forward.x * forward.x + forward.z * forward.z);
-	float rotX = -atan2f(forward.y, horizontal);	// 上下が逆なら符号を反転
-
-	MV1SetRotationXYZ(kamehameBeamModel_, { rotX, rotY, 0.0f });
-	MV1SetScale(kamehameBeamModel_, { 0.5f, 0.5f, 1.0f });	// ビームサイズ
-	MV1DrawModel(kamehameBeamModel_);
-}
-
-// 手元の気弾モデルを描く(rotSpeed: 回転の速さ)
-void Player::DrawKamehameChargeModel(const VECTOR& pos, float scale, float rotSpeed)
-{
-	float rot = kamehameTimer_ * rotSpeed;
-
-	MV1SetPosition(kamehameChargeModel_, pos);
-	MV1SetScale(kamehameChargeModel_, { scale, scale, scale });
-	MV1SetRotationXYZ(kamehameChargeModel_, { rot * 0.5f, rot, 0.0f });
-	MV1DrawModel(kamehameChargeModel_);
-}
-
-// かめはめ波の発光ライト(+デバッグ表示)
-void Player::UpdateKamehameLight(const VECTOR& chargePos)
-{
-	if (kamehameLightHandle_ == -1)
-	{
-		return;
-	}
-
-	SetLightEnableHandle(kamehameLightHandle_, true);
-
-	// デバッグ表示
-	DrawFormatString(10, 360, GetColor(255, 255, 0),
-		"BeamDir X:%.2f Y:%.2f Z:%.2f",
-		kamehameDir_.x, kamehameDir_.y, kamehameDir_.z);
-
-	VECTOR enemyDir = NormalizeSafe(VSub(attackTargetPos_, chargePos));
-
-	DrawFormatString(10, 380, GetColor(255, 255, 0),
-		"EnemyDir X:%.2f Y:%.2f Z:%.2f",
-		enemyDir.x, enemyDir.y, enemyDir.z);
-
-	// 体の少し前方に置く
-	VECTOR lightPos = transform_.pos;
-	lightPos.y += 100.0f;
-	lightPos = VAdd(lightPos, VScale(GetForward(), 120.0f));
-
-	SetLightPositionHandle(kamehameLightHandle_, lightPos);
-	SetLightDifColorHandle(kamehameLightHandle_, GetColorF(1.0f, 1.0f, 1.0f, 1.0f));
+	kamehame_.Draw(MakeKamehameContext());
 }
 
 bool Player::IsKamehameBeam(void) const
 {
-	return isKamehameBeam_;
+	return kamehame_.IsBeam();
 }
 
 float Player::GetKamehameRadius(void) const
 {
-	return KAMEHAME_BEAM_RADIUS;
+	return kamehame_.GetRadius();
 }
 
 VECTOR Player::GetKamehameStartPos(void) const
 {
-	if (leftHandFrame_ == -1 || rightHandFrame_ == -1)
-	{
-		return transform_.pos;
-	}
-
-	VECTOR leftHandPos = MV1GetFramePosition(transform_.modelId, leftHandFrame_);
-	VECTOR rightHandPos = MV1GetFramePosition(transform_.modelId, rightHandFrame_);
-
-	return
-	{
-		(leftHandPos.x + rightHandPos.x) * 0.5f,
-		(leftHandPos.y + rightHandPos.y) * 0.5f,
-		(leftHandPos.z + rightHandPos.z) * 0.5f
-	};
+	return kamehame_.GetStartPos();
 }
 
 VECTOR Player::GetKamehameEndPos(void) const
 {
-	VECTOR dir = NormalizeSafe(kamehameDir_);
-
-	// 発射前などで未設定なら正面を使う
-	if (VSize(dir) <= Constants::Epsilon)
-	{
-		dir = NormalizeSafe(GetForward());
-	}
-
-	return VAdd(GetKamehameStartPos(), VScale(dir, KAMEHAME_BEAM_LENGTH));
+	return kamehame_.GetEndPos(GetForward());
 }
 
 bool Player::IsKamehame(void) const
 {
-	return isKamehame_;
+	return kamehame_.IsActive();
 }
 
 // 気溜め
@@ -1532,9 +1290,10 @@ void Player::UpdateChase(void)
 	// 気溜め開始
 	if (!isCharging_ &&
 		!isChargeEnding_ &&
-		!isAttack_ &&
-		!isKamehame_ &&
-		ins.IsTrgDown(KEY_INPUT_T))
+		!attack_.IsAttack() &&
+		!kamehame_.IsActive() &&
+		!boostChase_.IsActive() &&
+		(ins.IsTrgDown(KEY_INPUT_T) || PadInput::IsChargeTrg()))
 	{
 		isCharging_ = true;
 		movePow_ = AsoUtility::VECTOR_ZERO;
@@ -1569,14 +1328,16 @@ void Player::UpdateChase(void)
 			ins.IsNew(KEY_INPUT_RSHIFT) ||
 			ins.IsTrgDown(KEY_INPUT_F) ||
 			ins.IsTrgDown(KEY_INPUT_R) ||
-			ins.IsNew(KEY_INPUT_BACKSLASH);
+			ins.IsNew(KEY_INPUT_BACKSLASH) ||
+			PadInput::IsFightTrg() ||
+			PadInput::IsKamehameTrg();
 
 		if (cancelCharge)
 		{
 			StopCharge();
 			animationController_->Play((int)ANIM_TYPE::IDLE);
 		}
-		else if (!ins.IsNew(KEY_INPUT_T))
+		else if (!ins.IsNew(KEY_INPUT_T) && !PadInput::IsChargeHold())
 		{
 			// Tキーを離したので終了モーションへ
 			BeginChargeEnding();
@@ -1593,9 +1354,13 @@ void Player::UpdateChase(void)
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
-		if (animationController_->IsEnd())
+		chargeEndTimer_ += scnMng_.GetDeltaTime();
+
+		// 他のモーション(ガードなど)に切り替わるとIsEndにならないので、時間でも終わらせる
+		if (animationController_->IsEnd() || chargeEndTimer_ >= cfg::Charge::END_MAX_TIME)
 		{
 			isChargeEnding_ = false;
+			chargeEndTimer_ = 0.0f;
 			animationController_->Play((int)ANIM_TYPE::IDLE);
 		}
 	}
@@ -1617,6 +1382,7 @@ void Player::BeginChargeEnding(void)
 {
 	isCharging_ = false;
 	isChargeEnding_ = true;
+	chargeEndTimer_ = 0.0f;
 
 	EffekseerEffect::GetInstance()->StopChargeEffect();
 
@@ -1627,61 +1393,70 @@ void Player::BeginChargeEnding(void)
 }
 
 // 追撃(Fキーで敵に接近)
+//   接近の判断は PlayerAttack、移動・向き・アニメはここ
 void Player::UpdateCharge(void)
 {
-	if (!isChasing_)
+	if (!attack_.IsChasing())
 	{
 		return;
 	}
 
 	movePow_ = AsoUtility::VECTOR_ZERO;
 
-	if (!hasAttackTarget_)
+	const PlayerAttack::ChaseResult result = attack_.UpdateChase(MakeAttackContext());
+
+	if (VSize(result.faceDir) > Constants::Epsilon)
 	{
-		isChasing_ = false;
-		canChase_ = false;
-		return;
+		FaceHorizontal(result.faceDir);
 	}
 
-	VECTOR dir = VSub(attackTargetPos_, transform_.pos);
-	float distance = VSize(dir);
-
-	// 目標距離に到達したら攻撃開始
-	if (distance <= Constants::ChaseStopDistance)
+	switch (result.end)
 	{
-		isChasing_ = false;
-		canChase_ = false;
+	case PlayerAttack::ChaseEnd::NONE:
+		movePow_ = result.move;
+		break;
 
-		// 敵との相対位置を攻撃距離にスナップして向きを合わせる
-		VECTOR enemyDir = ToHorizontal(VSub(attackTargetPos_, transform_.pos));
+	case PlayerAttack::ChaseEnd::CANCEL:
+		EndChase(false);
+		break;
 
-		if (VSize(enemyDir) > Constants::Epsilon)
-		{
-			enemyDir = VNorm(enemyDir);
-
-			transform_.pos =
-				VSub(attackTargetPos_, VScale(enemyDir, Constants::AttackDistance));
-
-			FaceHorizontal(VSub(attackTargetPos_, transform_.pos));
-		}
-
+	case PlayerAttack::ChaseEnd::LUNGE:
+		// 飛びこむ時間を使い切った: 届いていなくてもその場で攻撃する(空振りになる)
+		EndChase(false);
 		StartAttack();
+		break;
+
+	case PlayerAttack::ChaseEnd::ATTACK:
+		EndChase(true);
+		break;
+	}
+}
+
+// 追撃を終える。startAttack が true なら、敵の前に位置を合わせてそのまま攻撃に入る
+void Player::EndChase(bool startAttack)
+{
+	canChase_ = false;
+	movePow_ = AsoUtility::VECTOR_ZERO;
+
+	if (!startAttack)
+	{
+		animationController_->Play((int)ANIM_TYPE::IDLE);
 		return;
 	}
 
-	dir = VNorm(dir);
+	// 敵との相対位置を攻撃距離にスナップして向きを合わせる
+	const PlayerAttack::Context ctx = MakeAttackContext();
+	VECTOR snapPos;
 
-	FaceHorizontal(dir);
-
-	// 敵を通り抜けないようにする
-	float moveDistance = distance - Constants::ChaseStopDistance;
-
-	if (moveDistance > Constants::ChaseSpeed)
+	if (PlayerAttack::CalcSnapPos(ctx, snapPos))
 	{
-		moveDistance = Constants::ChaseSpeed;
+		transform_.pos.x = snapPos.x;
+		transform_.pos.z = snapPos.z;
+
+		FaceHorizontal(VSub(attackTargetPos_, transform_.pos));
 	}
 
-	movePow_ = VScale(dir, moveDistance);
+	StartAttack();
 }
 
 // 気弾
@@ -1691,11 +1466,12 @@ void Player::UpdateKiBlast(void)
 
 	// 開始
 	if (!isKiBlast_ &&
-		!isAttack_ &&
-		!isKamehame_ &&
+		!attack_.IsAttack() &&
+		!kamehame_.IsActive() &&
 		!isCharging_ &&
 		!isChargeEnding_ &&
-		ins.IsTrgDown(KEY_INPUT_U))
+		!boostChase_.IsActive() &&
+		(ins.IsTrgDown(KEY_INPUT_U) || PadInput::IsKiBlastTrg()))
 	{
 		isKiBlast_ = true;
 		isKiBlastShot_ = false;
@@ -1772,114 +1548,85 @@ const std::vector<std::unique_ptr<KiBlast>>& Player::GetKiBlasts(void) const
 }
 
 // 高速接近(ロックオン中にSPACE)
+//   軌道の計算は PlayerBoostChase に任せ、結果(移動・向き・残像)を反映する
 void Player::UpdateBoostChase(void)
 {
 	auto& ins = InputManager::GetInstance();
 
+	boostChase_.Tick(scnMng_.GetDeltaTime());
+
+	PlayerBoostChase::Context ctx;
+	ctx.playerPos = transform_.pos;
+	ctx.targetPos = attackTargetPos_;
+	ctx.hasTarget = isLockOn_ && hasAttackTarget_;
+	ctx.interrupted = attack_.IsAttack();
+	ctx.deltaTime = scnMng_.GetDeltaTime();
+
 	// 開始
-	if (!isBoostChase_ &&
+	if (boostChase_.CanStart() &&
 		isLockOn_ &&
 		hasAttackTarget_ &&
-		!isAttack_ &&
-		!isKamehame_ &&
-		ins.IsTrgDown(KEY_INPUT_SPACE))
+		!attack_.IsAttack() &&
+		!kamehame_.IsActive() &&
+		!attack_.IsChasing() &&
+		!isKiBlast_ &&
+		!isDodge_ &&
+		(ins.IsTrgDown(KEY_INPUT_SPACE) || PadInput::IsHighBoostTrg()))
 	{
-		isBoostChase_ = true;
-		boostChaseTimer_ = 0.0f;
-		boostAfterImageTimer_ = 0.0f;
 		movePow_ = AsoUtility::VECTOR_ZERO;
+
+		// 弧の膨らむ側: 左右キー(スティック)を入れていればその側
+		int sideInput = 0;
+		if (ins.IsNew(KEY_INPUT_D) || PadInput::StickX() > 0.3f)
+		{
+			sideInput = 1;
+		}
+		else if (ins.IsNew(KEY_INPUT_A) || PadInput::StickX() < -0.3f)
+		{
+			sideInput = -1;
+		}
+
+		boostChase_.Start(ctx, sideInput);
 
 		animationController_->Play((int)ANIM_TYPE::BOOST_CHASE);
 	}
 
-	if (!isBoostChase_)
+	if (!boostChase_.IsActive())
 	{
 		return;
 	}
 
-	// 攻撃した / ターゲットを失った / ロックオン解除 → 終了
-	if (isAttack_ || !hasAttackTarget_ || !isLockOn_)
+	const PlayerBoostChase::Result result = boostChase_.Update(ctx);
+
+	if (result.finished)
 	{
 		EndBoostChase();
 		return;
 	}
 
-	boostChaseTimer_ += scnMng_.GetDeltaTime();
-
-	// 保険のタイムアウト
-	if (boostChaseTimer_ > Constants::BoostMaxDuration)
+	// 向き(上下の傾きは lockOnPitch_ として Update で反映される)
+	if (VSize(result.faceDir) > Constants::Epsilon)
 	{
-		EndBoostChase();
-		return;
+		FaceHorizontal(result.faceDir);
+		SetLockOnPitch(result.faceDir);
 	}
 
-	VECTOR dir = VSub(attackTargetPos_, transform_.pos);
-	float distance = VSize(dir);
+	movePow_ = result.move;
 
-	if (distance <= Constants::Epsilon)
-	{
-		EndBoostChase();
-		return;
-	}
-
-	dir = VNorm(dir);
-	FaceDirection(dir);
-	SetLockOnPitch(dir);
-
-	// 最初は一瞬その場で構える
-	if (boostChaseTimer_ < Constants::BoostInitialDelay)
-	{
-		movePow_ = AsoUtility::VECTOR_ZERO;
-		return;
-	}
-
-	// 敵の手前で停止(少し余裕を持たせる)
-	if (distance <= Constants::BoostStopDistance + 1.0f)
-	{
-		EndBoostChase();
-		return;
-	}
-
-	// 加速(構えが終わってから少しずつ速くする)
-	float boostSpeed = Constants::BoostMaxSpeed;
-
-	if (boostChaseTimer_ < Constants::BoostAccelWindow)
-	{
-		float rate =
-			(boostChaseTimer_ - Constants::BoostInitialDelay) /
-			(Constants::BoostAccelWindow - Constants::BoostInitialDelay);
-
-		boostSpeed = Constants::BoostMaxSpeed * rate;
-	}
-
-	// 敵を通り抜けないようにする
-	float moveDistance = distance - Constants::BoostStopDistance;
-	if (moveDistance > boostSpeed)
-	{
-		moveDistance = boostSpeed;
-	}
-
-	movePow_ = VScale(dir, moveDistance);
-
-	// 一定間隔で残像を残す
-	boostAfterImageTimer_ -= scnMng_.GetDeltaTime();
-
-	if (boostAfterImageTimer_ <= 0.0f)
+	// 残像
+	if (result.leaveAfterImage)
 	{
 		BoostAfterImage image;
 		image.matrix = MV1GetMatrix(transform_.modelId);
 		image.timer = Constants::BoostAfterImageDuration;
 		boostAfterImages_.push_back(image);
-
-		boostAfterImageTimer_ = Constants::BoostAfterImageInterval;
 	}
 }
 
-// 高速接近を終了する
+// 高速接近を終了する(待ち時間は PlayerBoostChase が付ける)
 void Player::EndBoostChase(void)
 {
-	isBoostChase_ = false;
-	boostChaseTimer_ = 0.0f;
+	boostChase_.Cancel();
 	movePow_ = AsoUtility::VECTOR_ZERO;
 
 	animationController_->Play((int)ANIM_TYPE::IDLE);
@@ -1892,12 +1639,12 @@ void Player::UpdateDodge(void)
 
 	if (!isDodge_)
 	{
-		if (isAttack_ || isBoostChase_ || isKamehame_)
+		if (attack_.IsAttack() || boostChase_.IsActive() || kamehame_.IsActive())
 		{
 			return;
 		}
 
-		if (ins.IsTrgDown(KEY_INPUT_LSHIFT))
+		if (ins.IsTrgDown(KEY_INPUT_LSHIFT) || PadInput::IsStepTrg())
 		{
 			VECTOR forward;
 			VECTOR right;
@@ -1908,7 +1655,13 @@ void Player::UpdateDodge(void)
 			}
 
 			// 入力方向へ回避。入力なしなら後ろへ
-			if (ins.IsNew(KEY_INPUT_W)) { dodgeDir_ = forward; }
+			if (PadInput::IsStickTilted())
+			{
+				dodgeDir_ = NormalizeSafe(VAdd(
+					VScale(forward, PadInput::StickY()),
+					VScale(right, PadInput::StickX())));
+			}
+			else if (ins.IsNew(KEY_INPUT_W)) { dodgeDir_ = forward; }
 			else if (ins.IsNew(KEY_INPUT_S)) { dodgeDir_ = VScale(forward, -1.0f); }
 			else if (ins.IsNew(KEY_INPUT_A)) { dodgeDir_ = VScale(right, -1.0f); }
 			else if (ins.IsNew(KEY_INPUT_D)) { dodgeDir_ = right; }
@@ -1954,149 +1707,88 @@ bool Player::IsDodging(void) const
 }
 
 // ガード
+//   状態と耐久値は PlayerGuard に任せ、アニメの再生と気の消費だけここで行う
 void Player::UpdateGuard(void)
 {
 	InputManager& ins = InputManager::GetInstance();
-	float deltaTime = SceneManager::GetInstance().GetDeltaTime();
 
-	// ガードブレイク中
-	if (isGuardBreak_)
+	// 攻撃・かめはめ波・気弾・回避・高速接近・変身の最中はガードを始められない
+	// (途中でガードすると、モーションや状態が中途半端に残って止まってしまうため)
+	PlayerGuard::Context ctx;
+	ctx.deltaTime = SceneManager::GetInstance().GetDeltaTime();
+	ctx.canStart =
+		!attack_.IsAttack() &&
+		!attack_.IsChasing() &&
+		!kamehame_.IsActive() &&
+		!isKiBlast_ &&
+		!boostChase_.IsActive() &&
+		!isDodge_ &&
+		!formChange_.IsActive();
+	ctx.hold = ins.IsNew(KEY_INPUT_L) || PadInput::IsGuard();
+	ctx.burstTrg = ins.IsTrgDown(KEY_INPUT_B) || PadInput::IsBurstTrg();
+
+	const PlayerGuard::Result result = guard_.Update(ctx);
+
+	// ガード系の状態中は動かない
+	if (guard_.IsBreak() || guard_.IsBurst())
 	{
-		guardBreakTimer_ -= deltaTime;
-
 		movePow_ = AsoUtility::VECTOR_ZERO;
+	}
 
-		if (guardBreakTimer_ <= 0.0f)
-		{
-			guardBreakTimer_ = 0.0f;
-			isGuardBreak_ = false;
-
-			guardHp_ = Constants::GuardMaxHp;
-
-			animationController_->Play((int)ANIM_TYPE::IDLE, true, 0.0f, -1.0f, false, true);
-		}
-
+	if (result.breakEnded || result.burstEnded)
+	{
+		animationController_->Play((int)ANIM_TYPE::IDLE, true, 0.0f, -1.0f, false, true);
 		return;
 	}
 
-	// ガード耐久値の回復(被弾から一定時間後に回復開始)
-	if (guardHp_ < Constants::GuardMaxHp)
+	if (result.started)
 	{
-		if (guardRecoverTimer_ > 0.0f)
-		{
-			guardRecoverTimer_ -= deltaTime;
-		}
-		else
-		{
-			guardHp_ += Constants::GuardRecoverSpeed * deltaTime;
-
-			if (guardHp_ > Constants::GuardMaxHp)
-			{
-				guardHp_ = Constants::GuardMaxHp;
-			}
-		}
-	}
-
-	// ガード開始
-	if (!isGuard_ && !isGuardBurst_ && ins.IsNew(KEY_INPUT_L))
-	{
-		isGuard_ = true;
+		// 気溜めの途中でガードしたときは、気溜めをやめる(状態が残って動けなくなるのを防ぐ)
+		StopCharge();
 
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
 		animationController_->Play((int)ANIM_TYPE::GUARD, false, 0.0f, -1.0f, true);
 	}
-	// ガード解除
-	else if (isGuard_ && !ins.IsNew(KEY_INPUT_L))
+	else if (result.released)
 	{
-		isGuard_ = false;
-
 		animationController_->Play((int)ANIM_TYPE::IDLE);
 	}
-}
 
-void Player::UpdateGuardBurst(void)
-{
-	auto& ins = InputManager::GetInstance();
-	float deltaTime = SceneManager::GetInstance().GetDeltaTime();
-
-	guardBurstTrigger_ = false;
-
-	// バースト中
-	if (isGuardBurst_)
+	// ガード中にバースト(気が足りない場合は発動しない)
+	if (result.burstRequested && UseKi(cfg::Guard::BURST_KI_COST))
 	{
-		guardBurstTimer_ -= deltaTime;
-
-		movePow_ = AsoUtility::VECTOR_ZERO;
-
-		if (guardBurstTimer_ <= 0.0f)
-		{
-			guardBurstTimer_ = 0.0f;
-			isGuardBurst_ = false;
-
-			animationController_->Play((int)ANIM_TYPE::IDLE, true, 0.0f, -1.0f, false, true);
-		}
-
-		return;
-	}
-
-	// ガード中にBでバースト(気が足りない場合は発動しない)
-	if (isGuard_ && ins.IsTrgDown(KEY_INPUT_B))
-	{
-		if (!UseKi(Constants::GuardBurstKiCost))
-		{
-			return;
-		}
-
-		isGuardBurst_ = true;
-		guardBurstTrigger_ = true;
-		guardBurstTimer_ = Constants::GuardBurstTime;
-
-		isGuard_ = false;
+		guard_.StartBurst();
 
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
 		animationController_->ClearEndLoop();
-		animationController_->Play((int)ANIM_TYPE::GUARD_BURST, false, 0.0f, 45.0f, false, true);
+		animationController_->Play((int)ANIM_TYPE::GUARD_BURST, false,
+			0.0f, cfg::Guard::BURST_ANIM_END_STEP, false, true);
 	}
 }
 
 void Player::GuardDamage(float damage)
 {
-	if (isGuardBreak_)
+	// ガードブレイクしたらモーションを変える
+	if (guard_.Damage(damage))
 	{
-		return;
-	}
-
-	// 回復開始までの時間をリセット
-	guardRecoverTimer_ = Constants::GuardRecoverDelay;
-
-	guardHp_ -= damage;
-
-	if (guardHp_ <= 0.0f)
-	{
-		guardHp_ = 0.0f;
-
-		isGuard_ = false;
-		isGuardBreak_ = true;
-		guardBreakTimer_ = Constants::GuardBreakTime;
-
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
 		animationController_->Play((int)ANIM_TYPE::GUARD_BREAK, true, 0.0f, -1.0f, false, true);
 	}
 }
 
-bool Player::IsGuard(void) const { return isGuard_; }
-bool Player::IsGuardBreak(void) const { return isGuardBreak_; }
-bool Player::IsGuardBurst(void) const { return isGuardBurst_; }
-bool Player::IsGuardBurstTrigger(void) const { return guardBurstTrigger_; }
+bool Player::IsGuard(void) const { return guard_.IsGuard(); }
+bool Player::IsGuardBreak(void) const { return guard_.IsBreak(); }
+bool Player::IsGuardBurst(void) const { return guard_.IsBurst(); }
+bool Player::IsGuardBurstTrigger(void) const { return guard_.IsBurstTrigger(); }
 
 // ダメージ
 void Player::Damage(int damage)
 {
 	// 死亡中・変身中は無敵
-	if (isDead_ || isTransforming_)
+	if (isDead_ || formChange_.IsActive())
 	{
 		return;
 	}
@@ -2110,7 +1802,7 @@ void Player::Damage(int damage)
 	}
 
 	// 攻撃中なら解除
-	ResetAttackState();
+	attack_.Reset();
 
 	// 気溜めを解除
 	if (isCharging_ || isChargeEnding_)
@@ -2119,14 +1811,19 @@ void Player::Damage(int damage)
 	}
 
 	// かめはめ波を解除
-	if (isKamehame_)
+	if (kamehame_.IsActive())
 	{
-		isKamehame_ = false;
-		isKamehameBeam_ = false;
-		kamehameTimer_ = 0.0f;
-
-		SetKamehameLight(false);
+		kamehame_.Cancel();
 	}
+
+	// 移動系の状態も解除する(残すと、被弾後に動けなくなったり状態が混ざる)
+	boostChase_.Cancel();
+	attack_.CancelChase();
+	isDodge_ = false;
+	dodgeTimer_ = 0.0f;
+	isKiBlast_ = false;
+	isKiBlastShot_ = false;
+	kiBlastTimer_ = 0.0f;
 
 	movePow_ = AsoUtility::VECTOR_ZERO;
 
@@ -2160,26 +1857,13 @@ void Player::AddAttackMove(VECTOR dir, float power)
 // 攻撃判定・ロックオン・状態の取得/設定
 bool Player::IsAttack(void) const
 {
-	return isAttack_;
+	return attack_.IsAttack();
 }
 
-bool Player::IsAttackHitTiming(void) const
-{
-	// 範囲外のコンボは既定値(0.2~0.3秒)
-	HitWindow window = { 0.2f, 0.3f };
+bool Player::IsAttackHitTiming(void) const { return attack_.IsHitTiming(); }
 
-	if (combo_ >= 1 && combo_ <= kMaxCombo)
-	{
-		window = kHitWindows[combo_ - 1];
-	}
-
-	return isAttack_ &&
-		attackTimer_ >= window.start &&
-		attackTimer_ <= window.end;
-}
-
-bool Player::HasAttackHit(void) const { return hasAttackHit_; }
-void Player::SetAttackHit(void) { hasAttackHit_ = true; }
+bool Player::HasAttackHit(void) const { return attack_.HasHit(); }
+void Player::SetAttackHit(void) { attack_.SetHit(); }
 
 VECTOR Player::GetForward(void) const
 {
@@ -2188,7 +1872,7 @@ VECTOR Player::GetForward(void) const
 
 bool Player::IsDead(void) const { return isDead_; }
 int Player::GetHp(void) const { return hp_; }
-int Player::GetCombo(void) const { return combo_; }
+int Player::GetCombo(void) const { return attack_.GetCombo(); }
 
 bool Player::IsRecording(void) const { return isRecording_; }
 void Player::StopRecord(void) { isRecording_ = false; }

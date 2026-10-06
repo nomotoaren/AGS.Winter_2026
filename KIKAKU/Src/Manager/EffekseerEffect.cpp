@@ -1,7 +1,39 @@
 #include "EffekseerEffect.h"
+#include <cmath>
 #include "../Application.h"
 
 EffekseerEffect* EffekseerEffect::instance_ = nullptr;
+
+namespace
+{
+    // 変身のエフェクト(気溜め + 爆発)に共通でかける色(0~255)
+    // 色を変えたいときは、ここの3つの数字を変える
+    constexpr int TRANSFORM_COLOR_R = 255;
+    constexpr int TRANSFORM_COLOR_G = 215;
+    constexpr int TRANSFORM_COLOR_B = 90;
+    constexpr int TRANSFORM_COLOR_A = 255;
+
+    // 変身のエフェクトの大きさ・速さ
+    // (大きすぎるとカメラが爆発の内側に入って何も見えなくなるので、まず小さめ)
+    constexpr float TRANSFORM_BURST_SCALE = 12.0f;
+    constexpr float TRANSFORM_BURST_SPEED = 1.0f;
+
+    // 爆発に色をかけるか(出ないときは false にして試す)
+    constexpr bool TRANSFORM_BURST_TINT = true;
+    constexpr float TRANSFORM_CHARGE_SCALE = 10.0f;
+
+    // 再生中のエフェクトに変身の色をかける
+    void ApplyTransformColor(int playHandle)
+    {
+        SetColorPlayingEffekseer3DEffect(
+            playHandle,
+            TRANSFORM_COLOR_R,
+            TRANSFORM_COLOR_G,
+            TRANSFORM_COLOR_B,
+            TRANSFORM_COLOR_A
+        );
+    }
+}
 
 EffekseerEffect::EffekseerEffect(void)
     :
@@ -9,6 +41,8 @@ EffekseerEffect::EffekseerEffect(void)
     playHitEffectHandle_(-1),
     chargeEffectId_(-1),
     playChargeEffectHandle_(-1),
+    transformEffectId_(-1),
+    playTransformEffectHandle_(-1),
     shalshutEffectId_(-1),
     PlayshalshuEffectHandle(-1),
     slashHandle_(-1),
@@ -116,6 +150,36 @@ void EffekseerEffect::Init(void)
         MessageBoxA(
             NULL,
             "MagicTornade.efkefcの読み込みに失敗しました。",
+            "エラー",
+            MB_OK
+        );
+    }
+
+    // 変身の爆発エフェクト
+    transformEffectId_ = LoadEffekseerEffect(
+        (Application::PATH_EFFECT + "bakuhatu.efkefc").c_str()
+    );
+
+    if (transformEffectId_ == -1)
+    {
+        MessageBoxA(
+            NULL,
+            "bakuhatu.efkefcの読み込みに失敗しました。",
+            "エラー",
+            MB_OK
+        );
+    }
+
+    // かめはめ波
+    kamehameEffectId_ = LoadEffekseerEffect(
+        (Application::PATH_EFFECT + "blue_laser.efkefc").c_str()
+    );
+
+    if (kamehameEffectId_ == -1)
+    {
+        MessageBoxA(
+            NULL,
+            "blue_laser.efkefcの読み込みに失敗しました。",
             "エラー",
             MB_OK
         );
@@ -389,7 +453,8 @@ void EffekseerEffect::PlayHitEffect(
 }
 
 void EffekseerEffect::PlayChargeEffect(
-    const VECTOR& pos
+    const VECTOR& pos,
+    bool useTransformColor
 )
 {
     if (chargeEffectId_ == -1)
@@ -425,6 +490,12 @@ void EffekseerEffect::PlayChargeEffect(
         10.0f,
         10.0f
     );
+
+    // 変身のときは、爆発と同じ色にする
+    if (useTransformColor)
+    {
+        ApplyTransformColor(playChargeEffectHandle_);
+    }
 }
 
 void EffekseerEffect::UpdateChargeEffect(
@@ -456,4 +527,151 @@ void EffekseerEffect::StopChargeEffect(void)
     );
 
     playChargeEffectHandle_ = -1;
+}
+
+// 変身の瞬間の爆発エフェクト(気溜めと同じ色)
+void EffekseerEffect::PlayTransformEffect(const VECTOR& pos)
+{
+    if (transformEffectId_ == -1)
+    {
+        return;
+    }
+
+    playTransformEffectHandle_ =
+        PlayEffekseer3DEffect(
+            transformEffectId_
+        );
+
+    if (playTransformEffectHandle_ == -1)
+    {
+        return;
+    }
+
+    SetPosPlayingEffekseer3DEffect(
+        playTransformEffectHandle_,
+        pos.x,
+        pos.y,
+        pos.z
+    );
+
+    SetScalePlayingEffekseer3DEffect(
+        playTransformEffectHandle_,
+        TRANSFORM_BURST_SCALE,
+        TRANSFORM_BURST_SCALE,
+        TRANSFORM_BURST_SCALE
+    );
+
+    SetSpeedPlayingEffekseer3DEffect(
+        playTransformEffectHandle_,
+        TRANSFORM_BURST_SPEED
+    );
+
+    if (TRANSFORM_BURST_TINT)
+    {
+        ApplyTransformColor(playTransformEffectHandle_);
+    }
+}
+
+//------------------------------------------------------------
+// かめはめ波
+//------------------------------------------------------------
+namespace
+{
+    // 進行方向(dir)を向くための回転(ラジアン)。ビームはエフェクトの +Z 方向へ伸びる
+    // 上下が逆に出るときは、PITCH_SIGN を -1.0f に変える
+    constexpr float KAMEHAME_PITCH_SIGN = 1.0f;
+
+    // エフェクト全体にかける色(0~255)。紫が気になるときはここを変える
+    constexpr int KAMEHAME_TINT_R = 90;
+    constexpr int KAMEHAME_TINT_G = 225;
+    constexpr int KAMEHAME_TINT_B = 255;
+
+    // ビームが後ろへ出てしまうので、エフェクトの向きを反転させる(前へ出るなら 1.0f に戻す)
+    constexpr float KAMEHAME_AXIS_SIGN = -1.0f;
+
+    void CalcDirRotation(const VECTOR& dir, float& rotX, float& rotY)
+    {
+        const float dx = dir.x * KAMEHAME_AXIS_SIGN;
+        const float dy = dir.y * KAMEHAME_AXIS_SIGN;
+        const float dz = dir.z * KAMEHAME_AXIS_SIGN;
+        const float horizontal = sqrtf(dx * dx + dz * dz);
+
+        rotY = atan2f(dx, dz);
+        rotX = -atan2f(dy, horizontal) * KAMEHAME_PITCH_SIGN;
+    }
+}
+
+void EffekseerEffect::PlayKamehameEffect(
+    const VECTOR& pos, const VECTOR& dir, float scale, float speed)
+{
+    if (kamehameEffectId_ == -1)
+    {
+        return;
+    }
+
+    // 前のが残っていたら止める
+    StopKamehameEffect();
+
+    playKamehameEffectHandle_ = PlayEffekseer3DEffect(kamehameEffectId_);
+
+    if (playKamehameEffectHandle_ == -1)
+    {
+        return;
+    }
+
+    SetScalePlayingEffekseer3DEffect(playKamehameEffectHandle_, scale, scale, scale);
+    SetSpeedPlayingEffekseer3DEffect(playKamehameEffectHandle_, speed);
+
+    // 手元の気弾(水色)に合わせて、エフェクトの紫っぽい部分を水色に寄せる
+    SetColorPlayingEffekseer3DEffect(
+        playKamehameEffectHandle_,
+        KAMEHAME_TINT_R, KAMEHAME_TINT_G, KAMEHAME_TINT_B, 255);
+
+    UpdateKamehameEffect(pos, dir);
+}
+
+void EffekseerEffect::UpdateKamehameEffect(const VECTOR& pos, const VECTOR& dir)
+{
+    if (playKamehameEffectHandle_ == -1)
+    {
+        return;
+    }
+
+    float rotX = 0.0f;
+    float rotY = 0.0f;
+    CalcDirRotation(dir, rotX, rotY);
+
+    SetPosPlayingEffekseer3DEffect(playKamehameEffectHandle_, pos.x, pos.y, pos.z);
+    SetRotationPlayingEffekseer3DEffect(playKamehameEffectHandle_, rotX, rotY, 0.0f);
+}
+
+void EffekseerEffect::SetKamehameEffectScale(float x, float y, float z)
+{
+    if (playKamehameEffectHandle_ == -1)
+    {
+        return;
+    }
+
+    SetScalePlayingEffekseer3DEffect(playKamehameEffectHandle_, x, y, z);
+}
+
+void EffekseerEffect::SetKamehameEffectSpeed(float speed)
+{
+    if (playKamehameEffectHandle_ == -1)
+    {
+        return;
+    }
+
+    SetSpeedPlayingEffekseer3DEffect(playKamehameEffectHandle_, speed);
+}
+
+void EffekseerEffect::StopKamehameEffect(void)
+{
+    if (playKamehameEffectHandle_ == -1)
+    {
+        return;
+    }
+
+    StopEffekseer3DEffect(playKamehameEffectHandle_);
+    playKamehameEffectHandle_ = -1;
 }

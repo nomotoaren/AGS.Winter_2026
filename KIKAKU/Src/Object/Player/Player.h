@@ -5,9 +5,16 @@
 #include <map>
 #include <functional>
 #include <DxLib.h>
-#include "ActorBase.h"
-#include "KiBlast.h"
-#include "../Manager/ResourceManager.h"	// FormData が ResourceManager::SRC を使うため
+#include "../ActorBase.h"
+#include "../KiBlast.h"
+#include "PlayerHud.h"
+#include "PlayerConfig.h"
+#include "PlayerKamehameha.h"
+#include "PlayerTransform.h"
+#include "PlayerBoostChase.h"
+#include "PlayerGuard.h"
+#include "PlayerAttack.h"
+#include "../../Manager/ResourceManager.h"	// FormData が ResourceManager::SRC を使うため
 
 class AnimationController;
 class Collider;
@@ -35,19 +42,22 @@ public:
 
 	static constexpr int ATTACK_DAMAGE = 1;
 
+	// 最大HP(HUDの表示にも使う)
+	static constexpr int MAX_HP = 100;
+
 	static constexpr float ATTACK_END_WAIT = 0.15f;
 
 	// かめはめ波の発射までの時間
-	static constexpr float KAMEHAME_SHOT_TIME = 2.0f;
-	static constexpr float KAMEHAME_END_TIME = 3.0f;
-	static constexpr float KAMEHAME_BEAM_LENGTH = 2000.0f;
-	static constexpr float KAMEHAME_BEAM_RADIUS = 25.0f;
-	static constexpr float KAMEHAME_TRANSITION_TIME = 0.12f;
+	static constexpr float KAMEHAME_SHOT_TIME = PlayerConfig::Kamehame::SHOT_TIME;
+	static constexpr float KAMEHAME_END_TIME = PlayerConfig::Kamehame::END_TIME;
+	static constexpr float KAMEHAME_BEAM_LENGTH = PlayerConfig::Kamehame::BEAM_LENGTH;
+	static constexpr float KAMEHAME_BEAM_RADIUS = PlayerConfig::Kamehame::BEAM_RADIUS;
+	static constexpr float KAMEHAME_TRANSITION_TIME = PlayerConfig::Kamehame::TRANSITION_TIME;
 
 	// 気
 	static constexpr float MAX_KI = 100.0f;
 	static constexpr float KI_CHARGE_SPEED = 20.0f;
-	static constexpr float KAMEHAME_KI_COST = 30.0f;
+	static constexpr float KAMEHAME_KI_COST = PlayerConfig::Kamehame::KI_COST;
 
 	// 状態
 	enum class STATE
@@ -151,6 +161,9 @@ public:
 	// ノックバック
 	void AddKnockBack(VECTOR dir, float power);
 
+	// 敵と重ならないように位置をずらす(GameScene から呼ぶ)
+	void PushOut(const VECTOR& offset);
+
 	// 死亡しているか
 	bool IsDead(void) const;
 
@@ -165,7 +178,7 @@ public:
 	bool IsKamehameBeam(void) const;
 	VECTOR GetKamehameStartPos(void) const;
 	VECTOR GetKamehameEndPos(void) const;
-	VECTOR GetKamehameDir(void) const { return kamehameDir_; }	// 敵側の判定用
+	VECTOR GetKamehameDir(void) const { return kamehame_.GetDir(); }	// 敵側の判定用
 	float GetKamehameRadius(void) const;
 
 	bool IsKamehame(void) const;
@@ -178,6 +191,7 @@ public:
 	bool CanChase(void) const;
 
 	bool UseKi(float amount);
+	float GetKi(void) const { return ki_; }	// HUD表示用
 
 	void AddAttackMove(VECTOR dir, float power);
 
@@ -198,13 +212,17 @@ public:
 	bool IsGuard(void) const;
 	void GuardDamage(float damage);
 	bool IsGuardBreak(void) const;
-	void UpdateGuardBurst(void);
 	bool IsGuardBurst(void) const;
 	bool IsGuardBurstTrigger(void) const;
 
 	// 変身
 	bool IsTransforming(void) const;
-	float GetAttackRate(void) const;	// ダメージ計算側で damage * GetAttackRate() とする
+	float GetAttackRate(void) const;	// 形態ごとの攻撃力倍率
+	// 敵に当てたときのダメージ数字(worldPos = 3D位置)
+	void AddDamagePopup(const VECTOR& worldPos, int damage) { hud_.AddDamagePopup(worldPos, damage); }
+
+	FORM GetForm(void) const { return form_; }	// HUD表示用
+	int GetAttackDamage(int baseDamage) const;	// 基本ダメージに倍率をかけた値(最低1)
 
 private:
 
@@ -221,7 +239,6 @@ private:
 		// 残像
 		static constexpr float AfterImageDuration = 0.10f;
 		static constexpr float BoostAfterImageDuration = 0.15f;
-		static constexpr float BoostAfterImageInterval = 0.03f;
 
 		// 移動 / 高さ
 		static constexpr float VerticalMoveSpeed = 5.0f;
@@ -237,24 +254,9 @@ private:
 		static constexpr float DodgeDuration = 0.18f;
 
 		// ブースト関連
-		static constexpr float BoostStopDistance = 70.0f;
-		static constexpr float BoostMaxSpeed = 45.0f;
-		static constexpr float BoostInitialDelay = 0.10f;
-		static constexpr float BoostAccelWindow = 0.20f;
-		static constexpr float BoostMaxDuration = 2.0f;
 
 		// 追尾・攻撃
-		static constexpr float AttackFollowRate = 0.25f;
-		static constexpr float AttackDistance = 90.0f;
-		static constexpr float ChaseSpeed = 18.0f;
-		static constexpr float ChaseStopDistance = 80.0f;
-		static constexpr float NextAttackPlayRateThreshold = 0.75f;
-		static constexpr float Combo8FollowEnd = 0.50f;		// 8段目で敵への追従をやめる時間
 
-		// コンボ中の瞬間移動
-		static constexpr float WarpDistance = 90.0f;		// 4,6,7段目
-		static constexpr float WarpBackDistance = 130.0f;	// 8段目の手前距離
-		static constexpr float WarpHeight = 200.0f;			// 8段目の高さ
 
 		// 気弾
 		static constexpr float KiBlastShotTime = 0.20f;
@@ -264,12 +266,6 @@ private:
 		static constexpr float EnemyCenterHeight = 100.0f;	// 敵の足元から中心までの高さ
 
 		// ガード
-		static constexpr float GuardMaxHp = 100.0f;
-		static constexpr float GuardRecoverSpeed = 25.0f;
-		static constexpr float GuardRecoverDelay = 2.0f;
-		static constexpr float GuardBreakTime = 3.0f;
-		static constexpr float GuardBurstKiCost = 20.0f;
-		static constexpr float GuardBurstTime = 0.5f;
 
 		// 汎用比較
 		static constexpr float Epsilon = 0.001f;
@@ -329,27 +325,15 @@ private:
 	// 丸影
 	int imgShadow_;
 
-	// 攻撃中
-	bool isAttack_;
+	// 近接攻撃(追撃・コンボの状態は PlayerAttack に任せる)
+	PlayerAttack attack_;
+	PlayerAttack::Context MakeAttackContext(void) const;
 
-	// 攻撃開始からの時間
-	float attackTimer_;
 
-	// 今回の攻撃が既にヒットしたか
-	bool hasAttackHit_;
-	// このフレームで攻撃を開始したか
-	bool attackTrigger_;
-
-	// コンボ
-	int combo_;
-	bool nextAttack_;
 	bool hasAttackTarget_;
 	VECTOR attackTargetPos_;
 	bool canChase_;
-	bool isChasing_;
 
-	bool isAttack04Move_;
-	float attack04MoveTimer_;
 	// 攻撃時の残像
 	int afterImageModel_;
 	bool isAfterImage_;
@@ -379,14 +363,7 @@ private:
 	float damageTimer_;
 
 	// ガード中
-	bool isGuard_;
-	float guardHp_;
-	bool isGuardBreak_;
-	float guardBreakTimer_;
-	float guardRecoverTimer_;
-	bool isGuardBurst_;
-	float guardBurstTimer_;
-	bool guardBurstTrigger_;
+	PlayerGuard guard_;		// ガード(状態と耐久値は PlayerGuard に任せる)
 
 	// 死亡
 	bool isDead_;
@@ -413,9 +390,6 @@ private:
 	void DrawShadow(void);
 	void DrawKiBlast(void);
 	void DrawAfterImage(const MATRIX& matrix, float opacity, bool disableLighting);
-	void DrawKamehameChargeModel(const VECTOR& pos, float scale, float rotSpeed);
-	void UpdateKamehameLight(const VECTOR& chargePos);
-	void SetKamehameLight(bool enable);
 
 	// 操作
 	void ProcessMove(void);
@@ -448,9 +422,7 @@ private:
 	// 攻撃関連
 	void UpdateAttack(void);
 	void StartAttack(void);
-	void ResetAttackState(void);
 	void FinishAttack(void);
-	void FollowAttackTarget(void);
 	void AdvanceCombo(void);
 	void LeaveAfterImage(void);
 	void UpdateKiBlast(void);
@@ -459,6 +431,7 @@ private:
 
 	// 高速追撃
 	void UpdateCharge(void);
+	void EndChase(bool startAttack);
 	void EndBoostChase(void);
 
 	// 気溜め
@@ -476,15 +449,9 @@ private:
 	float attackEndTimer_;
 
 	// かめはめ波
-	VECTOR kamehameDir_;
-	bool isKamehame_;
-	float kamehameTimer_;
-	bool isKamehameBeam_;
-	int leftHandFrame_;
+	PlayerKamehameha kamehame_;		// かめはめ波(処理は PlayerKamehameha に任せる)
+	PlayerKamehameha::Context MakeKamehameContext(void) const;
 	int rightHandFrame_;
-	int kamehameLightHandle_;
-	int kamehameChargeModel_;
-	int kamehameBeamModel_;
 
 	// 気
 	float ki_;
@@ -498,14 +465,14 @@ private:
 	int afterImageAttachNo_;
 	MATRIX afterImageMatrix_;
 	std::vector<BoostAfterImage> boostAfterImages_;
-	float boostAfterImageTimer_;
 
 	// ロックオン
 	bool isLockOn_;
 	float lockOnPitch_;
 
-	bool isBoostChase_;
-	float boostChaseTimer_;
+	PlayerBoostChase boostChase_;	// 高速接近(軌道の計算は PlayerBoostChase に任せる)
+
+	// 追撃(Fキー接近)のフリーズ対策
 
 	// 回避
 	bool isDodge_;
@@ -515,10 +482,12 @@ private:
 	// 空中
 	bool isFlying_;
 
+	// HUD(HP・気ゲージ)
+	PlayerHud hud_;
+
 	// 変身
 	FORM form_;
 	FORM nextForm_;
-	bool isTransforming_;
-	bool isTransformSwapped_;
-	float transformTimer_;
+	PlayerTransform formChange_;	// 変身の流れ(処理は PlayerTransform に任せる)
+	float chargeEndTimer_ = 0.0f;			// 気溜め終了モーションの経過時間(止まり防止用)
 };

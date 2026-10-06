@@ -1,5 +1,7 @@
 #pragma once
+#include <string>
 #include "../ActorBase.h"
+#include "EnemyHud.h"	
 
 class EnemyBase : public ActorBase
 {
@@ -31,6 +33,9 @@ public:
 	// ノックバック
 	void AddKnockBack(VECTOR dir, float power);
 
+	// プレイヤーと重ならないように位置をずらす(GameScene から呼ぶ)
+	void PushOut(const VECTOR& offset);
+
 	// SYNC受付開始
 	void StartSyncWindow(void);
 
@@ -47,6 +52,11 @@ public:
 	float GetSyncRate(void) const;
 
 protected:
+
+	// HPバー(各敵の Init / Update / Draw から呼ぶ)
+	void InitHud(const std::string& name, int maxHp);
+	void UpdateHud(void);
+	void DrawHud(void);
 
 	// ノックバック量
 	VECTOR knockBackPow_;
@@ -68,5 +78,10 @@ protected:
 
 	// SYNC受付の経過時間
 	float syncTimer_;
+
+private:
+
+	// HPバー
+	EnemyHud hud_;
 
 };

@@ -9,7 +9,7 @@
 #include "../Object/Common/Collider.h"
 #include "../Object/SkyDome.h"
 #include "../Object/Stage.h"
-#include "../Object/Player.h"
+#include "../Object/Player/Player.h"
 #include "../Object/Enemy/EnemyBase.h"
 #include "../Object/Enemy/MeleeEnemy.h"
 #include "../Object/Planet.h"
@@ -20,6 +20,24 @@
 #include "GameScene.h"
 #include <cmath>
 #include <cfloat>
+
+namespace
+{
+	// プレイヤーと敵が重ならない最小の水平距離
+	// (攻撃中に保つ距離 AttackDistance=90 より小さくしておく)
+	constexpr float BODY_DISTANCE = 65.0f;
+	// この高さ以上離れていたら重なりとみなさない(上や下にいるときは通す)
+	constexpr float BODY_HEIGHT_RANGE = 130.0f;
+	// 1フレームで押し出す最大量(急に飛ばないようにする)
+	constexpr float BODY_MAX_PUSH = 25.0f;
+	// 押し出しの配分(プレイヤー側 / 敵側)
+	constexpr float BODY_PLAYER_RATE = 0.65f;
+
+	// 攻撃が届く高さの差(これを超えると当たらない)
+	constexpr float ATTACK_HEIGHT_RANGE = 150.0f;
+	// 水平距離がこれ以下のときは向き判定をしない(真上・真下の敵用)
+	constexpr float ATTACK_DOT_MIN_DISTANCE = 20.0f;
+}
 
 GameScene::GameScene(void)
 	:
@@ -168,7 +186,7 @@ void GameScene::Update(void)
 			stageStartTimer_ +=
 				SceneManager::GetInstance().GetDeltaTime();
 		}
-		
+
 		// ゲーム更新
 		skyDome_->Update();
 
@@ -443,6 +461,62 @@ void GameScene::Update(void)
 			enemy->Update();
 		}
 
+		// プレイヤーと敵が重ならないように押し出す
+		for (auto& enemy : enemies_)
+		{
+			if (!enemy || enemy->IsDead())
+			{
+				continue;
+			}
+
+			const VECTOR playerPos = player_->GetTransform().pos;
+			const VECTOR enemyPos = enemy->GetTransform().pos;
+
+			// 上や下に離れているときは重なりとみなさない
+			if (std::fabs(enemyPos.y - playerPos.y) > BODY_HEIGHT_RANGE)
+			{
+				continue;
+			}
+
+			// 敵 → プレイヤー の水平方向
+			VECTOR diff = VSub(playerPos, enemyPos);
+			diff.y = 0.0f;
+
+			const float dist = VSize(diff);
+
+			if (dist >= BODY_DISTANCE)
+			{
+				continue;
+			}
+
+			VECTOR dir;
+
+			if (dist > 0.001f)
+			{
+				dir = VScale(diff, 1.0f / dist);
+			}
+			else
+			{
+				// ぴったり重なっているときは、プレイヤーの後ろ側へ逃がす
+				VECTOR forward = player_->GetForward();
+				forward.y = 0.0f;
+
+				dir = (VSize(forward) > 0.001f)
+					? VScale(VNorm(forward), -1.0f)
+					: VGet(0.0f, 0.0f, -1.0f);
+			}
+
+			float overlap = BODY_DISTANCE - dist;
+
+			if (overlap > BODY_MAX_PUSH)
+			{
+				overlap = BODY_MAX_PUSH;
+			}
+
+			player_->PushOut(VScale(dir, overlap * BODY_PLAYER_RATE));
+			enemy->PushOut(VScale(dir, -overlap * (1.0f - BODY_PLAYER_RATE)));
+		}
+
 		// Enemyの攻撃判定
 		//for (auto& enemyBase : enemies_)
 		//{
@@ -578,119 +652,99 @@ void GameScene::Update(void)
 		if (player_->IsAttackHitTiming() &&
 			!player_->HasAttackHit())
 		{
+			const int combo = player_->GetCombo();
+
+			// 形態に応じたダメージ(変身すると倍率が変わる)
+			const int attackDamage =
+				player_->GetAttackDamage(Player::ATTACK_DAMAGE);
+
+			// 攻撃範囲(水平距離)と高さの許容範囲
+			float attackRange = ActorBase::ATTACK_RANGE;
+			float attackHeight = ATTACK_HEIGHT_RANGE;
+
+			// 8段目は上から叩き落とすので広め
+			if (combo == 8)
+			{
+				attackRange = 280.0f;
+				attackHeight = 300.0f;
+			}
+
+			const VECTOR playerPos =
+				player_->GetTransform().pos;
+
+			VECTOR forward = player_->GetForward();
+			forward.y = 0.0f;
+			const bool hasForward = VSize(forward) > 0.001f;
+			if (hasForward)
+			{
+				forward = VNorm(forward);
+			}
+
 			for (auto& enemy : enemies_)
 			{
-				if (!enemy)
+				if (!enemy || enemy->IsDead())
 				{
 					continue;
 				}
 
-				if (enemy->IsDead())
-				{
-					continue;
-				}
-
-				VECTOR playerPos =
-					player_->GetTransform().pos;
-
-				VECTOR enemyPos =
+				const VECTOR enemyPos =
 					enemy->GetTransform().pos;
 
-				VECTOR toEnemy =
-					VSub(
-						enemyPos,
-						playerPos
-					);
+				const VECTOR toEnemy =
+					VSub(enemyPos, playerPos);
 
-				float distance =
-					VSize(toEnemy);
+				// 水平距離と高さの差を別々に見る
+				// (3D距離だと、敵が上下にいるだけで届かなくなるため)
+				VECTOR horizontal = toEnemy;
+				horizontal.y = 0.0f;
 
-				// 距離判定
-				float attackRange =
-					ActorBase::ATTACK_RANGE;
+				const float horizontalDist = VSize(horizontal);
+				const float verticalDist = std::fabs(toEnemy.y);
 
-
-				// 8段目は上から叩き落とすので広め
-				if (player_->GetCombo() == 8)
-				{
-					attackRange = 280.0f;
-				}
-
-				if (distance > attackRange)
-				{
-					continue;
-				}
-				if (distance <= 0.001f)
+				if (horizontalDist > attackRange ||
+					verticalDist > attackHeight)
 				{
 					continue;
 				}
 
-				// 向き判定
-				VECTOR attackDir =
-					toEnemy;
-
-				attackDir.y = 0.0f;
-
-				VECTOR forward =
-					player_->GetForward();
-
-				forward.y = 0.0f;
-
-				if (VSize(attackDir) <= 0.001f ||
-					VSize(forward) <= 0.001f)
+				// 向き判定(真上・真下など水平距離がほぼ0のときは判定しない)
+				if (hasForward &&
+					horizontalDist > ATTACK_DOT_MIN_DISTANCE)
 				{
-					continue;
+					const float dot =
+						VDot(forward, VScale(horizontal, 1.0f / horizontalDist));
+
+					if (dot < ActorBase::ATTACK_DOT)
+					{
+						continue;
+					}
 				}
 
-				attackDir =
-					VNorm(attackDir);
-
-				forward =
-					VNorm(forward);
-
-				float dot =
-					VDot(
-						forward,
-						attackDir
-					);
-
-				if (dot < ActorBase::ATTACK_DOT)
-				{
-					continue;
-				}
-
-				// 敵がガード中
 				MeleeEnemy* meleeEnemy =
-					dynamic_cast<MeleeEnemy*>(
-						enemy.get()
-						);
+					dynamic_cast<MeleeEnemy*>(enemy.get());
 
+				// 敵がガード中(8段目はガードを崩すので貫通)
 				if (meleeEnemy != nullptr &&
-					meleeEnemy->IsGuard())
+					meleeEnemy->IsGuard() &&
+					combo != 8)
 				{
-					// ガード耐久値を減らす
+					// ガード耐久値を減らす(攻撃力が高いほど削れる)
 					meleeEnemy->GuardDamage(
-						20.0f
+						20.0f * player_->GetAttackRate()
 					);
 
-					// ガードエフェクト
-					VECTOR effectPos =
-						enemy->GetTransform().pos;
-
+					VECTOR effectPos = enemyPos;
 					effectPos.y += 80.0f;
 
 					EffekseerEffect::GetInstance()->
-						PlayHitEffect(
-							effectPos,
-							0.0f
-						);
+						PlayHitEffect(effectPos, 0.0f);
 
 					isHitStop_ = true;
 					hitStopTimer_ = 0.03f;
 
 					player_->SetAttackHit();
 
-					continue;
+					break;
 				}
 
 				// HIT
@@ -699,92 +753,34 @@ void GameScene::Update(void)
 					meleeEnemy->LookAtPlayer();
 				}
 
-				enemy->Damage(
-					Player::ATTACK_DAMAGE
-				);
+				enemy->Damage(attackDamage);
+				player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 130.0f, 0.0f)), attackDamage);
 
 				float knockPower = 0.0f;
 
-
-				switch (player_->GetCombo())
+				switch (combo)
 				{
-				case 1:
-					knockPower = 5.0f;
-					break;
-
-				case 2:
-					knockPower = 7.0f;
-					break;
-
-				case 3:
-					knockPower = 5.0f;
-					break;
-
-				case 4:
-					knockPower = 7.0f;
-					break;
-
-				case 5:
-					knockPower = 9.0f;
-					break;
-
-				case 6:
-					knockPower = 7.0f;
-					break;
-
-				case 7:
-					knockPower = 4.0f;
-					break;
-
-				case 8:
-					knockPower = 100.0f;
-					break;
+				case 1: knockPower = 5.0f;   break;
+				case 2: knockPower = 7.0f;   break;
+				case 3: knockPower = 5.0f;   break;
+				case 4: knockPower = 7.0f;   break;
+				case 5: knockPower = 9.0f;   break;
+				case 6: knockPower = 7.0f;   break;
+				case 7: knockPower = 4.0f;   break;
+				case 8: knockPower = 100.0f; break;
 				}
 
-				VECTOR hitDir =
-					VSub(
-						enemyPos,
-						playerPos
-					);
-
+				VECTOR hitDir = toEnemy;
 				if (VSize(hitDir) > 0.001f)
 				{
-					hitDir =
-						VNorm(hitDir);
+					hitDir = VNorm(hitDir);
 				}
 
 				// 8段目は下に叩き落とす
-				if (player_->GetCombo() == 8)
+				if (combo == 8)
 				{
-					VECTOR forward =
-						player_->GetForward();
-
-					forward.y = 0.0f;
-
-					if (VSize(forward) > 0.001f)
-					{
-						forward =
-							VNorm(forward);
-					}
-
-					hitDir =
-					{
-						forward.x,
-						-0.8f,
-						forward.z
-					};
-
-					hitDir =
-						VNorm(hitDir);
-				}
-
-				// 8段目は地面に叩き落とす
-				if (player_->GetCombo() == 8)
-				{
-					MeleeEnemy* meleeEnemy =
-						dynamic_cast<MeleeEnemy*>(
-							enemy.get()
-							);
+					VECTOR slamDir = { forward.x, -0.8f, forward.z };
+					hitDir = VNorm(slamDir);
 
 					if (meleeEnemy != nullptr)
 					{
@@ -795,48 +791,29 @@ void GameScene::Update(void)
 					player_->SetCanChase(true);
 				}
 
-				enemy->AddKnockBack(
-					hitDir,
-					knockPower
-				);
+				enemy->AddKnockBack(hitDir, knockPower);
 
-				VECTOR effectPos =
-					enemy->GetTransform().pos;
-
+				VECTOR effectPos = enemyPos;
 				effectPos.y += 80.0f;
 
 				EffekseerEffect::GetInstance()->
-					PlayHitEffect(
-						effectPos,
-						0.0f
-					);
+					PlayHitEffect(effectPos, 0.0f);
 
 				isHitStop_ = true;
 
-				if (player_->GetCombo() == 8)
+				if (combo == 8)
 				{
 					hitStopTimer_ = 0.10f;
-
-					mainCamera.StartShake(
-						0.15f,
-						8.0f
-					);
+					mainCamera.StartShake(0.15f, 8.0f);
 				}
 				else
 				{
 					hitStopTimer_ = 0.05f;
-
-					mainCamera.StartShake(
-						0.08f,
-						3.0f
-					);
+					mainCamera.StartShake(0.08f, 3.0f);
 				}
 
 				player_->SetAttackHit();
 
-				break;
-
-				player_->SetAttackHit();
 				// 1攻撃で1体だけ
 				break;
 			}
@@ -883,7 +860,11 @@ void GameScene::Update(void)
 					continue;
 				}
 
-				enemy->Damage(1);
+				{
+					const int blastDamage = player_->GetAttackDamage(1);
+					enemy->Damage(blastDamage);
+					player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 40.0f, 0.0f)), blastDamage);
+				}
 
 				blast->Hit();
 
@@ -1047,7 +1028,11 @@ void GameScene::Update(void)
 					// ダメージだけ0.15秒ごと
 					if (kamehameDamageTimer_ >= 0.15f)
 					{
-						enemy->Damage(3);
+						{
+							const int beamDamage = player_->GetAttackDamage(3);
+							enemy->Damage(beamDamage);
+							player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 60.0f, 0.0f)), beamDamage);
+						}
 
 						kamehameDamageTimer_ = 0.0f;
 					}
@@ -1058,31 +1043,31 @@ void GameScene::Update(void)
 	}
 	case GAME_STATE::CLEAR:
 
-	clearTimer_ +=
-		SceneManager::GetInstance().GetDeltaTime();
+		clearTimer_ +=
+			SceneManager::GetInstance().GetDeltaTime();
 
-	// 1秒後から入力受付
-	if (clearTimer_ >= 1.0f)
-	{
-		if (ins.IsTrgDown(KEY_INPUT_SPACE))
+		// 1秒後から入力受付
+		if (clearTimer_ >= 1.0f)
 		{
-			// STAGE1 → STAGE2
-			if (stageNo_ == STAGE_NO::STAGE_1)
+			if (ins.IsTrgDown(KEY_INPUT_SPACE))
 			{
-				ChangeGameStage(
-					STAGE_NO::STAGE_2
-				);
-			}
+				// STAGE1 → STAGE2
+				if (stageNo_ == STAGE_NO::STAGE_1)
+				{
+					ChangeGameStage(
+						STAGE_NO::STAGE_2
+					);
+				}
 
-			// STAGE2 → STAGE3
-			else if (stageNo_ == STAGE_NO::STAGE_2)
-			{
-				ChangeGameStage(
-					STAGE_NO::STAGE_3
-				);
+				// STAGE2 → STAGE3
+				else if (stageNo_ == STAGE_NO::STAGE_2)
+				{
+					ChangeGameStage(
+						STAGE_NO::STAGE_3
+					);
+				}
 			}
 		}
-	}
 		break;
 
 	case GAME_STATE::GAME_CLEAR:
@@ -1129,14 +1114,6 @@ void GameScene::Draw(void)
 
 		enemy->Draw();
 	}
-
-	DrawFormatString(
-		20,
-		210,
-		GetColor(255, 255, 255),
-		"Player HP : %d",
-		player_->GetHp()
-	);
 
 	// STAGE CLEAR演出
 	if (gameState_ == GAME_STATE::CLEAR)
@@ -1393,18 +1370,12 @@ void GameScene::Draw(void)
 		}
 	}
 
-	// ヘルプ
-	DrawFormatString(840, 20, 0x000000, "移動　　：WASD");
-	DrawFormatString(840, 40, 0x000000, "カメラ　：矢印キー");
-	DrawFormatString(840, 60, 0x000000, "ダッシュ：右Shift");
-	DrawFormatString(840, 80, 0x000000, "ジャンプ：＼(バクスラ)");
-
 	int mainScreen = SceneManager::GetInstance().GetMainScreen();
 
 	// ポストエフェクト(モノクロ)
 	//-----------------------------------------
 	if (mode_ < MODE::MONO) { return; }
-	
+
 	SetDrawScreen(postEffectScreen_);
 
 	// 画面を初期化
@@ -1420,7 +1391,7 @@ void GameScene::Draw(void)
 	// ポストエフェクト(走査線)
 	//-----------------------------------------
 	if (mode_ < MODE::SCAN) { return; }
-	
+
 	SetDrawScreen(postEffectScreen_);
 
 	// 画面を初期化
@@ -1453,7 +1424,7 @@ void GameScene::Draw(void)
 	SetDrawScreen(mainScreen);
 	DrawGraph(0, 0, postEffectScreen_, false);
 	//-----------------------------------------
-	
+
 
 	// ポストエフェクト(ビネット)
 	//-----------------------------------------
@@ -1528,7 +1499,7 @@ void GameScene::ChangeGameStage(STAGE_NO stageNo)
 void GameScene::DrawStageStartUI(void)
 {
 	// タイマーが経過したら描画終了
-	if(stageStartTimer_ >= STAGE_START_UI_TIME)
+	if (stageStartTimer_ >= STAGE_START_UI_TIME)
 	{
 		return;
 	}
@@ -1537,7 +1508,7 @@ void GameScene::DrawStageStartUI(void)
 	const char* stageText = "";
 	const char* subText = "";
 
-	switch(stageNo_)
+	switch (stageNo_)
 	{
 	case STAGE_NO::STAGE_1:
 		stageText = "STAGE 1";
@@ -1559,7 +1530,7 @@ void GameScene::DrawStageStartUI(void)
 	int alpha = 255;
 
 	// 最初の0.5秒の領域展開
-	if(stageStartTimer_ < 0.5f)
+	if (stageStartTimer_ < 0.5f)
 	{
 		float rate =
 			stageStartTimer_ / 0.5f;
