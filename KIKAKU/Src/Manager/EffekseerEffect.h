@@ -132,6 +132,7 @@ private:
 
     int chargeEffectId_;
     int playChargeEffectHandle_;
+    int transformChargeEffectId_ = -1;		// 変身中の気溜め(MagicTornade2.efkefc)
 
     // 変身の爆発エフェクト
     int transformEffectId_;

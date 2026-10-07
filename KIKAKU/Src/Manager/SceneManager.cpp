@@ -72,7 +72,7 @@ void SceneManager::Init3D(void)
 
 	// ライトの設定
 	SetUseLighting(true);
-	
+
 	// ライトの設定
 	//ChangeLightTypeDir({ 0.0f, 0.0f, 0.5f });
 	ChangeLightTypeDir({ 0.3f, -0.7f, 0.8f });
@@ -119,7 +119,7 @@ void SceneManager::Update(void)
 
 void SceneManager::Draw(void)
 {
-	
+
 	// 描画先グラフィック領域の指定
 	// (３Ｄ描画で使用するカメラの設定などがリセットされる)
 	SetDrawScreen(mainScreen_);
@@ -141,7 +141,7 @@ void SceneManager::Draw(void)
 
 	// Effekseerにより再生中のエフェクトを描画する。
 	DrawEffekseer3D();
-	
+
 	// 暗転・明転
 	fader_->Draw();
 
@@ -151,7 +151,7 @@ void SceneManager::Draw(void)
 
 }
 
-void SceneManager::Destroy(void)
+void SceneManager::Destroy(void) const
 {
 
 	DeleteGraph(mainScreen_);
@@ -173,7 +173,7 @@ void SceneManager::ChangeScene(SCENE_ID nextId)
 
 }
 
-SceneManager::SCENE_ID SceneManager::GetSceneID(void)
+SceneManager::SCENE_ID SceneManager::GetSceneID(void) const
 {
 	return sceneId_;
 }
@@ -286,5 +286,3 @@ void SceneManager::Fade(void)
 	}
 
 }
-
-

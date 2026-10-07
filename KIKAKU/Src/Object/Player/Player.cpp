@@ -1029,7 +1029,7 @@ bool Player::IsEndLanding(void)
 
 PlayerAttack::Context Player::MakeAttackContext(void) const
 {
-	PlayerAttack::Context ctx;
+	PlayerAttack::Context ctx{};
 	ctx.playerPos = transform_.pos;
 	ctx.targetPos = attackTargetPos_;
 	ctx.hasTarget = hasAttackTarget_;
@@ -1198,7 +1198,7 @@ void Player::AdvanceCombo(void)
 
 PlayerKamehameha::Context Player::MakeKamehameContext(void) const
 {
-	PlayerKamehameha::Context ctx;
+	PlayerKamehameha::Context ctx{};
 	ctx.playerPos = transform_.pos;
 	ctx.forward = GetForward();
 	ctx.hasTarget = isLockOn_ && hasAttackTarget_;
@@ -1302,7 +1302,9 @@ void Player::UpdateChase(void)
 		animationController_->Play((int)ANIM_TYPE::CHARGE, true, 0.0f, 45.0f);
 		animationController_->SetEndLoop(40.0f, 45.0f, 5.0f);
 
-		EffekseerEffect::GetInstance()->PlayChargeEffect(transform_.pos);
+		// 変身後の姿のときは、変身用の気溜めエフェクトを出す
+		EffekseerEffect::GetInstance()->PlayChargeEffect(
+			transform_.pos, form_ == FORM::SUPER);
 	}
 
 	// 気溜め中
@@ -1555,7 +1557,7 @@ void Player::UpdateBoostChase(void)
 
 	boostChase_.Tick(scnMng_.GetDeltaTime());
 
-	PlayerBoostChase::Context ctx;
+	PlayerBoostChase::Context ctx{};
 	ctx.playerPos = transform_.pos;
 	ctx.targetPos = attackTargetPos_;
 	ctx.hasTarget = isLockOn_ && hasAttackTarget_;
@@ -1616,7 +1618,7 @@ void Player::UpdateBoostChase(void)
 	// 残像
 	if (result.leaveAfterImage)
 	{
-		BoostAfterImage image;
+		BoostAfterImage image{};
 		image.matrix = MV1GetMatrix(transform_.modelId);
 		image.timer = Constants::BoostAfterImageDuration;
 		boostAfterImages_.push_back(image);
@@ -1714,7 +1716,7 @@ void Player::UpdateGuard(void)
 
 	// 攻撃・かめはめ波・気弾・回避・高速接近・変身の最中はガードを始められない
 	// (途中でガードすると、モーションや状態が中途半端に残って止まってしまうため)
-	PlayerGuard::Context ctx;
+	PlayerGuard::Context ctx{};
 	ctx.deltaTime = SceneManager::GetInstance().GetDeltaTime();
 	ctx.canStart =
 		!attack_.IsAttack() &&
@@ -1946,3 +1948,314 @@ const Capsule& Player::GetCapsule(void) const
 {
 	return *capsule_;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//ひらさきはるやはごみだよ
