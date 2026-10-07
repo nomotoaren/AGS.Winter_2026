@@ -14,7 +14,7 @@
 #include "PlayerBoostChase.h"
 #include "PlayerGuard.h"
 #include "PlayerAttack.h"
-#include "../../Manager/ResourceManager.h"	// FormData が ResourceManager::SRC を使うため
+#include "../../Manager/ResourceManager.h"	// FormData で ResourceManager::SRC を使うため
 
 class AnimationController;
 class Collider;
@@ -137,14 +137,14 @@ public:
 
 	void StopRecord(void);
 
-	// 衝突判定に用いられるコライダ制御
+	// 衝突判定に用いるコライダ制御
 	void AddCollider(std::weak_ptr<Collider> collider);
 	void ClearCollider(void);
 
 	// 衝突用カプセルの取得
 	const Capsule& GetCapsule(void) const;
 
-	// 攻撃中か
+	// 攻撃判定
 	bool IsAttack(void) const;
 	bool IsAttackHitTiming(void) const;
 
@@ -253,19 +253,12 @@ private:
 		static constexpr float DodgeSpeed = 12.0f;
 		static constexpr float DodgeDuration = 0.18f;
 
-		// ブースト関連
-
-		// 追尾・攻撃
-
-
 		// 気弾
 		static constexpr float KiBlastShotTime = 0.20f;
 		static constexpr float KiBlastEndTime = 0.45f;
 
-		// かめはめ波の狙い位置
+		// かめはめ波の狙う位置
 		static constexpr float EnemyCenterHeight = 100.0f;	// 敵の足元から中心までの高さ
-
-		// ガード
 
 		// 汎用比較
 		static constexpr float Epsilon = 0.001f;
@@ -279,7 +272,7 @@ private:
 
 	// 状態管理
 	STATE state_;
-	// 状態管理(状態遷移時初期処理)
+	// 状態管理(状態遷移時の初期処理)
 	std::map<STATE, std::function<void(void)>> stateChanges_;
 	// 状態管理(更新ステップ)
 	std::function<void(void)> stateUpdate_;
@@ -314,7 +307,7 @@ private:
 	// ジャンプの入力受付時間
 	float stepJump_;
 
-	// 衝突判定に用いられるコライダ
+	// 衝突判定に用いるコライダ
 	std::vector<std::weak_ptr<Collider>> colliders_;
 	std::unique_ptr<Capsule> capsule_;
 
@@ -386,6 +379,15 @@ private:
 	bool UpdateDamage(void);
 	void UpdateAfterImages(void);
 
+	// 浮遊の見た目(当たり判定には影響しない)
+	void UpdateFloatLean(void);
+	void ApplyVisualTransform(const Quaternion& logicRot);
+	bool IsFloatSelfMove(void) const;			// 自分で移動している状態か(攻撃・回避などではない)
+
+	// 浮遊移動中の脚のポーズ(アニメの上から脚のボーンだけ寄せる)
+	void InitLegFrames(void);
+	void UpdateLegPose(void);
+
 	// 描画系
 	void DrawShadow(void);
 	void DrawKiBlast(void);
@@ -400,7 +402,7 @@ private:
 	static VECTOR ToHorizontal(VECTOR v);		// Y成分を捨てる
 	static VECTOR NormalizeSafe(VECTOR v);		// 長さがあるときだけ正規化
 	void FaceDirection(VECTOR dir);				// 正規化済みの方向を向く
-	bool FaceHorizontal(VECTOR dir);			// 水平方向だけ見て向く
+	bool FaceHorizontal(VECTOR dir);			// 水平成分だけで向く
 	void SetLockOnPitch(VECTOR dir);			// ロックオン時の上下の傾き
 	bool GetMoveBasis(VECTOR& forward, VECTOR& right);
 
@@ -449,7 +451,7 @@ private:
 	float attackEndTimer_;
 
 	// かめはめ波
-	PlayerKamehameha kamehame_;		// かめはめ波(処理は PlayerKamehameha に任せる)
+	PlayerKamehameha kamehame_;		// かめはめ波(流れは PlayerKamehameha に任せる)
 	PlayerKamehameha::Context MakeKamehameContext(void) const;
 	int rightHandFrame_;
 
@@ -472,15 +474,30 @@ private:
 
 	PlayerBoostChase boostChase_;	// 高速接近(軌道の計算は PlayerBoostChase に任せる)
 
-	// 追撃(Fキー接近)のフリーズ対策
-
 	// 回避
 	bool isDodge_;
 	float dodgeTimer_;
 	VECTOR dodgeDir_;
 
-	// 空中
+	// 飛行
 	bool isFlying_;
+
+	// 浮遊の見た目
+	float floatPitch_ = 0.0f;		// 前後の傾き(前傾がプラス)
+	float floatRoll_ = 0.0f;		// 左右の傾き
+	float floatBobTime_ = 0.0f;		// 上下ゆれの時間
+
+	// 脚のポーズ
+	enum LEG_FRAME
+	{
+		LEG_L_UP, LEG_L_KNEE, LEG_L_FOOT,
+		LEG_R_UP, LEG_R_KNEE, LEG_R_FOOT,
+		LEG_MAX
+	};
+	int legFrames_[LEG_MAX] = { -1, -1, -1, -1, -1, -1 };
+	float legPoseRate_ = 0.0f;		// 0:アニメのまま ~ 1:完全にポーズ
+	VECTOR legAxisSide_[LEG_MAX] = {};	// 各ボーンから見た「キャラの左右の軸」(脚を前後に振る軸)
+	VECTOR legAxisFront_[LEG_MAX] = {};	// 各ボーンから見た「キャラの前後の軸」(脚を横に開く軸)
 
 	// HUD(HP・気ゲージ)
 	PlayerHud hud_;
@@ -488,6 +505,6 @@ private:
 	// 変身
 	FORM form_;
 	FORM nextForm_;
-	PlayerTransform formChange_;	// 変身の流れ(処理は PlayerTransform に任せる)
+	PlayerTransform formChange_;	// 変身の流れ(流れは PlayerTransform に任せる)
 	float chargeEndTimer_ = 0.0f;			// 気溜め終了モーションの経過時間(止まり防止用)
 };

@@ -24,8 +24,6 @@ namespace cfg = PlayerConfig;
 // 調整用の数字は PlayerConfig.h にまとめてある
 namespace
 {
-	// かめはめ波のエフェクト速度用: 前回の時刻(マイクロ秒)
-
 	// 形態ごとのデータ(model, animDir, scale, speedRate, attackRate)
 	// ※ Player::FORM / Player::FormData は public にしておくこと
 	const Player::FormData kFormData[(int)Player::FORM::MAX] =
@@ -42,6 +40,70 @@ namespace
 			ins.IsNew(KEY_INPUT_S) ||
 			ins.IsNew(KEY_INPUT_D) ||
 			PadInput::IsStickTilted();
+	}
+
+	// 2つの姿勢行列の間を t(0~1) で補間する
+	//   要素ごとに補間したあと、回転部分を直交化して形が崩れないようにする
+	MATRIX BlendMatrix(const MATRIX& a, const MATRIX& b, float t)
+	{
+		MATRIX r;
+		for (int i = 0; i < 4; i++)
+		{
+			for (int j = 0; j < 4; j++)
+			{
+				r.m[i][j] = a.m[i][j] + (b.m[i][j] - a.m[i][j]) * t;
+			}
+		}
+
+		auto row = [](const MATRIX& m, int i) { return VGet(m.m[i][0], m.m[i][1], m.m[i][2]); };
+
+		// 各軸の長さ(スケール)も補間して保つ
+		const float sx = VSize(row(a, 0)) + (VSize(row(b, 0)) - VSize(row(a, 0))) * t;
+		const float sy = VSize(row(a, 1)) + (VSize(row(b, 1)) - VSize(row(a, 1))) * t;
+		const float sz = VSize(row(a, 2)) + (VSize(row(b, 2)) - VSize(row(a, 2))) * t;
+
+		VECTOR x = row(r, 0);
+		VECTOR y = row(r, 1);
+
+		if (VSize(x) < 0.0001f || VSize(y) < 0.0001f)
+		{
+			return (t < 0.5f) ? a : b;
+		}
+
+		x = VNorm(x);
+		VECTOR z = VCross(x, y);
+		if (VSize(z) < 0.0001f)
+		{
+			return (t < 0.5f) ? a : b;
+		}
+		z = VNorm(z);
+		y = VCross(z, x);
+
+		r.m[0][0] = x.x * sx; r.m[0][1] = x.y * sx; r.m[0][2] = x.z * sx; r.m[0][3] = 0.0f;
+		r.m[1][0] = y.x * sy; r.m[1][1] = y.y * sy; r.m[1][2] = y.z * sy; r.m[1][3] = 0.0f;
+		r.m[2][0] = z.x * sz; r.m[2][1] = z.y * sz; r.m[2][2] = z.z * sz; r.m[2][3] = 0.0f;
+		r.m[3][3] = 1.0f;
+
+		return r;
+	}
+
+	// Mixamo のボーンを名前で探す(接頭辞がモデルによって違うので順に試す)
+	int FindMixamoFrame(int model, const char* bone)
+	{
+		const char* prefixes[] = { "mixamorig:", "mixamorig1:", "mixamorig2:", "" };
+
+		for (const char* p : prefixes)
+		{
+			const std::string name = std::string(p) + bone;
+			const int frame = MV1SearchFrame(model, name.c_str());
+
+			if (frame >= 0)
+			{
+				return frame;
+			}
+		}
+
+		return -1;
 	}
 }
 
@@ -103,9 +165,7 @@ Player::Player(void)
 	dodgeTimer_(0.0f),
 	dodgeDir_(AsoUtility::VECTOR_ZERO),
 
-	// ガード
-
-	// 空中
+	// 飛行
 	isFlying_(false),
 
 	// 残像
@@ -222,7 +282,7 @@ void Player::InitAnimation(const std::string& animDir)
 	add(ANIM_TYPE::ATTACK07, "Attack07.mv1", 65.0f);
 	add(ANIM_TYPE::ATTACK08, "Attack08.mv1", 65.0f);
 
-	// 気技
+	// 気功
 	add(ANIM_TYPE::KI_BLAST, "KiBlast.mv1", 60.0f);
 	add(ANIM_TYPE::KAMEHAME, "Special.mv1", 20.0f);
 	add(ANIM_TYPE::CHARGE, "pawer.mv1", 40.0f);
@@ -241,6 +301,47 @@ void Player::InitFrames(void)
 {
 	kamehame_.SetModel(transform_.modelId);
 	rightHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:RightHand");
+
+	InitLegFrames();
+}
+
+// 脚のボーンを探す(モデルを差し替えたら再取得が必要)
+void Player::InitLegFrames(void)
+{
+	const int model = transform_.modelId;
+
+	legFrames_[LEG_L_UP] = FindMixamoFrame(model, "LeftUpLeg");
+	legFrames_[LEG_L_KNEE] = FindMixamoFrame(model, "LeftLeg");
+	legFrames_[LEG_L_FOOT] = FindMixamoFrame(model, "LeftFoot");
+	legFrames_[LEG_R_UP] = FindMixamoFrame(model, "RightUpLeg");
+	legFrames_[LEG_R_KNEE] = FindMixamoFrame(model, "RightLeg");
+	legFrames_[LEG_R_FOOT] = FindMixamoFrame(model, "RightFoot");
+
+	// ボーンごとに「キャラの左右軸・前後軸」を、そのボーン自身の座標系に直しておく
+	//   ボーンの向き(Mixamo の回転軸)はモデルによってバラバラなので、
+	//   初期姿勢での親子の行列をたどって、モデル空間の軸をボーンの中の軸に変換する
+	for (int i = 0; i < LEG_MAX; i++)
+	{
+		const int frame = legFrames_[i];
+		legAxisSide_[i] = VGet(1.0f, 0.0f, 0.0f);
+		legAxisFront_[i] = VGet(0.0f, 0.0f, 1.0f);
+
+		if (frame < 0)
+		{
+			continue;
+		}
+
+		// このボーンの初期姿勢での「モデル空間での向き」
+		MATRIX toModel = MV1GetFrameBaseLocalMatrix(model, frame);
+		for (int p = MV1GetFrameParent(model, frame); p >= 0; p = MV1GetFrameParent(model, p))
+		{
+			toModel = MMult(toModel, MV1GetFrameBaseLocalMatrix(model, p));
+		}
+
+		const MATRIX toLocal = MInverse(toModel);
+		legAxisSide_[i] = NormalizeSafe(VTransformSR(VGet(1.0f, 0.0f, 0.0f), toLocal));
+		legAxisFront_[i] = NormalizeSafe(VTransformSR(VGet(0.0f, 0.0f, 1.0f), toLocal));
+	}
 }
 
 // 形態を適用する(モデル・アニメ・スケール・残像用モデルを作り直す)
@@ -276,7 +377,7 @@ void Player::ApplyForm(FORM form)
 	boostAfterImages_.clear();
 	isAfterImage_ = false;
 
-	// 5. 古いモデルを削除(これを消すと変身後のアニメが再生されなかったので残す)
+	// 5. 古いモデルを削除(これを先にやると変身後のアニメが再生されなかったので最後)
 	MV1DeleteModel(oldModel);
 
 	form_ = form;
@@ -302,7 +403,7 @@ void Player::UpdateTransform(void)
 	{
 		const FORM next = (form_ == FORM::BASE) ? FORM::SUPER : FORM::BASE;
 
-		// 変身は ki 消費、元に戻るときは消費なし
+		// 変身は ki を消費、元に戻るときは消費しない
 		if (next == FORM::BASE || UseKi(cfg::Transform::KI_COST))
 		{
 			nextForm_ = next;
@@ -386,19 +487,21 @@ void Player::Update(void)
 	// 状態ごとの更新
 	stateUpdate_();
 
-	// ロックオン中は上下の傾きも反映する
+	// 当たり判定用の向き(ロックオン中は上下の傾きも付ける)
+	Quaternion logicRot = playerRotY_;
 	if (isLockOn_ && hasAttackTarget_ && !attack_.IsAttack())
 	{
-		transform_.quaRot =
-			playerRotY_.Mult(Quaternion::Euler({ lockOnPitch_, 0.0f, 0.0f }));
-	}
-	else
-	{
-		transform_.quaRot = playerRotY_;
+		logicRot = playerRotY_.Mult(Quaternion::Euler({ lockOnPitch_, 0.0f, 0.0f }));
 	}
 
-	transform_.Update();
+	// 浮遊の傾き(movePow_ が決まったあとに計算する)
+	UpdateFloatLean();
+	ApplyVisualTransform(logicRot);
+
 	animationController_->Update();
+
+	// アニメを再生したあとで、脚だけ舞空術のポーズへ寄せる
+	UpdateLegPose();
 
 	UpdateAfterImages();
 }
@@ -407,7 +510,9 @@ void Player::Update(void)
 void Player::PushOut(const VECTOR& offset)
 {
 	transform_.pos = VAdd(transform_.pos, offset);
-	transform_.Update();
+
+	// transform_.Update() だと浮遊の見た目が一瞬消えるので、見た目込みで作り直す
+	ApplyVisualTransform(transform_.quaRot);
 }
 
 void Player::UpdateKnockBack(void)
@@ -441,9 +546,11 @@ bool Player::UpdateDamage(void)
 		return false;
 	}
 
-	transform_.quaRot = damageRot_;
-	transform_.Update();
+	// 被弾中も上下ゆれは続ける(傾きは0へ戻っていく)
+	UpdateFloatLean();
+	ApplyVisualTransform(damageRot_);
 	animationController_->Update();
+	UpdateLegPose();					// 被弾中はポーズを解いていく
 	return true;
 }
 
@@ -475,6 +582,172 @@ void Player::UpdateAfterImages(void)
 			++it;
 		}
 	}
+}
+
+// 移動量から体の傾きを決める(見た目だけ)
+//   前進で前傾、後退でのけぞり、横移動で横に傾く
+void Player::UpdateFloatLean(void)
+{
+	const float dt = scnMng_.GetDeltaTime();
+	floatBobTime_ += cfg::Float::BOB_SPEED * dt;
+
+	float targetPitch = 0.0f;
+	float targetRoll = 0.0f;
+
+	// 自分で移動しているときだけ傾ける(攻撃・回避・高速接近などはモーションに任せる)
+	if (IsFloatSelfMove())
+	{
+		const VECTOR forward = GetForward();
+		const VECTOR right = VGet(forward.z, 0.0f, -forward.x);	// GetMoveBasis と同じ作り方
+
+		const float f = VDot(movePow_, forward);	// 前がプラス、後ろがマイナス
+		const float s = VDot(movePow_, right);		// 右がプラス
+
+		targetPitch = f * cfg::Float::LEAN_PER_SPEED - movePow_.y * cfg::Float::VERTICAL_LEAN;
+		targetRoll = -s * cfg::Float::LEAN_PER_SPEED * cfg::Float::ROLL_SIGN;
+
+		targetPitch = std::clamp(targetPitch, -cfg::Float::MAX_PITCH, cfg::Float::MAX_PITCH);
+		targetRoll = std::clamp(targetRoll, -cfg::Float::MAX_ROLL, cfg::Float::MAX_ROLL);
+	}
+
+	// (Windows.h の min マクロと衝突しないよう std::min は使わない)
+	float k = cfg::Float::LEAN_SMOOTH * dt;
+	if (k > 1.0f) { k = 1.0f; }
+
+	floatPitch_ += (targetPitch - floatPitch_) * k;
+	floatRoll_ += (targetRoll - floatRoll_) * k;
+}
+
+// 自分で移動している状態か(攻撃・回避・高速接近・気功などはそれぞれのモーションに任せる)
+bool Player::IsFloatSelfMove(void) const
+{
+	return
+		!isDamage_ &&
+		!attack_.IsAttack() && !attack_.IsChasing() &&
+		!boostChase_.IsActive() && !isDodge_ &&
+		!kamehame_.IsActive() && !guard_.IsBusy() &&
+		!formChange_.IsActive() &&
+		!isCharging_ && !isChargeEnding_ &&
+		!isKiBlast_;
+}
+
+// 浮遊移動中の脚のポーズ
+//   移動アニメ(Walk など)はそのまま再生し、その結果の上から脚のボーンだけを
+//   「片膝を上げて、もう片方を後ろに曲げる」舞空術の姿勢へ寄せる
+//   legPoseRate_ で少しずつ寄せるので、攻撃などに切り替わるときもカクッとしない
+void Player::UpdateLegPose(void)
+{
+	namespace lp = cfg::LegPose;
+
+	const float dt = scnMng_.GetDeltaTime();
+	const int model = transform_.modelId;
+
+	// 移動しているか(水平でも上下でも)
+	const bool moving =
+		VSize(ToHorizontal(movePow_)) > Constants::Epsilon ||
+		fabsf(movePow_.y) > Constants::Epsilon;
+
+	const float target = (IsFloatSelfMove() && (moving || lp::IN_IDLE)) ? 1.0f : 0.0f;
+
+	float k = lp::BLEND_SPEED * dt;
+	if (k > 1.0f) { k = 1.0f; }
+	legPoseRate_ += (target - legPoseRate_) * k;
+
+	// ほぼアニメのままなら、上書きを外して終わり
+	if (legPoseRate_ < 0.01f)
+	{
+		legPoseRate_ = 0.0f;
+
+		for (int frame : legFrames_)
+		{
+			if (frame >= 0)
+			{
+				MV1ResetFrameUserLocalMatrix(model, frame);
+			}
+		}
+		return;
+	}
+
+	// 横移動の量(-1~1)。右へ動くと脚は左へ流れる
+	const VECTOR forward = GetForward();
+	const VECTOR right = VGet(forward.z, 0.0f, -forward.x);
+	float side = VDot(movePow_, right) / SPEED_RUN;
+	side = std::clamp(side, -1.0f, 1.0f);
+
+	const float sway = sinf(floatBobTime_ * 0.7f) * lp::SWAY;
+	const float spread = -side * lp::SIDE_SPREAD * lp::SIDE_SIGN;
+
+	// アニメの結果とポーズを rate で混ぜて、ボーンに設定する
+	auto apply = [&](int frame, const MATRIX& rot)
+		{
+			if (frame < 0)
+			{
+				return;
+			}
+
+			// 一度上書きを外して、このフレームのアニメの姿勢を取り出す
+			MV1ResetFrameUserLocalMatrix(model, frame);
+			const MATRIX anim = MV1GetFrameLocalMatrix(model, frame);
+
+			// ポーズは初期姿勢(脚がまっすぐ下)を基準に回して作る
+			const MATRIX base = MV1GetFrameBaseLocalMatrix(model, frame);
+			const MATRIX pose = MMult(rot, base);
+
+			MV1SetFrameUserLocalMatrix(model, frame, BlendMatrix(anim, pose, legPoseRate_));
+		};
+
+	auto rad = [](float deg) { return AsoUtility::Deg2RadF(deg); };
+
+	// キャラの左右軸まわりに振る回転(前へ振るのがプラス)と、前後軸まわりに開く回転
+	//   ※ このモデルは素の状態で -Z 向き(Init で 180度回している)なので、
+	//     左右軸(+X)まわりのプラス回転で脚が前(-Z)へ出る
+	const float fs = lp::FORWARD_SIGN;
+	auto swing = [&](int leg, float deg)
+		{
+			return MGetRotAxis(legAxisSide_[leg], rad(deg) * fs);
+		};
+	auto spreadRot = [&](int leg, float deg)
+		{
+			return MGetRotAxis(legAxisFront_[leg], rad(deg));
+		};
+
+	// 太もも:前へ上げる / 膝:すねを後ろへ折る(太ももと逆向き) / 足首:つま先を下へ伸ばす(逆向き)
+	// 左脚(膝を曲げてすねを後ろへ)
+	// 外へ開く角度(左脚はキャラの左=モデルの+X側へ、右脚は逆へ)
+	const float openL = lp::LEG_OPEN * lp::OPEN_SIGN;
+	const float openR = -lp::LEG_OPEN * lp::OPEN_SIGN;
+
+	apply(legFrames_[LEG_L_UP], MMult(swing(LEG_L_UP, lp::L_THIGH + sway), spreadRot(LEG_L_UP, spread + openL)));
+	apply(legFrames_[LEG_L_KNEE], swing(LEG_L_KNEE, -(lp::L_KNEE - sway)));
+	apply(legFrames_[LEG_L_FOOT], swing(LEG_L_FOOT, -lp::FOOT));
+
+	// 右脚(少し後ろで、ほぼ伸ばして垂らす)
+	apply(legFrames_[LEG_R_UP], MMult(swing(LEG_R_UP, lp::R_THIGH - sway), spreadRot(LEG_R_UP, spread + openR)));
+	apply(legFrames_[LEG_R_KNEE], swing(LEG_R_KNEE, -(lp::R_KNEE + sway)));
+	apply(legFrames_[LEG_R_FOOT], swing(LEG_R_FOOT, -lp::FOOT));
+}
+
+// 見た目用の行列を作る
+//   描画用には「傾き + 上下ゆれ + 腰中心の補正」を入れ、
+//   作り終わったら pos / quaRot を当たり判定用の値に戻す(カプセルが傾かないように)
+void Player::ApplyVisualTransform(const Quaternion& logicRot)
+{
+	const Quaternion visualRot =
+		logicRot.Mult(Quaternion::Euler({ floatPitch_, 0.0f, floatRoll_ }));
+
+	// 足元を中心に回すと腰が pivot → visualRot * pivot にずれるので、その差を戻す
+	const VECTOR pivot = { 0.0f, cfg::Float::PIVOT_HEIGHT, 0.0f };
+	VECTOR offset = VSub(pivot, visualRot.PosAxis(pivot));
+	offset.y += sinf(floatBobTime_) * cfg::Float::BOB_AMPLITUDE;
+
+	const VECTOR logicPos = transform_.pos;
+
+	transform_.pos = VAdd(logicPos, offset);
+	transform_.quaRot = visualRot;
+	transform_.Update();		// ここでモデルの行列が見た目用になる
+
+	transform_.pos = logicPos;
+	transform_.quaRot = logicRot;
 }
 
 void Player::ChangeState(STATE state)
@@ -624,7 +897,7 @@ void Player::DrawShadow(void)
 	SetUseLighting(FALSE);
 	SetUseZBuffer3D(TRUE);
 
-	// テクスチャの端より先は端のドットが続くようにする
+	// テクスチャの端からは端のドットが続くようにする
 	SetTextureAddressMode(DX_TEXADDRESS_CLAMP);
 
 	// 頂点データのうち、変化しない部分
@@ -685,7 +958,7 @@ VECTOR Player::ToHorizontal(VECTOR v)
 	return v;
 }
 
-// 長さが十分あるときだけ正規化する
+// 長さがあるときだけ正規化する
 VECTOR Player::NormalizeSafe(VECTOR v)
 {
 	return (VSize(v) > Constants::Epsilon) ? VNorm(v) : v;
@@ -698,7 +971,7 @@ void Player::FaceDirection(VECTOR dir)
 	goalQuaRot_ = playerRotY_;
 }
 
-// 水平方向だけを見て向きを設定。向けたら true
+// 水平成分だけを使って向きを設定。向けたら true
 bool Player::FaceHorizontal(VECTOR dir)
 {
 	dir = ToHorizontal(dir);
@@ -720,15 +993,15 @@ void Player::SetLockOnPitch(VECTOR dir)
 }
 
 // 移動・回避に使う前方向と右方向(水平)を求める。
-// ロックオン中は敵方向が基準。敵との水平距離がほぼ0なら false
+// ロックオン中は敵が基準。敵との水平距離がほぼ0ならカメラ基準
 bool Player::GetMoveBasis(VECTOR& forward, VECTOR& right)
 {
 	if (isLockOn_ && hasAttackTarget_)
 	{
 		const VECTOR toTarget = ToHorizontal(VSub(attackTargetPos_, transform_.pos));
 
-		// 敵がほぼ真上・真下にいるときは、向きが定まらず動けなくなるので、
-		// この条件を満たすときだけ敵方向を基準にする(満たさなければ下のカメラ基準へ)
+		// 敵がほぼ真上・真下にいるときは、向きが定まらずおかしくなるので、
+		// 距離の条件を満たすときだけ敵基準にする(満たさなければ下のカメラ基準)
 		if (VSize(toTarget) > cfg::Move::LOCK_BASIS_MIN_DISTANCE)
 		{
 			forward = VNorm(toTarget);
@@ -830,7 +1103,7 @@ void Player::ProcessMove(void)
 		animationController_->Play((int)ANIM_TYPE::IDLE);
 	}
 
-	// 横移動とは別に上下移動を入れる
+	// 水平移動とは別に上下移動を入れる
 	movePow_.y = verticalMove;
 
 	// 高さ制限
@@ -902,7 +1175,7 @@ void Player::SetGoalRotate(double rotRad)
 
 void Player::Rotate(void)
 {
-	// NOTE: 元コードから、時間が二重に減算される挙動をそのまま残している
+	// NOTE: 元のコードから、時間が二重に減算される挙動をそのまま残している
 	stepRotTime_ -= scnMng_.GetDeltaTime();
 
 	stepRotTime_ -= scnMng_.GetDeltaTime();
@@ -1237,7 +1510,7 @@ void Player::UpdateKamehame(void)
 		return;
 	}
 
-	// 更新(狙う向きが返ってきたら、体もそちらへ向ける)
+	// 更新(狙う方向が返ってきたら、体をそちらへ向ける)
 	VECTOR aim = AsoUtility::VECTOR_ZERO;
 	const bool finished = kamehame_.Update(MakeKamehameContext(), aim);
 
@@ -1423,7 +1696,7 @@ void Player::UpdateCharge(void)
 		break;
 
 	case PlayerAttack::ChaseEnd::LUNGE:
-		// 飛びこむ時間を使い切った: 届いていなくてもその場で攻撃する(空振りになる)
+		// 飛び込む時間を使い切った: 届いていなくてもその場で攻撃する(空振りになる)
 		EndChase(false);
 		StartAttack();
 		break;
@@ -1487,7 +1760,7 @@ void Player::UpdateKiBlast(void)
 	{
 		kiBlastTimer_ += scnMng_.GetDeltaTime();
 
-		// 手を前に出したあたりで発射
+		// 手が前に出たあたりで発射
 		if (!isKiBlastShot_ && kiBlastTimer_ >= Constants::KiBlastShotTime)
 		{
 			ShotKiBlast();
@@ -1500,7 +1773,7 @@ void Player::UpdateKiBlast(void)
 			isKiBlastShot_ = false;
 			kiBlastTimer_ = 0.0f;
 
-			// 移動していない時だけIDLE
+			// 移動していなかったらIDLE
 			if (!IsMoveKeyDown(ins))
 			{
 				animationController_->Play((int)ANIM_TYPE::IDLE);
@@ -1625,7 +1898,7 @@ void Player::UpdateBoostChase(void)
 	}
 }
 
-// 高速接近を終了する(待ち時間は PlayerBoostChase が付ける)
+// 高速接近を終える(待ち時間は PlayerBoostChase が付ける)
 void Player::EndBoostChase(void)
 {
 	boostChase_.Cancel();
@@ -1656,7 +1929,7 @@ void Player::UpdateDodge(void)
 				return;
 			}
 
-			// 入力方向へ回避。入力なしなら後ろへ
+			// 入力方向へ回避。入力なしなら後ろ
 			if (PadInput::IsStickTilted())
 			{
 				dodgeDir_ = NormalizeSafe(VAdd(
@@ -1731,7 +2004,7 @@ void Player::UpdateGuard(void)
 
 	const PlayerGuard::Result result = guard_.Update(ctx);
 
-	// ガード系の状態中は動かない
+	// ガード系の状態中は動けない
 	if (guard_.IsBreak() || guard_.IsBurst())
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
@@ -1803,7 +2076,7 @@ void Player::Damage(int damage)
 		isDead_ = true;
 	}
 
-	// 攻撃中なら解除
+	// 攻撃をなくす
 	attack_.Reset();
 
 	// 気溜めを解除
@@ -1818,7 +2091,7 @@ void Player::Damage(int damage)
 		kamehame_.Cancel();
 	}
 
-	// 移動系の状態も解除する(残すと、被弾後に動けなくなったり状態が混ざる)
+	// 移動系の状態を解除する(残すと、被弾後に動けなくなったり状態が混ざる)
 	boostChase_.Cancel();
 	attack_.CancelChase();
 	isDodge_ = false;
@@ -1948,314 +2221,3 @@ const Capsule& Player::GetCapsule(void) const
 {
 	return *capsule_;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//ひらさきはるやはごみだよ
