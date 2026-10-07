@@ -20,7 +20,8 @@ namespace
 
     // 爆発に色をかけるか(出ないときは false にして試す)
     constexpr bool TRANSFORM_BURST_TINT = true;
-    constexpr float TRANSFORM_CHARGE_SCALE = 10.0f;
+    constexpr float TRANSFORM_CHARGE_SCALE = 10.0f;		// 変身中の気溜めの大きさ(MagicTornade2 用。大きい/小さいときはここを変える)
+    constexpr bool TRANSFORM_CHARGE_TINT = false;		// true にすると、変身の色(水色)をかける
 
     // 再生中のエフェクトに変身の色をかける
     void ApplyTransformColor(int playHandle)
@@ -41,6 +42,7 @@ EffekseerEffect::EffekseerEffect(void)
     playHitEffectHandle_(-1),
     chargeEffectId_(-1),
     playChargeEffectHandle_(-1),
+    transformChargeEffectId_(-1),
     transformEffectId_(-1),
     playTransformEffectHandle_(-1),
     shalshutEffectId_(-1),
@@ -143,6 +145,21 @@ void EffekseerEffect::Init(void)
 
     chargeEffectId_ = LoadEffekseerEffect(
         (Application::PATH_EFFECT + "MagicTornade.efkefc").c_str()
+    );
+
+    if (chargeEffectId_ == -1)
+    {
+        MessageBoxA(
+            NULL,
+            "MagicTornade.efkefcの読み込みに失敗しました。",
+            "エラー",
+            MB_OK
+        );
+    }
+
+    // 変身中の気溜めエフェクト
+    transformChargeEffectId_ = LoadEffekseerEffect(
+        (Application::PATH_EFFECT + "MagicTornade2.efkefc").c_str()
     );
 
     if (chargeEffectId_ == -1)
@@ -457,7 +474,11 @@ void EffekseerEffect::PlayChargeEffect(
     bool useTransformColor
 )
 {
-    if (chargeEffectId_ == -1)
+    // 変身中は専用のエフェクトを使う(読み込めていなければ普通の気溜めで代用)
+    const bool isTransform = useTransformColor && transformChargeEffectId_ != -1;
+    const int effectId = isTransform ? transformChargeEffectId_ : chargeEffectId_;
+
+    if (effectId == -1)
     {
         return;
     }
@@ -469,7 +490,7 @@ void EffekseerEffect::PlayChargeEffect(
 
     playChargeEffectHandle_ =
         PlayEffekseer3DEffect(
-            chargeEffectId_
+            effectId
         );
 
     if (playChargeEffectHandle_ == -1)
@@ -484,15 +505,18 @@ void EffekseerEffect::PlayChargeEffect(
         pos.z
     );
 
+    const float scale = isTransform ? TRANSFORM_CHARGE_SCALE : 10.0f;
+
     SetScalePlayingEffekseer3DEffect(
         playChargeEffectHandle_,
-        10.0f,
-        10.0f,
-        10.0f
+        scale,
+        scale,
+        scale
     );
 
-    // 変身のときは、爆発と同じ色にする
-    if (useTransformColor)
+    // 変身用のエフェクトは、そのままの色で出す(色をかけたいときは TRANSFORM_CHARGE_TINT)
+    // 代用の気溜めを使うときだけ、爆発と同じ色にする
+    if (useTransformColor && (!isTransform || TRANSFORM_CHARGE_TINT))
     {
         ApplyTransformColor(playChargeEffectHandle_);
     }

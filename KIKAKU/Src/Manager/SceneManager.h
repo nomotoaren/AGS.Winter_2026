@@ -2,7 +2,6 @@
 #include <memory>
 #include <chrono>
 
-// 推奨しませんが、どうしても使いたい方は
 #define mainCamera SceneManager::GetInstance().GetCamera()
 
 class SceneBase;
@@ -21,7 +20,7 @@ public:
 		TITLE,
 		GAME
 	};
-	
+
 	// インスタンスの生成
 	static void CreateInstance(void);
 
@@ -34,13 +33,13 @@ public:
 	void Draw(void);
 
 	// リソースの破棄
-	void Destroy(void);
+	void Destroy(void) const;
 
 	// 状態遷移
 	void ChangeScene(SCENE_ID nextId);
 
 	// シーンIDの取得
-	SCENE_ID GetSceneID(void);
+	SCENE_ID GetSceneID(void) const;
 
 	// デルタタイムの取得
 	float GetDeltaTime(void) const;
@@ -79,7 +78,7 @@ private:
 
 	// ゲーム実行時間
 	float totalTime_;
-	
+
 	// メインスクリーン
 	int mainScreen_;
 

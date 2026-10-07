@@ -4,7 +4,7 @@
 #include "../Utility/AsoUtility.h"
 #include "../Manager/SceneManager.h"
 #include "../Manager/ResourceManager.h"
-#include "Player.h"
+#include "../Object/Player/Player.h"
 #include "Planet.h"
 #include "Metal.h"
 #include "Common/Collider.h"
