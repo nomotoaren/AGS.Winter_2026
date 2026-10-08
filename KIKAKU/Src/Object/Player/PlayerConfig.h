@@ -155,13 +155,17 @@ namespace PlayerConfig
 		constexpr float BLEND_SPEED = 6.0f;			// ポーズへ寄せる速さ(大きいほど早く切り替わる)
 		constexpr bool IN_IDLE = false;				// true にすると止まっているときもこのポーズ
 
-		// 片脚は膝を曲げてすねを後ろへ、もう片脚はほぼ伸ばして下へ垂らす
-		constexpr float L_THIGH = 15.0f;			// 左の太もも(少しだけ前へ)
-		constexpr float L_KNEE = 75.0f;				// 左の膝(曲げてすねを後ろへ)
-		constexpr float R_THIGH = -8.0f;			// 右の太もも(少しだけ後ろへ)
-		constexpr float R_KNEE = 15.0f;				// 右の膝(ほぼ伸ばす)
+		// 左脚: 太ももを前へ上げて膝を深く曲げる(後ろから足の裏が見える)
+		// 右脚: 少し外へ開いて、「く」の字に軽く曲げて垂らす
+		//   ※ ゲーム中に F1 で調整モードにすると、その場で数値を変えて確かめられる(Debug ビルドのみ)
+		constexpr float L_THIGH = 45.0f;			// 左の太もも(+で前へ上げる)
+		constexpr float L_KNEE = 100.0f;			// 左の膝(深く曲げる)
+		constexpr float L_OPEN = 5.0f;				// 左脚を外へ開く角度
+		constexpr float R_THIGH = 0.0f;				// 右の太もも(ほぼ真下)
+		constexpr float R_KNEE = 40.0f;				// 右の膝(「く」の字くらい)
+		constexpr float R_OPEN = 18.0f;				// 右脚を外へ開く角度
 		constexpr float FOOT = 30.0f;				// 足首(つま先を下へ伸ばす)
-		constexpr float LEG_OPEN = 12.0f;			// 両脚を外へ開く角度(左右それぞれ)
+		constexpr float LEAN_RATE = 0.6f;			// 体の傾きの倍率(参考画像は胴体がほぼ立っているので弱め)
 
 		constexpr float SIDE_SPREAD = 12.0f;		// 横移動中に、脚を進行方向と逆へ流す角度
 		constexpr float SWAY = 4.0f;				// 脚のふらふら揺れの幅

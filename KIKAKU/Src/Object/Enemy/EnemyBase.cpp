@@ -1,9 +1,10 @@
 #include "EnemyBase.h"
+#include "../../Manager/SceneManager.h"
 #include "../../Utility/AsoUtility.h"
 
 namespace
 {
-	// 「ゼロ扱い」にする長さ
+	// 「ゼロ」とみなす長さ
 	constexpr float kEpsilon = 0.001f;
 }
 
@@ -15,7 +16,13 @@ EnemyBase::EnemyBase(void)
 	hitRadius_(50.0f),
 	pendingDamage_(0),
 	isSyncReady_(false),
-	syncTimer_(0.0f)
+	syncTimer_(0.0f),
+	stun_(0.0f),
+	stunDecayWait_(0.0f),
+	isStunned_(false),
+	stunTimer_(0.0f),
+	stunResist_(0.0f),
+	stunBarTime_(0.0f)
 {
 }
 
@@ -31,6 +38,12 @@ void EnemyBase::Damage(int damage)
 	if (isDead_)
 	{
 		return;
+	}
+
+	// スタン中は無防備なので、ダメージが大きくなる
+	if (isStunned_)
+	{
+		damage *= STUN_DAMAGE_RATE;
 	}
 
 	hp_ -= damage;
@@ -77,11 +90,110 @@ void EnemyBase::PushOut(const VECTOR& offset)
 	transform_.pos = VAdd(transform_.pos, offset);
 }
 
+bool EnemyBase::IsInvincible(void) const
+{
+	return false;
+}
+
+//------------------------------------------------------------
+// スタンゲージ
+//------------------------------------------------------------
+void EnemyBase::AddStun(float amount)
+{
+	// スタン中・スタン直後・回避中・死亡中は、ゲージがたまらない
+	if (isDead_ || isStunned_ || stunResist_ > 0.0f || IsInvincible())
+	{
+		return;
+	}
+
+	stun_ += amount;
+	stunDecayWait_ = STUN_DECAY_DELAY;
+
+	if (stun_ >= STUN_MAX)
+	{
+		stun_ = STUN_MAX;
+
+		isStunned_ = true;
+		stunTimer_ = STUN_TIME;
+
+		OnStunStart();
+	}
+}
+
+bool EnemyBase::UpdateStunGauge(float deltaTime)
+{
+	stunBarTime_ += deltaTime;
+
+	if (stunResist_ > 0.0f)
+	{
+		stunResist_ -= deltaTime;
+
+		if (stunResist_ < 0.0f)
+		{
+			stunResist_ = 0.0f;
+		}
+	}
+
+	// スタン中は、残り時間を数える
+	if (isStunned_)
+	{
+		stunTimer_ -= deltaTime;
+
+		if (stunTimer_ <= 0.0f)
+		{
+			stunTimer_ = 0.0f;
+			isStunned_ = false;
+
+			stun_ = 0.0f;
+			stunResist_ = STUN_RESIST_TIME;
+
+			OnStunEnd();
+		}
+
+		return isStunned_;
+	}
+
+	// しばらく攻撃されなければ、ゲージが減っていく
+	if (stun_ > 0.0f)
+	{
+		if (stunDecayWait_ > 0.0f)
+		{
+			stunDecayWait_ -= deltaTime;
+		}
+		else
+		{
+			stun_ -= STUN_DECAY_SPEED * deltaTime;
+
+			if (stun_ < 0.0f)
+			{
+				stun_ = 0.0f;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool EnemyBase::IsStunned(void) const
+{
+	return isStunned_;
+}
+
+float EnemyBase::GetStunRate(void) const
+{
+	if (isStunned_)
+	{
+		return stunTimer_ / STUN_TIME;
+	}
+
+	return stun_ / STUN_MAX;
+}
+
 //------------------------------------------------------------
 // HPバー(HUD)
 //------------------------------------------------------------
 
-// 各敵の Init の最後で1回呼ぶ。maxHp はその時点の hp_ を渡すとよい
+// 各敵は Init の最後に1回呼ぶ。maxHp はその時点の hp_ を渡すとよい
 void EnemyBase::InitHud(const std::string& name, int maxHp)
 {
 	hud_.Init();
@@ -90,13 +202,13 @@ void EnemyBase::InitHud(const std::string& name, int maxHp)
 	hud_.SetMaxHp(maxHp);
 }
 
-// 各敵の Update で、isDead_ チェックの直後に呼ぶ
+// 各敵は Update で、isDead_ チェックの直後に呼ぶ
 void EnemyBase::UpdateHud(void)
 {
 	hud_.Update(hp_);
 }
 
-// 各敵の Draw の最後で呼ぶ(2D描画なので3D描画のあと)
+// 各敵は Draw の最後で呼ぶ(2D描画なので3D描画のあと)
 void EnemyBase::DrawHud(void)
 {
 	if (isDead_)
@@ -105,6 +217,9 @@ void EnemyBase::DrawHud(void)
 	}
 
 	hud_.Draw();
+
+	// スタンゲージはHPバーの下に出す
+	stunBar_.Draw(GetStunRate(), isStunned_, stunBarTime_);
 }
 
 //------------------------------------------------------------
@@ -125,7 +240,7 @@ void EnemyBase::UpdateSyncWindow(float deltaTime)
 
 	syncTimer_ += deltaTime;
 
-	// 受付時間を過ぎたら終了
+	// 受付時間が過ぎたら終了
 	if (syncTimer_ >= SYNC_TIME)
 	{
 		EndSyncWindow();
@@ -143,7 +258,7 @@ void EnemyBase::EndSyncWindow(void)
 	syncTimer_ = 0.0f;
 }
 
-// 受付開始時が 1.0、受付終了時が 0.0 になる残り時間の割合
+// 受付開始時に 1.0、受付終了時に 0.0 になる残り時間の割合
 float EnemyBase::GetSyncRate(void) const
 {
 	if (!isSyncReady_)

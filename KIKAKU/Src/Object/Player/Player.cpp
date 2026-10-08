@@ -273,8 +273,8 @@ void Player::InitAnimation(const std::string& animDir)
 	add(ANIM_TYPE::BOOST_CHASE, "Flying.mv1", 40.0f);
 
 	// 攻撃
-	add(ANIM_TYPE::ATTACK01, "Attack02.mv1", 60.0f);
-	add(ANIM_TYPE::ATTACK02, "Attack01.mv1", 60.0f);
+	add(ANIM_TYPE::ATTACK01, "Attack01.mv1", 60.0f);
+	add(ANIM_TYPE::ATTACK02, "Attack02.mv1", 60.0f);
 	add(ANIM_TYPE::ATTACK03, "Attack03.mv1", 80.0f);
 	add(ANIM_TYPE::ATTACK04, "Attack04.mv1", 80.0f);
 	add(ANIM_TYPE::ATTACK05, "Attack05.mv1", 85.0f);
@@ -303,6 +303,17 @@ void Player::InitFrames(void)
 	rightHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:RightHand");
 
 	InitLegFrames();
+
+	// 脚のポーズの初期値(調整モードで書き換えられる)
+	namespace lp = cfg::LegPose;
+	legTune_[TUNE_L_THIGH] = lp::L_THIGH;
+	legTune_[TUNE_L_KNEE] = lp::L_KNEE;
+	legTune_[TUNE_L_OPEN] = lp::L_OPEN;
+	legTune_[TUNE_R_THIGH] = lp::R_THIGH;
+	legTune_[TUNE_R_KNEE] = lp::R_KNEE;
+	legTune_[TUNE_R_OPEN] = lp::R_OPEN;
+	legTune_[TUNE_FOOT] = lp::FOOT;
+	legTune_[TUNE_LEAN] = lp::LEAN_RATE;	// 体の傾きの倍率(0にすると傾けない)
 }
 
 // 脚のボーンを探す(モデルを差し替えたら再取得が必要)
@@ -473,6 +484,9 @@ void Player::Update(void)
 	// パッドの入力を更新(1フレームに1回)
 	PadInput::Update();
 
+	// 脚のポーズの調整モード(Debug ビルドのみ)
+	UpdateLegTune();
+
 	// HUDはダメージ中も更新する
 	hud_.Update(*this);
 
@@ -608,6 +622,10 @@ void Player::UpdateFloatLean(void)
 
 		targetPitch = std::clamp(targetPitch, -cfg::Float::MAX_PITCH, cfg::Float::MAX_PITCH);
 		targetRoll = std::clamp(targetRoll, -cfg::Float::MAX_ROLL, cfg::Float::MAX_ROLL);
+
+		// 調整モードで変えられる倍率
+		targetPitch *= legTune_[TUNE_LEAN];
+		targetRoll *= legTune_[TUNE_LEAN];
 	}
 
 	// (Windows.h の min マクロと衝突しないよう std::min は使わない)
@@ -629,6 +647,78 @@ bool Player::IsFloatSelfMove(void) const
 		!formChange_.IsActive() &&
 		!isCharging_ && !isChargeEnding_ &&
 		!isKiBlast_;
+}
+
+// 脚のポーズの調整モード(Debug ビルドのみ)
+//   F1      : 調整モードの ON / OFF
+//   F2 / F3 : 調整する項目を選ぶ(上 / 下)
+//   F5 / F6 : 値を減らす / 増やす(LSHIFT を押しながらだと細かく)
+//   決まった値は画面に出るので、PlayerConfig.h の LegPose に書き写す
+namespace
+{
+	const char* kLegTuneName[] =
+	{
+		"L_THIGH   左もも(+前 -後)",
+		"L_KNEE    左ひざ(曲げ)",
+		"L_OPEN    左脚の開き",
+		"R_THIGH   右もも(+前 -後)",
+		"R_KNEE    右ひざ(曲げ)",
+		"R_OPEN    右脚の開き",
+		"FOOT      足首",
+		"LEAN_RATE 体の傾きの倍率",
+	};
+}
+
+void Player::UpdateLegTune(void)
+{
+#ifdef _DEBUG
+	auto& ins = InputManager::GetInstance();
+
+	if (ins.IsTrgDown(KEY_INPUT_F1))
+	{
+		isLegTune_ = !isLegTune_;
+	}
+
+	if (!isLegTune_)
+	{
+		return;
+	}
+
+	if (ins.IsTrgDown(KEY_INPUT_F2)) { legTuneSel_ = (legTuneSel_ + TUNE_MAX - 1) % TUNE_MAX; }
+	if (ins.IsTrgDown(KEY_INPUT_F3)) { legTuneSel_ = (legTuneSel_ + 1) % TUNE_MAX; }
+
+	const bool fine = ins.IsNew(KEY_INPUT_LSHIFT);
+	float step = fine ? 1.0f : 5.0f;
+	if (legTuneSel_ == TUNE_LEAN) { step = fine ? 0.05f : 0.25f; }
+
+	if (ins.IsTrgDown(KEY_INPUT_F5)) { legTune_[legTuneSel_] -= step; }
+	if (ins.IsTrgDown(KEY_INPUT_F6)) { legTune_[legTuneSel_] += step; }
+
+	if (legTune_[TUNE_LEAN] < 0.0f) { legTune_[TUNE_LEAN] = 0.0f; }
+#endif
+}
+
+void Player::DrawLegTune(void) const
+{
+#ifdef _DEBUG
+	if (!isLegTune_)
+	{
+		return;
+	}
+
+	const int x = 20;
+	int y = 20;
+
+	DrawString(x, y, "[脚の調整] F2/F3:項目  F5/F6:値(-/+)  LSHIFT:細かく  F1:閉じる", GetColor(255, 255, 0));
+	y += 22;
+
+	for (int i = 0; i < TUNE_MAX; i++)
+	{
+		const unsigned int color = (i == legTuneSel_) ? GetColor(255, 120, 60) : GetColor(255, 255, 255);
+		DrawFormatString(x, y, color, "%s %-26s : %.2f", (i == legTuneSel_) ? ">" : " ", kLegTuneName[i], legTune_[i]);
+		y += 20;
+	}
+#endif
 }
 
 // 浮遊移動中の脚のポーズ
@@ -712,19 +802,19 @@ void Player::UpdateLegPose(void)
 		};
 
 	// 太もも:前へ上げる / 膝:すねを後ろへ折る(太ももと逆向き) / 足首:つま先を下へ伸ばす(逆向き)
-	// 左脚(膝を曲げてすねを後ろへ)
+	// 左脚(前へ上げて深く曲げる)
 	// 外へ開く角度(左脚はキャラの左=モデルの+X側へ、右脚は逆へ)
-	const float openL = lp::LEG_OPEN * lp::OPEN_SIGN;
-	const float openR = -lp::LEG_OPEN * lp::OPEN_SIGN;
+	const float openL = legTune_[TUNE_L_OPEN] * lp::OPEN_SIGN;
+	const float openR = -legTune_[TUNE_R_OPEN] * lp::OPEN_SIGN;
 
-	apply(legFrames_[LEG_L_UP], MMult(swing(LEG_L_UP, lp::L_THIGH + sway), spreadRot(LEG_L_UP, spread + openL)));
-	apply(legFrames_[LEG_L_KNEE], swing(LEG_L_KNEE, -(lp::L_KNEE - sway)));
-	apply(legFrames_[LEG_L_FOOT], swing(LEG_L_FOOT, -lp::FOOT));
+	apply(legFrames_[LEG_L_UP], MMult(swing(LEG_L_UP, legTune_[TUNE_L_THIGH] + sway), spreadRot(LEG_L_UP, spread + openL)));
+	apply(legFrames_[LEG_L_KNEE], swing(LEG_L_KNEE, -(legTune_[TUNE_L_KNEE] - sway)));
+	apply(legFrames_[LEG_L_FOOT], swing(LEG_L_FOOT, -legTune_[TUNE_FOOT]));
 
-	// 右脚(少し後ろで、ほぼ伸ばして垂らす)
-	apply(legFrames_[LEG_R_UP], MMult(swing(LEG_R_UP, lp::R_THIGH - sway), spreadRot(LEG_R_UP, spread + openR)));
-	apply(legFrames_[LEG_R_KNEE], swing(LEG_R_KNEE, -(lp::R_KNEE + sway)));
-	apply(legFrames_[LEG_R_FOOT], swing(LEG_R_FOOT, -lp::FOOT));
+	// 右脚(外へ開いて「く」の字に曲げる)
+	apply(legFrames_[LEG_R_UP], MMult(swing(LEG_R_UP, legTune_[TUNE_R_THIGH] - sway), spreadRot(LEG_R_UP, spread + openR)));
+	apply(legFrames_[LEG_R_KNEE], swing(LEG_R_KNEE, -(legTune_[TUNE_R_KNEE] + sway)));
+	apply(legFrames_[LEG_R_FOOT], swing(LEG_R_FOOT, -legTune_[TUNE_FOOT]));
 }
 
 // 見た目用の行列を作る
@@ -851,6 +941,8 @@ void Player::Draw(void)
 
 	// HUD(2D)は3D描画のあとに描く
 	hud_.Draw(*this);
+
+	DrawLegTune();
 
 }
 
