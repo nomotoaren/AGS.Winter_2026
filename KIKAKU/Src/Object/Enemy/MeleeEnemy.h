@@ -13,6 +13,7 @@ class Player;
 //   追撃: 4連撃の締めや突進でプレイヤーを吹き飛ばしたら、消えて先回りして叩き落とす
 //   ガード崩し: プレイヤーがガードばかりしていると、ガード不能の投げに来る
 //   範囲大技: 赤い警告の球が出て、少し後に爆発する(範囲の外へ逃げる)
+//   極太ビーム: 大きな球を溜め、途中で狙いを固定(赤い帯が出る)→発射。帯の外へ逃げる
 //   反応: プレイヤーが攻撃してくると、ガードか回避(背後へ瞬間移動して反撃)をする
 //   スタン: スタンゲージが満タンになると動けなくなり、大ダメージを受ける
 class MeleeEnemy : public EnemyBase
@@ -112,7 +113,9 @@ private:
 		BIG_CHARGE,		// 範囲大技の溜め(殴ると中断できる)
 		GRAB_READY,		// 投げ(ガード不能)の構えと接近
 		CHASE_VANISH,	// 追撃: 姿を消している
-		CHASE_APPEAR	// 追撃: 先回りして現れ、叩き落とす構え
+		CHASE_APPEAR,	// 追撃: 先回りして現れ、叩き落とす構え
+		BEAM_CHARGE,	// ビームの溜め(途中で狙いを固定する)
+		BEAM_FIRE		// ビーム発射
 	};
 
 	// 攻撃の時間
@@ -147,6 +150,7 @@ private:
 	bool UpdateBigCharge(float deltaTime, const VECTOR& playerPos);
 	bool UpdateGrab(float deltaTime, const VECTOR& playerPos);
 	bool UpdateChase(float deltaTime, const VECTOR& playerPos);
+	bool UpdateBeam(float deltaTime, const VECTOR& playerPos);
 	void UpdateBlasts(float deltaTime);
 	void UpdateAreaBlasts(float deltaTime);
 	void UpdateGuardWatch(float deltaTime, float distance);
@@ -180,6 +184,7 @@ private:
 	void AdvanceCombo(void);
 	void LookAtPlayerWithPitchLimit(const VECTOR& playerPos);
 	VECTOR GetChestPos(void) const;
+	VECTOR GetBeamOrigin(void) const;
 
 	// 状態の補助
 	void SetAIState(AI_STATE state);
@@ -297,6 +302,13 @@ private:
 	// ガード崩し(投げ)
 	float grabCoolTimer_ = 0.0f;
 	float guardWatchTimer_ = 0.0f;		// プレイヤーがガードしている時間(長いほど投げに来る)
+
+	// ビーム
+	float beamCoolTimer_ = 0.0f;
+	bool beamLocked_ = false;			// 狙いを固定したか
+	bool beamHit_ = false;				// 発射中に当てたか
+	VECTOR beamOrigin_ = { 0.0f, 0.0f, 0.0f };
+	VECTOR beamDir_ = { 0.0f, 0.0f, 1.0f };
 
 	// 追撃
 	float chaseCoolTimer_ = 0.0f;

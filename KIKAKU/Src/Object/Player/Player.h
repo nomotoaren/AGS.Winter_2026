@@ -14,7 +14,7 @@
 #include "PlayerBoostChase.h"
 #include "PlayerGuard.h"
 #include "PlayerAttack.h"
-#include "../../Manager/ResourceManager.h"	// FormData ‚Å ResourceManager::SRC ‚ðŽg‚¤‚½‚ß
+#include "../../Manager/ResourceManager.h"
 
 class AnimationController;
 class Collider;

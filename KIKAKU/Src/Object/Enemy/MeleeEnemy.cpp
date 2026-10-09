@@ -151,6 +151,21 @@ namespace
 	constexpr float kBigRecoverTime = 0.9f;
 	constexpr float kBigRiseSpeed = 0.6f;			// 溜めている間に浮き上がる(1/60秒あたり)
 
+	// 極太ビーム
+	constexpr float kBeamChargeTime = 1.8f;			// 溜めの長さ(殴れば中断できる)
+	constexpr float kBeamLockTime = 1.1f;			// 溜め始めてからこの時間で、狙いを固定する
+	constexpr float kBeamFireTime = 1.0f;			// 発射している時間
+	constexpr float kBeamCoolTime = 14.0f;
+	constexpr float kBeamRadius = 45.0f;			// ビームの太さ(当たり判定)
+	constexpr float kBeamLength = 3000.0f;
+	constexpr float kBeamHitMargin = 35.0f;			// プレイヤーの体の大きさ
+	constexpr float kBeamBallOffset = 70.0f;		// 溜める球の位置(胸の前)
+	constexpr float kBeamGrowTime = 0.12f;			// 発射してからビームが伸びきるまで
+	constexpr float kBeamFadeTime = 0.2f;			// 発射の終わりに細くなる時間
+	constexpr int   kBeamDamage = 5;
+	constexpr float kBeamKnock = 30.0f;
+	constexpr float kBeamRecoverTime = 1.0f;		// 撃ったあとの大きな隙
+
 	// 行動の種類(DecideAction の中だけで使う)
 	enum ACTION
 	{
@@ -161,6 +176,7 @@ namespace
 		ACT_BOOST,		// 高速接近
 		ACT_GRAB,		// 投げ(ガード不能)
 		ACT_BIG,		// 範囲大技
+		ACT_BEAM,		// 極太ビーム
 		ACT_MAX
 	};
 
@@ -211,6 +227,22 @@ namespace
 		if (v < 0.0f) { return 0.0f; }
 		if (v > 1.0f) { return 1.0f; }
 		return v;
+	}
+
+	// 点 p から線分 a-b までの最短距離
+	float DistanceToSegment(const VECTOR& p, const VECTOR& a, const VECTOR& b)
+	{
+		const VECTOR ab = VSub(b, a);
+		const float lenSq = VDot(ab, ab);
+
+		float t = 0.0f;
+
+		if (lenSq > kEpsilon)
+		{
+			t = Saturate(VDot(VSub(p, a), ab) / lenSq);
+		}
+
+		return VSize(VSub(p, VAdd(a, VScale(ab, t))));
 	}
 
 	// 重みの大きいものほど選ばれやすいランダム。選べるものが無ければ -1
@@ -344,6 +376,7 @@ void MeleeEnemy::Update(void)
 	CountDown(bigCoolTimer_, deltaTime);
 	CountDown(grabCoolTimer_, deltaTime);
 	CountDown(chaseCoolTimer_, deltaTime);
+	CountDown(beamCoolTimer_, deltaTime);
 
 	hoverTime_ += deltaTime;
 
@@ -387,6 +420,7 @@ void MeleeEnemy::Update(void)
 	if (UpdateBigCharge(deltaTime, playerPos)) { return; }
 	if (UpdateGrab(deltaTime, playerPos)) { return; }
 	if (UpdateChase(deltaTime, playerPos)) { return; }
+	if (UpdateBeam(deltaTime, playerPos)) { return; }
 
 	// プレイヤーを見る
 	LookAtPlayerWithPitchLimit(playerPos);
@@ -1398,6 +1432,95 @@ void MeleeEnemy::DoSmash(void)
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
+//----------------------------------------------------------------------
+// 極太ビーム
+//----------------------------------------------------------------------
+
+// ビームの出る位置(胸の前)
+VECTOR MeleeEnemy::GetBeamOrigin(void) const
+{
+	return VAdd(GetChestPos(), VScale(transform_.quaRot.GetForward(), kBeamBallOffset));
+}
+
+// 溜め(途中で狙いを固定) → 発射
+bool MeleeEnemy::UpdateBeam(float deltaTime, const VECTOR& playerPos)
+{
+	if (aiState_ != AI_STATE::BEAM_CHARGE && aiState_ != AI_STATE::BEAM_FIRE)
+	{
+		return false;
+	}
+
+	animationController_->Play((int)ANIM_TYPE::IDLE);
+
+	aiTimer_ += deltaTime;
+
+	const VECTOR playerCenter = VAdd(playerPos, VGet(0.0f, kPlayerCenterHeight, 0.0f));
+
+	if (aiState_ == AI_STATE::BEAM_CHARGE)
+	{
+		if (!beamLocked_)
+		{
+			// 狙いを固定するまでは、プレイヤーを追って向く
+			LookAtPlayerWithPitchLimit(playerPos);
+
+			if (aiTimer_ >= kBeamLockTime)
+			{
+				beamOrigin_ = GetBeamOrigin();
+
+				VECTOR dir = VSub(playerCenter, beamOrigin_);
+				beamDir_ = (VSize(dir) > kEpsilon) ? VNorm(dir) : VGet(0.0f, 0.0f, 1.0f);
+
+				transform_.quaRot = Quaternion::LookRotation(beamDir_);
+				beamLocked_ = true;
+			}
+		}
+
+		if (aiTimer_ >= kBeamChargeTime)
+		{
+			// 発射
+			if (!beamLocked_)
+			{
+				beamOrigin_ = GetBeamOrigin();
+				beamDir_ = transform_.quaRot.GetForward();
+			}
+
+			SetAIState(AI_STATE::BEAM_FIRE);
+			beamHit_ = false;
+
+			mainCamera.StartShake(kBeamFireTime, 4.0f);
+		}
+	}
+	else
+	{
+		// 発射中: ビームの帯の中にプレイヤーがいれば当たる(避けられたら、次のフレームも調べる)
+		if (!beamHit_)
+		{
+			const VECTOR beamEnd = VAdd(beamOrigin_, VScale(beamDir_, kBeamLength));
+
+			if (DistanceToSegment(playerCenter, beamOrigin_, beamEnd) <= kBeamRadius + kBeamHitMargin)
+			{
+				if (ApplyHitToPlayer(beamOrigin_, kBeamDamage, kBeamKnock, 120.0f, 6.0f))
+				{
+					beamHit_ = true;
+				}
+			}
+		}
+
+		if (aiTimer_ >= kBeamFireTime)
+		{
+			beamCoolTimer_ = kBeamCoolTime;
+			beamLocked_ = false;
+
+			// 撃ったあとは大きな隙
+			SetAIState(AI_STATE::WAIT);
+			aiTimer_ = -kBeamRecoverTime;
+		}
+	}
+
+	transform_.Update();
+	return true;
+}
+
 // 気弾・突進の途中なら、やめて様子見に戻る(殴られたときなど)
 void MeleeEnemy::CancelSpecials(void)
 {
@@ -1407,10 +1530,14 @@ void MeleeEnemy::CancelSpecials(void)
 		aiState_ == AI_STATE::BIG_CHARGE ||
 		aiState_ == AI_STATE::GRAB_READY ||
 		aiState_ == AI_STATE::CHASE_VANISH ||
-		aiState_ == AI_STATE::CHASE_APPEAR)
+		aiState_ == AI_STATE::CHASE_APPEAR ||
+		aiState_ == AI_STATE::BEAM_CHARGE ||
+		aiState_ == AI_STATE::BEAM_FIRE)
 	{
 		SetAIState(AI_STATE::WAIT);
 	}
+
+	beamLocked_ = false;
 
 	// 追撃の途中で殴られたときなどは、姿を戻して予定も消す
 	isHidden_ = false;
@@ -1525,6 +1652,7 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 	const bool canKi = (kiCoolTimer_ <= 0.0f);
 	const bool canRush = (rushCoolTimer_ <= 0.0f);
 	const bool canBig = (bigCoolTimer_ <= 0.0f);
+	const bool canBeam = (beamCoolTimer_ <= 0.0f);
 
 	// ガードされ続けているなら、ガード不能の投げを選ぶ
 	const bool wantGrab =
@@ -1548,12 +1676,14 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 		weights[ACT_SIDE] = 2;
 		weights[ACT_BOOST] = 1;
 		weights[ACT_BIG] = canBig ? (enraged ? 4 : 2) : 0;
+		weights[ACT_BEAM] = canBeam ? (enraged ? 3 : 2) : 0;
 	}
 	else
 	{
 		weights[ACT_BOOST] = 3;
 		weights[ACT_KI] = canKi ? (enraged ? 5 : 3) : 0;
 		weights[ACT_BIG] = canBig ? (enraged ? 4 : 2) : 0;
+		weights[ACT_BEAM] = canBeam ? (enraged ? 4 : 3) : 0;
 	}
 
 	if (wantGrab)
@@ -1606,6 +1736,11 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 
 	case ACT_BIG:
 		SetAIState(AI_STATE::BIG_CHARGE);
+		break;
+
+	case ACT_BEAM:
+		SetAIState(AI_STATE::BEAM_CHARGE);
+		beamLocked_ = false;
 		break;
 	}
 }
@@ -1925,6 +2060,70 @@ void MeleeEnemy::DrawTelegraph(void) const
 
 		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 100 + (int)(80.0f * pulse));
 		DrawSphere3D(GetChestPos(), 55.0f, 16, GetColor(255, 240, 80), GetColor(255, 240, 80), TRUE);
+
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		SetUseLighting(TRUE);
+	}
+
+	// ビームの溜め: 大きな球が育つ。狙いを固定したら、赤い帯(これから撃つ線)が出る
+	if (aiState_ == AI_STATE::BEAM_CHARGE)
+	{
+		const float rate = Saturate(aiTimer_ / kBeamChargeTime);
+		const float pulse = 0.5f + 0.5f * sinf(aiTimer_ * 25.0f);
+		const VECTOR ball = beamLocked_ ? beamOrigin_ : GetBeamOrigin();
+		const float r = 12.0f + 70.0f * rate;
+
+		SetUseLighting(FALSE);
+
+		if (beamLocked_)
+		{
+			const VECTOR end = VAdd(beamOrigin_, VScale(beamDir_, kBeamLength));
+
+			// 当たる範囲(薄い帯)と、中心の線
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 22 + (int)(20.0f * pulse));
+			DrawCapsule3D(beamOrigin_, end, kBeamRadius, 12, GetColor(255, 40, 40), GetColor(255, 40, 40), TRUE);
+
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 110 + (int)(80.0f * pulse));
+			DrawCapsule3D(beamOrigin_, end, 4.0f, 6, GetColor(255, 80, 60), GetColor(255, 80, 60), TRUE);
+		}
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 100);
+		DrawSphere3D(ball, r * (1.2f + 0.1f * pulse), 20, GetColor(190, 60, 255), GetColor(190, 60, 255), TRUE);
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 180);
+		DrawSphere3D(ball, r, 20, GetColor(235, 150, 255), GetColor(235, 150, 255), TRUE);
+
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		DrawSphere3D(ball, r * 0.55f, 16, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+
+		SetUseLighting(TRUE);
+	}
+
+	// ビーム発射: 紫の太い光線(外側→中→白い芯)
+	if (aiState_ == AI_STATE::BEAM_FIRE)
+	{
+		const float grow = Saturate(aiTimer_ / kBeamGrowTime);
+		const float remain = kBeamFireTime - aiTimer_;
+		const float fade = (remain < kBeamFadeTime) ? Saturate(remain / kBeamFadeTime) : 1.0f;
+		const float wobble = 1.0f + 0.08f * sinf(aiTimer_ * 60.0f);
+		const float w = kBeamRadius * fade * wobble;
+
+		const VECTOR end = VAdd(beamOrigin_, VScale(beamDir_, kBeamLength * grow));
+
+		SetUseLighting(FALSE);
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 90);
+		DrawCapsule3D(beamOrigin_, end, w * 1.7f, 16, GetColor(190, 60, 255), GetColor(190, 60, 255), TRUE);
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
+		DrawCapsule3D(beamOrigin_, end, w * 1.2f, 16, GetColor(235, 150, 255), GetColor(235, 150, 255), TRUE);
+
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		DrawCapsule3D(beamOrigin_, end, w * 0.6f, 12, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+
+		// 出口の光の球
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
+		DrawSphere3D(beamOrigin_, w * 2.2f, 20, GetColor(235, 150, 255), GetColor(235, 150, 255), TRUE);
 
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		SetUseLighting(TRUE);
