@@ -19,6 +19,10 @@ public:
 	// “–‚½‚Á‚½‚Æ‚«‚È‚Ç‚ÉÁ‚·
 	void Kill(void) { isDead_ = true; }
 
+	// “–‚½‚Á‚½‚Æ‚«‚Ìƒ_ƒ[ƒW(È—ª‚·‚é‚Æ3)
+	void SetDamage(int damage) { damage_ = damage; }
+	int GetDamage(void) const { return damage_; }
+
 	bool IsDead(void) const { return isDead_; }
 	const VECTOR& GetPos(void) const { return pos_; }
 	float GetRadius(void) const { return radius_; }
@@ -32,4 +36,5 @@ private:
 	float life_;
 	float time_;
 	bool isDead_;
+	int damage_;
 };

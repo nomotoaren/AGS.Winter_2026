@@ -9,7 +9,8 @@ EnemyKiBlast::EnemyKiBlast(void)
 	radius_(10.0f),
 	life_(0.0f),
 	time_(0.0f),
-	isDead_(true)
+	isDead_(true),
+	damage_(3)
 {
 }
 
@@ -56,11 +57,11 @@ void EnemyKiBlast::Draw(void) const
 	SetUseLighting(FALSE);
 
 	// äOë§ÇÃåı(îºìßñæ)
-	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 90);
-	DrawSphere3D(pos_, radius_ * 1.8f * wobble, 16, GetColor(170, 90, 255), GetColor(170, 90, 255), TRUE);
-
 	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
-	DrawSphere3D(pos_, radius_ * 1.3f * wobble, 16, GetColor(210, 150, 255), GetColor(210, 150, 255), TRUE);
+	DrawSphere3D(pos_, radius_ * 1.8f * wobble, 16, GetColor(150, 30, 255), GetColor(150, 30, 255), TRUE);
+
+	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 230);
+	DrawSphere3D(pos_, radius_ * 1.3f * wobble, 16, GetColor(210, 90, 255), GetColor(210, 90, 255), TRUE);
 
 	// êc
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);

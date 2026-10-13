@@ -21,21 +21,21 @@ namespace PlayerConfig
 	// 高速接近の軌道(カカロット風に、敵へまっすぐではなく弧を描いて近づく)
 	namespace Boost
 	{
-		constexpr float ARC_ANGLE = 60.0f * 3.14159265f / 180.0f;	// 最初に敵の方向からどれだけ横へ振るか
-		constexpr float ARC_MIN_DISTANCE = 250.0f;	// 敵との距離がこれ以下なら弧を描かず、まっすぐ近づく
+		constexpr float ARC_ANGLE = 25.0f * 3.14159265f / 180.0f;	// 最初に敵の方向からどれだけ横へ振るか
+		constexpr float ARC_MIN_DISTANCE = 300.0f;	// 敵との距離がこれ以下なら弧を描かず、まっすぐ近づく
 		constexpr float ARC_FULL_DISTANCE = 800.0f;	// 敵との距離がこれ以上なら弧を最大にする(間は距離に応じて滑らかに変わる)
-		constexpr float TURN_BASE = 3.0f;			// 敵へ向かって曲がる速さの最小値(1秒あたり)
-		constexpr float TURN_GROW = 14.0f;			// 時間とともに曲がる速さを上げる量
-		constexpr float TURN_NEAR = 40.0f;			// 敵に近づいたときに追加で曲がる速さ
+		constexpr float TURN_BASE = 6.0f;			// 敵へ向かって曲がる速さの最小値(1秒あたり)
+		constexpr float TURN_GROW = 20.0f;			// 時間とともに曲がる速さを上げる量
+		constexpr float TURN_NEAR = 30.0f;			// 敵に近づいたときに追加で曲がる速さ
 		constexpr float NEAR_DISTANCE = 300.0f;		// 「近づいた」とみなす距離
-		constexpr float BRAKE_RATE = 0.25f;			// 近づくほど減速する割合
-		constexpr float BRAKE_MIN = 10.0f;			// 減速したときの最低速度
+		constexpr float BRAKE_RATE = 0.12f;			// 近づくほど減速する割合
+		constexpr float BRAKE_MIN = 24.0f;			// 減速したときの最低速度
 		constexpr float COOLDOWN = 0.4f;			// 終わってから次を出せるまでの時間(秒)
-		constexpr float STOP_DISTANCE = 70.0f;		// 敵のこの距離まで来たら止まる
-		constexpr float MAX_SPEED = 45.0f;			// 最高速度(1フレームの移動量)
+		constexpr float STOP_DISTANCE = 90.0f;		// 敵のこの距離まで来たら止まる
+		constexpr float MAX_SPEED = 26.0f;			// 最高速度(1フレームの移動量)
 		constexpr float INITIAL_DELAY = 0.10f;		// 最初にその場で構える時間(秒)
-		constexpr float ACCEL_WINDOW = 0.20f;		// 加速が終わるまでの時間(秒)
-		constexpr float MAX_DURATION = 2.0f;		// 保険のタイムアウト(秒)
+		constexpr float ACCEL_WINDOW = 0.40f;		// 加速が終わるまでの時間(秒)
+		constexpr float MAX_DURATION = 1.5f;		// 保険のタイムアウト(秒)
 		constexpr float AFTER_IMAGE_INTERVAL = 0.03f;	// 残像を残す間隔(秒)
 	}
 
@@ -97,12 +97,14 @@ namespace PlayerConfig
 		constexpr float BURST_KI_COST = 20.0f;		// ガードバーストに必要な気
 		constexpr float BURST_TIME = 0.5f;			// ガードバーストの時間(秒)
 		constexpr float BURST_ANIM_END_STEP = 45.0f;	// バーストのモーションの最終フレーム
+		constexpr float ANIM_HOLD_STEP = 20.0f;		// ガードの構えが完成するフレーム(要調整)
 	}
 
 	// 気溜め
 	namespace Charge
 	{
 		constexpr float END_MAX_TIME = 1.5f;		// 終了モーションの保険のタイムアウト(秒)
+		constexpr float VISUAL_YAW_DEG = -65.0f;
 	}
 
 	// かめはめ波のエフェクト(blue_laser.efkefc)
@@ -116,9 +118,12 @@ namespace PlayerConfig
 		constexpr float EFFECT_FORWARD = 40.0f;		// 発射のとき、ビームを手元より前へずらす距離(体にめり込んで見えにくくなるのを防ぐ)
 		constexpr float EFFECT_FIRE_FRAME = 140.0f;	// エフェクトの中でビームが出るフレーム
 
-		constexpr float SHOT_TIME = 2.0f;			// 構えてから発射するまでの時間(秒)
-		constexpr float END_TIME = 3.0f;			// 構えてから終わるまでの時間(秒)
+		constexpr float SHOT_TIME = 0.8f;   // (構えてから発射まで)
+		constexpr float END_TIME = 2.4f;   // (発射後のビームが約1.6秒)
 		constexpr float TRANSITION_TIME = 0.12f;	// 発射直後に手元の気弾が消えるまでの時間(秒)
+		constexpr float ANIM_LOOP_START = 40.0f;	// 終盤ループの開始ステップ(要調整)
+		constexpr float ANIM_LOOP_END = 45.0f;		// 終盤ループの終了ステップ(要調整)
+		constexpr float ANIM_LOOP_SPEED = 20.0f;	// ループ中の再生速度
 		constexpr float BEAM_LENGTH = 2000.0f;		// ビームの当たり判定の長さ
 		constexpr float BEAM_RADIUS = 25.0f;		// ビームの当たり判定の半径
 		constexpr float KI_COST = 30.0f;			// 消費する気
@@ -130,6 +135,10 @@ namespace PlayerConfig
 	{
 		// ロックオン中の移動基準:敵との水平距離がこれ以下なら、向きが定まらないのでカメラ基準にする
 		constexpr float LOCK_BASIS_MIN_DISTANCE = 30.0f;
+
+		// パッドの×長押しダッシュ
+		constexpr float DASH_SPEED = 14.0f;			// ダッシュの速さ(右Shiftの走り=10 の2倍。好みで調整)
+		constexpr float DASH_HOLD_TIME = 0.25f;		// ×を何秒押し続けたらダッシュか(ステップと区別。回避の時間0.18秒より長くする)
 	}
 
 	// 浮遊(舞空術)の見た目

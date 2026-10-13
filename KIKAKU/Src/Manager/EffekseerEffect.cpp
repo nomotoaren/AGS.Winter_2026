@@ -20,8 +20,8 @@ namespace
 
     // 爆発に色をかけるか(出ないときは false にして試す)
     constexpr bool TRANSFORM_BURST_TINT = true;
-    constexpr float TRANSFORM_CHARGE_SCALE = 10.0f;		// 変身中の気溜めの大きさ(MagicTornade2 用。大きい/小さいときはここを変える)
-    constexpr bool TRANSFORM_CHARGE_TINT = false;		// true にすると、変身の色(水色)をかける
+    constexpr float TRANSFORM_CHARGE_SCALE = 10.0f;		
+    constexpr bool TRANSFORM_CHARGE_TINT = false;
 
     // 再生中のエフェクトに変身の色をかける
     void ApplyTransformColor(int playHandle)

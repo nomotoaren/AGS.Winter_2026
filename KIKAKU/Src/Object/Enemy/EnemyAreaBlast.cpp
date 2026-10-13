@@ -8,11 +8,12 @@ EnemyAreaBlast::EnemyAreaBlast(void)
 	warnTime_(1.0f),
 	timer_(0.0f),
 	state_(State::DEAD),
-	explodeFlag_(false)
+	explodeFlag_(false),
+	damage_(6)
 {
 }
 
-void EnemyAreaBlast::Init(const VECTOR& pos, float radius, float warnTime)
+void EnemyAreaBlast::Init(const VECTOR& pos, float radius, float warnTime, int damage)
 {
 	pos_ = pos;
 	radius_ = radius;
@@ -20,6 +21,7 @@ void EnemyAreaBlast::Init(const VECTOR& pos, float radius, float warnTime)
 	timer_ = 0.0f;
 	state_ = State::WARN;
 	explodeFlag_ = false;
+	damage_ = damage;
 }
 
 void EnemyAreaBlast::Update(float deltaTime)
@@ -70,16 +72,16 @@ void EnemyAreaBlast::Draw(void) const
 		const float pulse = 0.5f + 0.5f * sinf(timer_ * (10.0f + 30.0f * rate));
 
 		// ”ÍˆÍ‚Ì˜g(ƒƒCƒ„[)
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 150);
-		DrawSphere3D(pos_, radius_, 20, GetColor(255, 60, 40), GetColor(255, 60, 40), FALSE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+		DrawSphere3D(pos_, radius_, 20, GetColor(255, 230, 0), GetColor(255, 230, 0), FALSE);
 
 		// ”ÍˆÍ‚Ì’†‚ð”–‚­“h‚é
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 30 + (int)(30.0f * pulse));
-		DrawSphere3D(pos_, radius_, 20, GetColor(255, 60, 40), GetColor(255, 60, 40), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 90 + (int)(50.0f * pulse));
+		DrawSphere3D(pos_, radius_, 20, GetColor(255, 0, 0), GetColor(255, 0, 0), TRUE);
 
 		// ’†‚©‚çL‚ª‚é‹…(‚±‚ê‚ªŠO˜g‚É“Í‚­‚Æ”š”­)
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 80 + (int)(60.0f * pulse));
-		DrawSphere3D(pos_, radius_ * rate, 20, GetColor(255, 130, 60), GetColor(255, 130, 60), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170 + (int)(60.0f * pulse));
+		DrawSphere3D(pos_, radius_ * rate, 20, GetColor(255, 100, 0), GetColor(255, 100, 0), TRUE);
 
 		// ”š”­‚Ì’¼‘O‚Í”’‚­Œõ‚é
 		if (rate > 0.8f)

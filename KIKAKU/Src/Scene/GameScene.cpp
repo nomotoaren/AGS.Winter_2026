@@ -396,54 +396,55 @@ void GameScene::Update(void)
 				);
 			}
 		}
+		// かめはめ波中もカメラは切り替えない(ロックオン / 追従のまま)
+		wasKamehame_ = player_->IsKamehame();
+		//// かめはめ波カメラ
+		//bool isKamehame =
+		//	player_->IsKamehame();
 
-		// かめはめ波カメラ
-		bool isKamehame =
-			player_->IsKamehame();
+		//bool isKamehameBeam =
+		//	player_->IsKamehameBeam();
 
-		bool isKamehameBeam =
-			player_->IsKamehameBeam();
+		////if (isKamehame &&
+		////	!wasKamehame_)
+		////{
+		////	mainCamera.ChangeMode(
+		////		Camera::MODE::KAMEHAME
+		////	);
+		////}
 
-		if (isKamehame &&
-			!wasKamehame_)
-		{
-			mainCamera.ChangeMode(
-				Camera::MODE::KAMEHAME
-			);
-		}
+		////if (isKamehameBeam &&
+		////	!wasKamehameBeam_)
+		////{
+		////	mainCamera.ChangeMode(
+		////		Camera::MODE::KAMEHAME_SHOT
+		////	);
+		////}
 
-		if (isKamehameBeam &&
-			!wasKamehameBeam_)
-		{
-			mainCamera.ChangeMode(
-				Camera::MODE::KAMEHAME_SHOT
-			);
-		}
+		//if (!isKamehame &&
+		//	wasKamehame_)
+		//{
+		//	if (isLockOn_ &&
+		//		lockOnTarget_ != nullptr)
+		//	{
+		//		mainCamera.SetLockOnTarget(
+		//			&lockOnTarget_->GetTransform()
+		//		);
 
-		if (!isKamehame &&
-			wasKamehame_)
-		{
-			if (isLockOn_ &&
-				lockOnTarget_ != nullptr)
-			{
-				mainCamera.SetLockOnTarget(
-					&lockOnTarget_->GetTransform()
-				);
+		//		mainCamera.ChangeMode(
+		//			Camera::MODE::LOCK_ON
+		//		);
+		//	}
+		//	else
+		//	{
+		//		mainCamera.ChangeMode(
+		//			Camera::MODE::FOLLOW
+		//		);
+		//	}
+		//}
 
-				mainCamera.ChangeMode(
-					Camera::MODE::LOCK_ON
-				);
-			}
-			else
-			{
-				mainCamera.ChangeMode(
-					Camera::MODE::FOLLOW
-				);
-			}
-		}
-
-		wasKamehame_ =
-			isKamehame;
+		//wasKamehame_ =
+		//	isKamehame;
 
 		// Enemy更新
 		for (auto& enemy : enemies_)
@@ -682,7 +683,8 @@ void GameScene::Update(void)
 
 			for (auto& enemy : enemies_)
 			{
-				if (!enemy || enemy->IsDead())
+				// 回避中(無敵)の敵には当たらない
+				if (!enemy || enemy->IsDead() || enemy->IsInvincible())
 				{
 					continue;
 				}
@@ -754,6 +756,7 @@ void GameScene::Update(void)
 				}
 
 				enemy->Damage(attackDamage);
+				enemy->AddStun(combo == 8 ? 40.0f : 8.0f);	// フィニッシュは大きくスタン値を溜める
 				player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 130.0f, 0.0f)), attackDamage);
 
 				float knockPower = 0.0f;
@@ -863,6 +866,7 @@ void GameScene::Update(void)
 				{
 					const int blastDamage = player_->GetAttackDamage(1);
 					enemy->Damage(blastDamage);
+					enemy->AddStun(10.0f);
 					player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 40.0f, 0.0f)), blastDamage);
 				}
 
@@ -1031,6 +1035,7 @@ void GameScene::Update(void)
 						{
 							const int beamDamage = player_->GetAttackDamage(3);
 							enemy->Damage(beamDamage);
+							enemy->AddStun(4.0f);
 							player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 60.0f, 0.0f)), beamDamage);
 						}
 

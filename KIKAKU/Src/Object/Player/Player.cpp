@@ -262,14 +262,14 @@ void Player::InitAnimation(const std::string& animDir)
 	add(ANIM_TYPE::IDLE, "Idle.mv1", 20.0f);
 
 	// 移動
-	add(ANIM_TYPE::RUN, "Walk.mv1", 40.0f);
-	add(ANIM_TYPE::FAST_RUN, "Running.mv1", 40.0f);
-	add(ANIM_TYPE::LOCK_LEFT, "LSWalking.mv1", 60.0f);
-	add(ANIM_TYPE::LOCK_RIGHT, "RSWalking.mv1", 40.0f);
-	add(ANIM_TYPE::LOCK_LEFT_RUN, "Left Strafe.mv1", 40.0f);
-	add(ANIM_TYPE::LOCK_RIGHT_RUN, "Right Strafe.mv1", 40.0f);
-	add(ANIM_TYPE::LOCK_BACK, "Walking Back.mv1", 40.0f);
-	add(ANIM_TYPE::LOCK_BACK_RUN, "Running Back.mv1", 40.0f);
+	add(ANIM_TYPE::RUN, "Walk.mv1", 20.0f);
+	add(ANIM_TYPE::FAST_RUN, "Running.mv1", 20.0f);
+	add(ANIM_TYPE::LOCK_LEFT, "LSWalking.mv1", 20.0f);
+	add(ANIM_TYPE::LOCK_RIGHT, "RSWalking.mv1", 20.0f);
+	add(ANIM_TYPE::LOCK_LEFT_RUN, "Left Strafe.mv1", 20.0f);
+	add(ANIM_TYPE::LOCK_RIGHT_RUN, "Right Strafe.mv1", 20.0f);
+	add(ANIM_TYPE::LOCK_BACK, "Walking Back.mv1", 20.0f);
+	add(ANIM_TYPE::LOCK_BACK_RUN, "Running Back.mv1", 20.0f);
 	add(ANIM_TYPE::BOOST_CHASE, "Flying.mv1", 40.0f);
 
 	// 攻撃
@@ -284,27 +284,29 @@ void Player::InitAnimation(const std::string& animDir)
 
 	// 気功
 	add(ANIM_TYPE::KI_BLAST, "KiBlast.mv1", 60.0f);
-	add(ANIM_TYPE::KAMEHAME, "Special.mv1", 20.0f);
+	add(ANIM_TYPE::KAMEHAME, "Special.mv1", 40.0f);
 	add(ANIM_TYPE::CHARGE, "pawer.mv1", 40.0f);
 
 	// 被弾・ガード
 	add(ANIM_TYPE::DAMAGE, "Damege.mv1", 60.0f);
-	add(ANIM_TYPE::GUARD, "Block.mv1", 60.0f);
+	add(ANIM_TYPE::GUARD, "Block.mv1", 80.0f);
 	add(ANIM_TYPE::GUARD_BURST, "pawer.mv1", 100.0f);
 	add(ANIM_TYPE::GUARD_BREAK, "GuardBreak.mv1", 20.0f);
 
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
-// 手のフレームを探す(モデルを差し替えたら再取得が必要)
+// 手のフレームを探す
 void Player::InitFrames(void)
 {
 	kamehame_.SetModel(transform_.modelId);
 	rightHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:RightHand");
 
+	hipsFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:Hips");
+
 	InitLegFrames();
 
-	// 脚のポーズの初期値(調整モードで書き換えられる)
+	// 脚のポーズの初期値
 	namespace lp = cfg::LegPose;
 	legTune_[TUNE_L_THIGH] = lp::L_THIGH;
 	legTune_[TUNE_L_KNEE] = lp::L_KNEE;
@@ -313,7 +315,7 @@ void Player::InitFrames(void)
 	legTune_[TUNE_R_KNEE] = lp::R_KNEE;
 	legTune_[TUNE_R_OPEN] = lp::R_OPEN;
 	legTune_[TUNE_FOOT] = lp::FOOT;
-	legTune_[TUNE_LEAN] = lp::LEAN_RATE;	// 体の傾きの倍率(0にすると傾けない)
+	legTune_[TUNE_LEAN] = lp::LEAN_RATE;
 }
 
 // 脚のボーンを探す(モデルを差し替えたら再取得が必要)
@@ -513,6 +515,8 @@ void Player::Update(void)
 	ApplyVisualTransform(logicRot);
 
 	animationController_->Update();
+
+	CancelRootMotion();
 
 	// アニメを再生したあとで、脚だけ舞空術のポーズへ寄せる
 	UpdateLegPose();
@@ -721,6 +725,40 @@ void Player::DrawLegTune(void) const
 #endif
 }
 
+void Player::CancelRootMotion(void)
+{
+	if (hipsFrame_ < 0) { return; }
+
+	// 移動系のアニメのときだけ打ち消す(攻撃の踏み込みなどはそのまま)
+	switch ((ANIM_TYPE)animationController_->GetPlayType())
+	{
+	case ANIM_TYPE::RUN:
+	case ANIM_TYPE::FAST_RUN:
+	case ANIM_TYPE::LOCK_LEFT:
+	case ANIM_TYPE::LOCK_RIGHT:
+	case ANIM_TYPE::LOCK_LEFT_RUN:
+	case ANIM_TYPE::LOCK_RIGHT_RUN:
+	case ANIM_TYPE::LOCK_BACK:
+	case ANIM_TYPE::LOCK_BACK_RUN:
+		break;
+	default:
+		MV1ResetFrameUserLocalMatrix(transform_.modelId, hipsFrame_);
+		return;
+	}
+
+	const int model = transform_.modelId;
+
+	MV1ResetFrameUserLocalMatrix(model, hipsFrame_);
+	MATRIX m = MV1GetFrameLocalMatrix(model, hipsFrame_);
+	const MATRIX base = MV1GetFrameBaseLocalMatrix(model, hipsFrame_);
+
+	// 水平方向(X,Z)の移動だけ初期位置に固定。上下(Y)はアニメのまま
+	m.m[3][0] = base.m[3][0];
+	m.m[3][2] = base.m[3][2];
+
+	MV1SetFrameUserLocalMatrix(model, hipsFrame_, m);
+}
+
 // 浮遊移動中の脚のポーズ
 //   移動アニメ(Walk など)はそのまま再生し、その結果の上から脚のボーンだけを
 //   「片膝を上げて、もう片方を後ろに曲げる」舞空術の姿勢へ寄せる
@@ -822,8 +860,16 @@ void Player::UpdateLegPose(void)
 //   作り終わったら pos / quaRot を当たり判定用の値に戻す(カプセルが傾かないように)
 void Player::ApplyVisualTransform(const Quaternion& logicRot)
 {
+	// 気溜め・変身のアニメは体が横向きなので、その間だけ見た目を回して背中をカメラへ向ける
+	Quaternion baseRot = logicRot;
+	if (isCharging_ || isChargeEnding_ || formChange_.IsActive())
+	{
+		baseRot = logicRot.Mult(Quaternion::Euler(
+			{ 0.0f, AsoUtility::Deg2RadF(cfg::Charge::VISUAL_YAW_DEG), 0.0f }));
+	}
+
 	const Quaternion visualRot =
-		logicRot.Mult(Quaternion::Euler({ floatPitch_, 0.0f, floatRoll_ }));
+		baseRot.Mult(Quaternion::Euler({ floatPitch_, 0.0f, floatRoll_ }));
 
 	// 足元を中心に回すと腰が pivot → visualRot * pivot にずれるので、その差を戻す
 	const VECTOR pivot = { 0.0f, cfg::Float::PIVOT_HEIGHT, 0.0f };
@@ -1166,13 +1212,26 @@ void Player::ProcessMove(void)
 	// 斜め移動の速度を揃える
 	dir = NormalizeSafe(dir);
 
+	// パッド: ×を押し続けるとダッシュ(押した瞬間のステップのあとに入る)
+	if (PadInput::IsNew(PadInput::BTN::CROSS))
+	{
+		dashHold_ += scnMng_.GetDeltaTime();
+	}
+	else
+	{
+		dashHold_ = 0.0f;
+	}
+
+	const bool isDash = dashHold_ >= cfg::Move::DASH_HOLD_TIME && !isDodge_;
+
 	if (!AsoUtility::EqualsVZero(dir) &&
 		(isJump_ || IsEndLanding()))
 	{
-		const bool isRun = ins.IsNew(KEY_INPUT_RSHIFT);
+		const bool isRun = ins.IsNew(KEY_INPUT_RSHIFT) || isDash;
 
 		// 形態ごとの速度倍率をかける
-		speed_ = (isRun ? SPEED_RUN : SPEED_MOVE) * kFormData[(int)form_].speedRate;
+		speed_ = (isDash ? cfg::Move::DASH_SPEED : (isRun ? SPEED_RUN : SPEED_MOVE))
+			* kFormData[(int)form_].speedRate;
 		moveDir_ = dir;
 		movePow_ = VScale(dir, speed_);
 
@@ -1591,7 +1650,12 @@ void Player::UpdateKamehame(void)
 		{
 			movePow_ = AsoUtility::VECTOR_ZERO;
 
-			animationController_->Play((int)ANIM_TYPE::KAMEHAME, false);
+			animationController_->Play((int)ANIM_TYPE::KAMEHAME, true,
+				0.0f, cfg::Kamehame::ANIM_LOOP_END);
+			animationController_->SetEndLoop(
+				cfg::Kamehame::ANIM_LOOP_START,
+				cfg::Kamehame::ANIM_LOOP_END,
+				cfg::Kamehame::ANIM_LOOP_SPEED);
 
 			kamehame_.Start(MakeKamehameContext());
 		}
@@ -2115,7 +2179,8 @@ void Player::UpdateGuard(void)
 
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
-		animationController_->Play((int)ANIM_TYPE::GUARD, false, 0.0f, -1.0f, true);
+		animationController_->Play((int)ANIM_TYPE::GUARD, false,
+			0.0f, cfg::Guard::ANIM_HOLD_STEP, false);
 	}
 	else if (result.released)
 	{

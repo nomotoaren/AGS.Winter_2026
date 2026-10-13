@@ -58,5 +58,6 @@ private:
 	VECTOR dir_;			// 進行方向(毎フレーム敵へ曲げていく)
 	float side_;			// 膨らむ側(+1:右 -1:左。毎回入れ替える)
 	float cooldown_;		// 再使用までの待ち時間
+	float travelled_ = 0.0f;	// 始めてから進んだ距離
 	float afterImageTimer_;	// 次の残像までの時間
 };

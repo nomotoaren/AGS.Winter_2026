@@ -43,6 +43,7 @@ void PlayerBoostChase::Start(const Context& ctx, int sideInput)
 {
 	isActive_ = true;
 	timer_ = 0.0f;
+	travelled_ = 0.0f;
 	afterImageTimer_ = 0.0f;
 
 	// 弧の膨らむ側: 入力があればその側、なければ前回と逆
@@ -141,7 +142,8 @@ PlayerBoostChase::Result PlayerBoostChase::Update(const Context& ctx)
 	dir_ = NormalizeSafe(VAdd(dir_, VScale(VSub(dir, dir_), k)));
 
 	// 向きは進行方向(敵が近いときは敵の方)
-	result.faceDir = isNear ? dir : dir_;
+	// (横へ向いたまま飛ぶと不自然なので、進行方向より敵の方を強めに向く)
+	result.faceDir = isNear ? dir : NormalizeSafe(VAdd(VScale(dir_, 0.3f), VScale(dir, 0.7f)));
 
 	// 加速(構えが終わってから少しずつ速くする)
 	float speed = cfg::Boost::MAX_SPEED;

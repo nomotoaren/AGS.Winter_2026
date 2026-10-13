@@ -25,8 +25,8 @@ class Player : public ActorBase
 public:
 
 	// スピード
-	static constexpr float SPEED_MOVE = 5.0f;
-	static constexpr float SPEED_RUN = 10.0f;
+	static constexpr float SPEED_MOVE = 4.0f;
+	static constexpr float SPEED_RUN = 8.0f;
 
 	// SHIFTで記録する時間
 	static constexpr int SHIFT_RECORD_FRAME = 300;
@@ -510,6 +510,11 @@ private:
 	bool isLegTune_ = false;		// 調整モード中か(F1)
 	void UpdateLegTune(void);		// 調整モードの入力(Debug ビルドのみ)
 	void DrawLegTune(void) const;	// 調整モードの表示(Debug ビルドのみ)
+
+	int hipsFrame_ = -1;
+	void CancelRootMotion(void);	// アニメの腰の水平移動を打ち消す
+
+	float dashHold_ = 0.0f;			// ×を押し続けている時間(パッドのダッシュ用)
 
 	// HUD(HP・気ゲージ)
 	PlayerHud hud_;
