@@ -2168,7 +2168,8 @@ void Player::UpdateGuard(void)
 
 	if (result.breakEnded || result.burstEnded)
 	{
-		animationController_->Play((int)ANIM_TYPE::IDLE, true, 0.0f, -1.0f, false, true);
+		animationController_->Play((int)ANIM_TYPE::GUARD, false,
+			0.0f, cfg::Guard::ANIM_HOLD_STEP, false);
 		return;
 	}
 
