@@ -154,17 +154,52 @@ namespace
 	// 極太ビーム
 	constexpr float kBeamChargeTime = 1.8f;			// 溜めの長さ(殴れば中断できる)
 	constexpr float kBeamLockTime = 1.1f;			// 溜め始めてからこの時間で、狙いを固定する
-	constexpr float kBeamFireTime = 1.0f;			// 発射している時間
+	constexpr float kBeamFireTime = 2.2f;			// 発射している時間(長い)
 	constexpr float kBeamCoolTime = 14.0f;
-	constexpr float kBeamRadius = 45.0f;			// ビームの太さ(当たり判定)
+	constexpr float kBeamRadius = 110.0f;			// ビームの太さ(当たり判定)
 	constexpr float kBeamLength = 3000.0f;
 	constexpr float kBeamHitMargin = 35.0f;			// プレイヤーの体の大きさ
 	constexpr float kBeamBallOffset = 70.0f;		// 溜める球の位置(胸の前)
 	constexpr float kBeamGrowTime = 0.12f;			// 発射してからビームが伸びきるまで
 	constexpr float kBeamFadeTime = 0.2f;			// 発射の終わりに細くなる時間
-	constexpr int   kBeamDamage = 5;
+	constexpr int   kBeamDamage = 4;
+	constexpr float kBeamTickTime = 0.45f;			// 当たり続けたときの、ダメージの間隔
+	constexpr float kBeamTrackRate = 1.2f;			// 発射中に、狙いがプレイヤーを追う速さ(大きいほど追う)
 	constexpr float kBeamKnock = 30.0f;
 	constexpr float kBeamRecoverTime = 1.0f;		// 撃ったあとの大きな隙
+
+	// 気弾の連射
+	constexpr float kBarrageChargeTime = 0.5f;
+	constexpr float kBarrageInterval = 0.16f;		// 1発ごとの間隔
+	constexpr int   kBarrageCount = 6;
+	constexpr int   kBarrageCountEnraged = 10;		// HPが半分以下のとき
+	constexpr float kBarrageSpeed = 11.0f;			// 1/60秒あたり(単発の気弾より少し遅い)
+	constexpr float kBarrageSpread = 90.0f;			// 狙いのばらつき
+	constexpr int   kBarrageDamage = 2;
+	constexpr float kBarrageCoolTime = 8.0f;
+	constexpr float kBarrageRecoverTime = 0.7f;
+	constexpr float kMarkerRadius = 70.0f;			// 着弾点の輪の最大の大きさ
+	constexpr float kMarkerSlack = 0.25f;			// 気弾が着いたあと、輪が残る時間
+
+	// 急降下(上昇 → 狙いを固定 → 急降下)
+	constexpr float kSlamHeight = 420.0f;			// プレイヤーより上へ上がる高さ
+	constexpr float kSlamRiseSpeed = 12.0f;			// 1/60秒あたり
+	constexpr float kSlamChargeTime = 0.9f;			// 上昇して溜める時間
+	constexpr float kSlamLockTime = 0.4f;			// 狙いを固定してから降下までの時間(ここで避ける)
+	constexpr float kSlamDiveSpeed = 55.0f;			// 1/60秒あたり
+	constexpr float kSlamDiveMaxTime = 0.7f;
+	constexpr float kSlamHitRange = 110.0f;			// 降下中に直接当たる距離
+	constexpr float kSlamArrive = 70.0f;			// 狙った場所へ着いたとみなす距離
+	constexpr int   kSlamDamage = 4;				// 直接当たったとき
+	constexpr float kSlamImpactRadius = 220.0f;		// 衝撃波の半径
+	constexpr int   kSlamImpactDamage = 3;			// 衝撃波(直接当たったときは入らない)
+	constexpr float kSlamCoolTime = 13.0f;
+	constexpr float kSlamRecoverTime = 1.0f;
+
+	// 高速移動の軌跡
+	constexpr float kTrailLife = 0.35f;
+	constexpr float kTrailCut = 300.0f;				// これ以上離れたら、つなげない
+	constexpr size_t kTrailMax = 40;
 
 	// 行動の種類(DecideAction の中だけで使う)
 	enum ACTION
@@ -177,6 +212,8 @@ namespace
 		ACT_GRAB,		// 投げ(ガード不能)
 		ACT_BIG,		// 範囲大技
 		ACT_BEAM,		// 極太ビーム
+		ACT_BARRAGE,	// 気弾の連射
+		ACT_SLAM,		// 急降下
 		ACT_MAX
 	};
 
@@ -243,6 +280,23 @@ namespace
 		}
 
 		return VSize(VSub(p, VAdd(a, VScale(ab, t))));
+	}
+
+	// 水平な輪を線で描く
+	void DrawRing3D(const VECTOR& center, float radius, unsigned int color)
+	{
+		constexpr int kSeg = 32;
+
+		for (int i = 0; i < kSeg; i++)
+		{
+			const float a1 = DX_TWO_PI_F * (float)i / (float)kSeg;
+			const float a2 = DX_TWO_PI_F * (float)(i + 1) / (float)kSeg;
+
+			DrawLine3D(
+				VGet(center.x + cosf(a1) * radius, center.y, center.z + sinf(a1) * radius),
+				VGet(center.x + cosf(a2) * radius, center.y, center.z + sinf(a2) * radius),
+				color);
+		}
 	}
 
 	// 重みの大きいものほど選ばれやすいランダム。選べるものが無ければ -1
@@ -377,6 +431,11 @@ void MeleeEnemy::Update(void)
 	CountDown(grabCoolTimer_, deltaTime);
 	CountDown(chaseCoolTimer_, deltaTime);
 	CountDown(beamCoolTimer_, deltaTime);
+	CountDown(barrageCoolTimer_, deltaTime);
+	CountDown(slamCoolTimer_, deltaTime);
+
+	UpdateTrail(deltaTime);
+	UpdateKiMarkers(deltaTime);
 
 	hoverTime_ += deltaTime;
 
@@ -421,6 +480,8 @@ void MeleeEnemy::Update(void)
 	if (UpdateGrab(deltaTime, playerPos)) { return; }
 	if (UpdateChase(deltaTime, playerPos)) { return; }
 	if (UpdateBeam(deltaTime, playerPos)) { return; }
+	if (UpdateKiBarrage(deltaTime, playerPos)) { return; }
+	if (UpdateSlam(deltaTime, playerPos)) { return; }
 
 	// プレイヤーを見る
 	LookAtPlayerWithPitchLimit(playerPos);
@@ -1039,7 +1100,7 @@ void MeleeEnemy::UpdateBlasts(float deltaTime)
 		}
 
 		// 当たった(回避されたときは、そのまま飛び続ける)
-		if (ApplyHitToPlayer(blast.GetPos(), kKiDamage, 12.0f, 25.0f, 3.0f))
+		if (ApplyHitToPlayer(blast.GetPos(), blast.GetDamage(), 12.0f, 25.0f, 3.0f))
 		{
 			blast.Kill();
 		}
@@ -1055,8 +1116,6 @@ void MeleeEnemy::UpdateBlasts(float deltaTime)
 //----------------------------------------------------------------------
 // 突進
 //----------------------------------------------------------------------
-
-// 構え → 突進
 bool MeleeEnemy::UpdateRush(float deltaTime, const VECTOR& playerPos)
 {
 	if (aiState_ != AI_STATE::RUSH_READY && aiState_ != AI_STATE::RUSH)
@@ -1130,8 +1189,6 @@ bool MeleeEnemy::UpdateRush(float deltaTime, const VECTOR& playerPos)
 //----------------------------------------------------------------------
 // 範囲大技
 //----------------------------------------------------------------------
-
-// 溜め → 警告の球を出す
 bool MeleeEnemy::UpdateBigCharge(float deltaTime, const VECTOR& playerPos)
 {
 	if (aiState_ != AI_STATE::BIG_CHARGE)
@@ -1192,7 +1249,8 @@ void MeleeEnemy::LaunchAreaBlasts(const VECTOR& playerPos)
 		blast.Init(
 			VAdd(center, VScale(side, offset)),
 			kBigRadius,
-			kBigWarnTime + kBigStagger * (float)i);
+			kBigWarnTime + kBigStagger * (float)i,
+			kBigDamage);
 
 		areaBlasts_.push_back(blast);
 	}
@@ -1217,9 +1275,9 @@ void MeleeEnemy::UpdateAreaBlasts(float deltaTime)
 
 		const float distance = VSize(VSub(blast.GetPos(), playerCenter));
 
-		if (distance <= blast.GetRadius())
+		if (blast.GetDamage() > 0 && distance <= blast.GetRadius())
 		{
-			ApplyHitToPlayer(blast.GetPos(), kBigDamage, 35.0f, 80.0f, 8.0f);
+			ApplyHitToPlayer(blast.GetPos(), blast.GetDamage(), 35.0f, 80.0f, 8.0f);
 		}
 	}
 
@@ -1232,8 +1290,6 @@ void MeleeEnemy::UpdateAreaBlasts(float deltaTime)
 //----------------------------------------------------------------------
 // ガード崩し(投げ)
 //----------------------------------------------------------------------
-
-// プレイヤーがガードしている時間を数える(ガードをやめると、ゆっくり減る)
 void MeleeEnemy::UpdateGuardWatch(float deltaTime, float distance)
 {
 	if (player_.IsGuard() && distance < kGuardWatchRange)
@@ -1330,8 +1386,6 @@ void MeleeEnemy::DoGrab(void)
 //----------------------------------------------------------------------
 // 追撃
 //----------------------------------------------------------------------
-
-// 直前の攻撃でダメージが入っていたら、追撃の予定を入れる
 void MeleeEnemy::QueueChase(void)
 {
 	if (!lastHitDamaged_ || chaseCoolTimer_ > 0.0f)
@@ -1435,8 +1489,6 @@ void MeleeEnemy::DoSmash(void)
 //----------------------------------------------------------------------
 // 極太ビーム
 //----------------------------------------------------------------------
-
-// ビームの出る位置(胸の前)
 VECTOR MeleeEnemy::GetBeamOrigin(void) const
 {
 	return VAdd(GetChestPos(), VScale(transform_.quaRot.GetForward(), kBeamBallOffset));
@@ -1485,15 +1537,33 @@ bool MeleeEnemy::UpdateBeam(float deltaTime, const VECTOR& playerPos)
 			}
 
 			SetAIState(AI_STATE::BEAM_FIRE);
-			beamHit_ = false;
+			beamHitCool_ = 0.0f;
 
 			mainCamera.StartShake(kBeamFireTime, 4.0f);
 		}
 	}
 	else
 	{
-		// 発射中: ビームの帯の中にプレイヤーがいれば当たる(避けられたら、次のフレームも調べる)
-		if (!beamHit_)
+		// 発射中は、狙いがプレイヤーをゆっくり追う(その場に居続けると当たる)
+		VECTOR desired = VSub(playerCenter, beamOrigin_);
+
+		if (VSize(desired) > kEpsilon)
+		{
+			desired = VNorm(desired);
+
+			const VECTOR blended =
+				VAdd(beamDir_, VScale(VSub(desired, beamDir_), Saturate(kBeamTrackRate * deltaTime)));
+
+			if (VSize(blended) > kEpsilon)
+			{
+				beamDir_ = VNorm(blended);
+			}
+		}
+
+		// ビームの帯の中にプレイヤーがいれば当たる(当たり続けると、一定間隔でダメージ)
+		CountDown(beamHitCool_, deltaTime);
+
+		if (beamHitCool_ <= 0.0f)
 		{
 			const VECTOR beamEnd = VAdd(beamOrigin_, VScale(beamDir_, kBeamLength));
 
@@ -1501,7 +1571,7 @@ bool MeleeEnemy::UpdateBeam(float deltaTime, const VECTOR& playerPos)
 			{
 				if (ApplyHitToPlayer(beamOrigin_, kBeamDamage, kBeamKnock, 120.0f, 6.0f))
 				{
-					beamHit_ = true;
+					beamHitCool_ = kBeamTickTime;
 				}
 			}
 		}
@@ -1521,6 +1591,251 @@ bool MeleeEnemy::UpdateBeam(float deltaTime, const VECTOR& playerPos)
 	return true;
 }
 
+//----------------------------------------------------------------------
+// 気弾の連射
+//----------------------------------------------------------------------
+bool MeleeEnemy::UpdateKiBarrage(float deltaTime, const VECTOR& playerPos)
+{
+	if (aiState_ != AI_STATE::KI_BARRAGE)
+	{
+		return false;
+	}
+
+	animationController_->Play((int)ANIM_TYPE::IDLE);
+
+	LookAtPlayerWithPitchLimit(playerPos);
+
+	aiTimer_ += deltaTime;
+
+	// 溜め
+	if (aiTimer_ < kBarrageChargeTime)
+	{
+		transform_.Update();
+		return true;
+	}
+
+	barrageShotTimer_ -= deltaTime;
+
+	if (barrageShotsLeft_ > 0 && barrageShotTimer_ <= 0.0f)
+	{
+		FireBarrageShot();
+
+		barrageShotsLeft_--;
+		barrageShotTimer_ = kBarrageInterval;
+	}
+
+	// 撃ち終わったら、少し隙を作って戻る
+	if (barrageShotsLeft_ <= 0 && barrageShotTimer_ <= 0.0f)
+	{
+		barrageCoolTimer_ = kBarrageCoolTime;
+
+		SetAIState(AI_STATE::WAIT);
+		aiTimer_ = -kBarrageRecoverTime;
+	}
+
+	transform_.Update();
+	return true;
+}
+
+// 1発撃つ。狙いは少しばらつき、着弾点に目印の輪を出す
+void MeleeEnemy::FireBarrageShot(void)
+{
+	const VECTOR forward = transform_.quaRot.GetForward();
+	const VECTOR origin = VAdd(GetChestPos(), VScale(forward, 50.0f));
+
+	const int spread = (int)kBarrageSpread;
+
+	const VECTOR target = VAdd(
+		VAdd(player_.GetTransform().pos, VGet(0.0f, kPlayerCenterHeight, 0.0f)),
+		VGet(
+			(float)(GetRand(spread * 2) - spread),
+			(float)(GetRand(spread * 2) - spread) * 0.6f,
+			(float)(GetRand(spread * 2) - spread)));
+
+	const VECTOR dir = VSub(target, origin);
+
+	EnemyKiBlast blast;
+	blast.Init(origin, dir, kBarrageSpeed, kKiRadius * 0.8f, kKiLife);
+	blast.SetDamage(kBarrageDamage);
+
+	blasts_.push_back(blast);
+
+	// 気弾が着くまでの時間だけ、目印の輪を出す
+	const float travel = VSize(dir) / (kBarrageSpeed * 60.0f) + kMarkerSlack;
+
+	KiMarker marker;
+	marker.pos = target;
+	marker.timer = travel;
+	marker.total = travel;
+
+	kiMarkers_.push_back(marker);
+}
+
+void MeleeEnemy::UpdateKiMarkers(float deltaTime)
+{
+	for (auto& marker : kiMarkers_)
+	{
+		marker.timer -= deltaTime;
+	}
+
+	kiMarkers_.erase(
+		std::remove_if(kiMarkers_.begin(), kiMarkers_.end(),
+			[](const KiMarker& m) { return m.timer <= 0.0f; }),
+		kiMarkers_.end());
+}
+
+//----------------------------------------------------------------------
+// 急降下(上昇 → 狙いを固定 → 急降下 → 衝撃波)
+//----------------------------------------------------------------------
+bool MeleeEnemy::UpdateSlam(float deltaTime, const VECTOR& playerPos)
+{
+	if (aiState_ != AI_STATE::SLAM_RISE && aiState_ != AI_STATE::SLAM_DIVE)
+	{
+		return false;
+	}
+
+	aiTimer_ += deltaTime;
+
+	const VECTOR playerCenter = VAdd(playerPos, VGet(0.0f, kPlayerCenterHeight, 0.0f));
+
+	if (aiState_ == AI_STATE::SLAM_RISE)
+	{
+		animationController_->Play((int)ANIM_TYPE::IDLE);
+
+		if (!slamLocked_)
+		{
+			// 上昇して溜める
+			float targetY = playerPos.y + kSlamHeight;
+
+			if (targetY > kMaxHeight) { targetY = kMaxHeight; }
+
+			if (transform_.pos.y < targetY)
+			{
+				transform_.pos.y += kSlamRiseSpeed * deltaTime * 60.0f;
+
+				if (transform_.pos.y > targetY) { transform_.pos.y = targetY; }
+			}
+
+			LookAtPlayerWithPitchLimit(playerPos);
+
+			if (aiTimer_ >= kSlamChargeTime)
+			{
+				// 狙いを固定(ここから先は、プレイヤーを追わない)
+				slamTarget_ = playerCenter;
+				slamLocked_ = true;
+			}
+		}
+		else
+		{
+			VECTOR dir = VSub(slamTarget_, transform_.pos);
+
+			if (VSize(dir) > kEpsilon)
+			{
+				transform_.quaRot = Quaternion::LookRotation(VNorm(dir));
+			}
+
+			if (aiTimer_ >= kSlamChargeTime + kSlamLockTime)
+			{
+				slamDir_ = (VSize(dir) > kEpsilon) ? VNorm(dir) : VGet(0.0f, -1.0f, 0.0f);
+
+				SetAIState(AI_STATE::SLAM_DIVE);
+				animationController_->Play((int)ANIM_TYPE::FAST_RUN);
+			}
+		}
+
+		transform_.Update();
+		return true;
+	}
+
+	// 急降下
+	transform_.pos = VAdd(transform_.pos, VScale(slamDir_, kSlamDiveSpeed * deltaTime * 60.0f));
+
+	if (transform_.pos.y < kMinHeight) { transform_.pos.y = kMinHeight; }
+
+	transform_.quaRot = Quaternion::LookRotation(slamDir_);
+
+	// 降下中にプレイヤーへ直接当たったか
+	bool directHit = false;
+
+	if (VSize(VSub(playerCenter, transform_.pos)) <= kSlamHitRange)
+	{
+		directHit = ApplyHitToPlayer(transform_.pos, kSlamDamage, 40.0f, 100.0f, 7.0f);
+	}
+
+	// 狙った場所に着いた / 当たった / 時間切れ → 衝撃波
+	const VECTOR toTarget = VSub(slamTarget_, transform_.pos);
+	const bool arrived =
+		VDot(toTarget, slamDir_) <= 0.0f ||
+		VSize(toTarget) <= kSlamArrive ||
+		transform_.pos.y <= kMinHeight;
+
+	if (directHit || arrived || aiTimer_ >= kSlamDiveMaxTime)
+	{
+		SlamImpact(directHit);
+	}
+
+	transform_.Update();
+	return true;
+}
+
+// 衝撃波を出して、様子見に戻る(直接当てたときは、衝撃波のダメージは入れない)
+void MeleeEnemy::SlamImpact(bool directHit)
+{
+	EnemyAreaBlast blast;
+	blast.Init(transform_.pos, kSlamImpactRadius, 0.01f, directHit ? 0 : kSlamImpactDamage);
+	areaBlasts_.push_back(blast);
+
+	mainCamera.StartShake(0.3f, 10.0f);
+
+	slamCoolTimer_ = kSlamCoolTime;
+	slamLocked_ = false;
+
+	SetAIState(AI_STATE::WAIT);
+	aiTimer_ = -kSlamRecoverTime;
+
+	animationController_->Play((int)ANIM_TYPE::IDLE);
+}
+
+//----------------------------------------------------------------------
+// 高速移動の軌跡
+//----------------------------------------------------------------------
+void MeleeEnemy::UpdateTrail(float deltaTime)
+{
+	for (auto& p : trail_)
+	{
+		p.life -= deltaTime;
+	}
+
+	trail_.erase(
+		std::remove_if(trail_.begin(), trail_.end(),
+			[](const TrailPoint& p) { return p.life <= 0.0f; }),
+		trail_.end());
+
+	// 突進・急降下・高速接近のあいだ、軌跡を足していく
+	const bool emit =
+		!isHidden_ &&
+		(aiState_ == AI_STATE::RUSH ||
+			aiState_ == AI_STATE::SLAM_DIVE ||
+			aiState_ == AI_STATE::BOOST_ATTACK);
+
+	if (!emit)
+	{
+		return;
+	}
+
+	TrailPoint p;
+	p.pos = GetChestPos();
+	p.life = kTrailLife;
+	p.cut = !trail_.empty() && VSize(VSub(p.pos, trail_.back().pos)) > kTrailCut;
+
+	trail_.push_back(p);
+
+	if (trail_.size() > kTrailMax)
+	{
+		trail_.erase(trail_.begin());
+	}
+}
+
 // 気弾・突進の途中なら、やめて様子見に戻る(殴られたときなど)
 void MeleeEnemy::CancelSpecials(void)
 {
@@ -1532,12 +1847,16 @@ void MeleeEnemy::CancelSpecials(void)
 		aiState_ == AI_STATE::CHASE_VANISH ||
 		aiState_ == AI_STATE::CHASE_APPEAR ||
 		aiState_ == AI_STATE::BEAM_CHARGE ||
-		aiState_ == AI_STATE::BEAM_FIRE)
+		aiState_ == AI_STATE::BEAM_FIRE ||
+		aiState_ == AI_STATE::KI_BARRAGE ||
+		aiState_ == AI_STATE::SLAM_RISE ||
+		aiState_ == AI_STATE::SLAM_DIVE)
 	{
 		SetAIState(AI_STATE::WAIT);
 	}
 
 	beamLocked_ = false;
+	slamLocked_ = false;
 
 	// 追撃の途中で殴られたときなどは、姿を戻して予定も消す
 	isHidden_ = false;
@@ -1653,6 +1972,8 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 	const bool canRush = (rushCoolTimer_ <= 0.0f);
 	const bool canBig = (bigCoolTimer_ <= 0.0f);
 	const bool canBeam = (beamCoolTimer_ <= 0.0f);
+	const bool canBarrage = (barrageCoolTimer_ <= 0.0f);
+	const bool canSlam = (slamCoolTimer_ <= 0.0f);
 
 	// ガードされ続けているなら、ガード不能の投げを選ぶ
 	const bool wantGrab =
@@ -1668,6 +1989,7 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 		weights[ACT_SIDE] = 2;
 		weights[ACT_RUSH] = canRush ? (enraged ? 3 : 1) : 0;
 		weights[ACT_BIG] = canBig ? (enraged ? 2 : 1) : 0;
+		weights[ACT_SLAM] = canSlam ? 1 : 0;
 	}
 	else if (ctx.distance < kFarDistance)
 	{
@@ -1677,6 +1999,8 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 		weights[ACT_BOOST] = 1;
 		weights[ACT_BIG] = canBig ? (enraged ? 4 : 2) : 0;
 		weights[ACT_BEAM] = canBeam ? (enraged ? 3 : 2) : 0;
+		weights[ACT_BARRAGE] = canBarrage ? (enraged ? 4 : 3) : 0;
+		weights[ACT_SLAM] = canSlam ? (enraged ? 3 : 2) : 0;
 	}
 	else
 	{
@@ -1684,6 +2008,7 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 		weights[ACT_KI] = canKi ? (enraged ? 5 : 3) : 0;
 		weights[ACT_BIG] = canBig ? (enraged ? 4 : 2) : 0;
 		weights[ACT_BEAM] = canBeam ? (enraged ? 4 : 3) : 0;
+		weights[ACT_BARRAGE] = canBarrage ? (enraged ? 5 : 4) : 0;
 	}
 
 	if (wantGrab)
@@ -1741,6 +2066,17 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 	case ACT_BEAM:
 		SetAIState(AI_STATE::BEAM_CHARGE);
 		beamLocked_ = false;
+		break;
+
+	case ACT_BARRAGE:
+		SetAIState(AI_STATE::KI_BARRAGE);
+		barrageShotsLeft_ = enraged ? kBarrageCountEnraged : kBarrageCount;
+		barrageShotTimer_ = 0.0f;
+		break;
+
+	case ACT_SLAM:
+		SetAIState(AI_STATE::SLAM_RISE);
+		slamLocked_ = false;
 		break;
 	}
 }
@@ -1965,6 +2301,10 @@ void MeleeEnemy::Draw(void)
 		blast.Draw();
 	}
 
+	// 気弾の着弾点の輪・高速移動の軌跡
+	DrawKiMarkers();
+	DrawTrail();
+
 	// 気弾・突進の予告(プレイヤーが避ける目印)
 	DrawTelegraph();
 
@@ -2011,6 +2351,8 @@ void MeleeEnemy::DrawTelegraph(void) const
 	if (aiState_ == AI_STATE::BIG_CHARGE)
 	{
 		const float rate = Saturate(aiTimer_ / kBigChargeTime);
+
+		DrawAuraColumn(transform_.pos, rate);
 		const VECTOR pos = VAdd(transform_.pos, VGet(0.0f, 170.0f, 0.0f));
 
 		SetUseLighting(FALSE);
@@ -2073,6 +2415,8 @@ void MeleeEnemy::DrawTelegraph(void) const
 		const VECTOR ball = beamLocked_ ? beamOrigin_ : GetBeamOrigin();
 		const float r = 12.0f + 70.0f * rate;
 
+		DrawAuraColumn(transform_.pos, rate);
+
 		SetUseLighting(FALSE);
 
 		if (beamLocked_)
@@ -2096,6 +2440,54 @@ void MeleeEnemy::DrawTelegraph(void) const
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		DrawSphere3D(ball, r * 0.55f, 16, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
 
+		SetUseLighting(TRUE);
+	}
+
+	// 気弾の連射の溜め: 胸の前に小さな球
+	if (aiState_ == AI_STATE::KI_BARRAGE && aiTimer_ < kBarrageChargeTime)
+	{
+		const float rate = Saturate(aiTimer_ / kBarrageChargeTime);
+		const VECTOR pos = VAdd(GetChestPos(), VScale(transform_.quaRot.GetForward(), 50.0f));
+
+		SetUseLighting(FALSE);
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 110);
+		DrawSphere3D(pos, 8.0f + 26.0f * rate, 16, GetColor(170, 90, 255), GetColor(170, 90, 255), TRUE);
+
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		DrawSphere3D(pos, 4.0f + 10.0f * rate, 16, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+
+		SetUseLighting(TRUE);
+	}
+
+	// 急降下: 上昇中はピンクのオーラ、狙いを固定したら降りる先に赤い輪と線
+	if (aiState_ == AI_STATE::SLAM_RISE)
+	{
+		const float rate = Saturate(aiTimer_ / kSlamChargeTime);
+		const float pulse = 0.5f + 0.5f * sinf(aiTimer_ * 30.0f);
+
+		DrawAuraColumn(transform_.pos, rate);
+
+		SetUseLighting(FALSE);
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 80 + (int)(50.0f * pulse));
+		DrawSphere3D(GetChestPos(), 50.0f + 20.0f * rate, 16, GetColor(255, 110, 190), GetColor(255, 110, 190), TRUE);
+
+		if (slamLocked_)
+		{
+			// 降りる先(衝撃波の範囲)
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 25 + (int)(25.0f * pulse));
+			DrawSphere3D(slamTarget_, kSlamImpactRadius, 20, GetColor(255, 40, 40), GetColor(255, 40, 40), TRUE);
+
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
+			DrawRing3D(slamTarget_, kSlamImpactRadius, GetColor(255, 80, 60));
+
+			// 降りる道すじ
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 90 + (int)(60.0f * pulse));
+			DrawCapsule3D(GetChestPos(), slamTarget_, 6.0f, 6, GetColor(255, 80, 60), GetColor(255, 80, 60), TRUE);
+		}
+
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		SetUseLighting(TRUE);
 	}
 
@@ -2128,6 +2520,83 @@ void MeleeEnemy::DrawTelegraph(void) const
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		SetUseLighting(TRUE);
 	}
+}
+
+// 気弾の着弾点: 縮んでいく赤い輪(輪が消える頃に気弾が着く)
+void MeleeEnemy::DrawKiMarkers(void) const
+{
+	if (kiMarkers_.empty())
+	{
+		return;
+	}
+
+	SetUseLighting(FALSE);
+
+	for (const auto& marker : kiMarkers_)
+	{
+		const float rate = Saturate(marker.timer / marker.total);
+		const float radius = kMarkerRadius * (0.25f + 0.75f * rate);
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 200);
+		DrawRing3D(marker.pos, radius, GetColor(255, 70, 60));
+		DrawRing3D(marker.pos, radius * 0.6f, GetColor(255, 150, 120));
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 70);
+		DrawSphere3D(marker.pos, 8.0f, 8, GetColor(255, 90, 70), GetColor(255, 90, 70), TRUE);
+	}
+
+	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+	SetUseLighting(TRUE);
+}
+
+// 高速移動の軌跡: ピンクの帯が、だんだん細く薄くなる
+void MeleeEnemy::DrawTrail(void) const
+{
+	if (trail_.size() < 2)
+	{
+		return;
+	}
+
+	SetUseLighting(FALSE);
+
+	for (size_t i = 1; i < trail_.size(); i++)
+	{
+		if (trail_[i].cut)
+		{
+			continue;
+		}
+
+		const float rate = Saturate(trail_[i].life / kTrailLife);
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(150.0f * rate));
+		DrawCapsule3D(trail_[i - 1].pos, trail_[i].pos, 3.0f + 16.0f * rate, 8,
+			GetColor(255, 120, 200), GetColor(255, 120, 200), TRUE);
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(200.0f * rate));
+		DrawCapsule3D(trail_[i - 1].pos, trail_[i].pos, 1.5f + 5.0f * rate, 6,
+			GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+	}
+
+	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+	SetUseLighting(TRUE);
+}
+
+// 大技の溜め: 足元から空へのびるピンクの光の柱(rate: 0.0~1.0 で太く強くなる)
+void MeleeEnemy::DrawAuraColumn(const VECTOR& base, float rate) const
+{
+	const VECTOR bottom = VAdd(base, VGet(0.0f, -50.0f, 0.0f));
+	const VECTOR top = VAdd(base, VGet(0.0f, 700.0f, 0.0f));
+
+	SetUseLighting(FALSE);
+
+	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 35 + (int)(40.0f * rate));
+	DrawCapsule3D(bottom, top, 35.0f + 25.0f * rate, 12, GetColor(255, 110, 190), GetColor(255, 110, 190), TRUE);
+
+	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 70 + (int)(60.0f * rate));
+	DrawCapsule3D(bottom, top, 12.0f + 10.0f * rate, 10, GetColor(255, 230, 245), GetColor(255, 230, 245), TRUE);
+
+	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+	SetUseLighting(TRUE);
 }
 
 // 足元に、残り時間で縮む円を描く

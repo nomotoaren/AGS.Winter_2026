@@ -97,12 +97,14 @@ namespace PlayerConfig
 		constexpr float BURST_KI_COST = 20.0f;		// ガードバーストに必要な気
 		constexpr float BURST_TIME = 0.5f;			// ガードバーストの時間(秒)
 		constexpr float BURST_ANIM_END_STEP = 45.0f;	// バーストのモーションの最終フレーム
+		constexpr float ANIM_HOLD_STEP = 20.0f;		// ガードの構えが完成するフレーム(要調整)
 	}
 
 	// 気溜め
 	namespace Charge
 	{
 		constexpr float END_MAX_TIME = 1.5f;		// 終了モーションの保険のタイムアウト(秒)
+		constexpr float VISUAL_YAW_DEG = -65.0f;
 	}
 
 	// かめはめ波のエフェクト(blue_laser.efkefc)
@@ -116,9 +118,12 @@ namespace PlayerConfig
 		constexpr float EFFECT_FORWARD = 40.0f;		// 発射のとき、ビームを手元より前へずらす距離(体にめり込んで見えにくくなるのを防ぐ)
 		constexpr float EFFECT_FIRE_FRAME = 140.0f;	// エフェクトの中でビームが出るフレーム
 
-		constexpr float SHOT_TIME = 2.0f;			// 構えてから発射するまでの時間(秒)
-		constexpr float END_TIME = 3.0f;			// 構えてから終わるまでの時間(秒)
+		constexpr float SHOT_TIME = 0.8f;   // (構えてから発射まで)
+		constexpr float END_TIME = 2.4f;   // (発射後のビームが約1.6秒)
 		constexpr float TRANSITION_TIME = 0.12f;	// 発射直後に手元の気弾が消えるまでの時間(秒)
+		constexpr float ANIM_LOOP_START = 40.0f;	// 終盤ループの開始ステップ(要調整)
+		constexpr float ANIM_LOOP_END = 45.0f;		// 終盤ループの終了ステップ(要調整)
+		constexpr float ANIM_LOOP_SPEED = 20.0f;	// ループ中の再生速度
 		constexpr float BEAM_LENGTH = 2000.0f;		// ビームの当たり判定の長さ
 		constexpr float BEAM_RADIUS = 25.0f;		// ビームの当たり判定の半径
 		constexpr float KI_COST = 30.0f;			// 消費する気

@@ -8,11 +8,12 @@ EnemyAreaBlast::EnemyAreaBlast(void)
 	warnTime_(1.0f),
 	timer_(0.0f),
 	state_(State::DEAD),
-	explodeFlag_(false)
+	explodeFlag_(false),
+	damage_(6)
 {
 }
 
-void EnemyAreaBlast::Init(const VECTOR& pos, float radius, float warnTime)
+void EnemyAreaBlast::Init(const VECTOR& pos, float radius, float warnTime, int damage)
 {
 	pos_ = pos;
 	radius_ = radius;
@@ -20,6 +21,7 @@ void EnemyAreaBlast::Init(const VECTOR& pos, float radius, float warnTime)
 	timer_ = 0.0f;
 	state_ = State::WARN;
 	explodeFlag_ = false;
+	damage_ = damage;
 }
 
 void EnemyAreaBlast::Update(float deltaTime)

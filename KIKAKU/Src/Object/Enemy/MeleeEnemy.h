@@ -13,7 +13,10 @@ class Player;
 //   追撃: 4連撃の締めや突進でプレイヤーを吹き飛ばしたら、消えて先回りして叩き落とす
 //   ガード崩し: プレイヤーがガードばかりしていると、ガード不能の投げに来る
 //   範囲大技: 赤い警告の球が出て、少し後に爆発する(範囲の外へ逃げる)
-//   極太ビーム: 大きな球を溜め、途中で狙いを固定(赤い帯が出る)→発射。帯の外へ逃げる
+//   極太ビーム: 大きな球を溜め、途中で狙いを固定(赤い帯が出る)→発射。発射中は狙いがゆっくり追ってくる
+//   気弾の連射: 時間差で何発も撃つ。着弾点に縮む赤い輪が出る
+//   急降下: 高く上昇して溜め、狙いを固定(赤い輪)→急降下して衝撃波
+//   高速移動(突進・急降下・高速接近)は、ピンクの軌跡を残す
 //   反応: プレイヤーが攻撃してくると、ガードか回避(背後へ瞬間移動して反撃)をする
 //   スタン: スタンゲージが満タンになると動けなくなり、大ダメージを受ける
 class MeleeEnemy : public EnemyBase
@@ -115,7 +118,10 @@ private:
 		CHASE_VANISH,	// 追撃: 姿を消している
 		CHASE_APPEAR,	// 追撃: 先回りして現れ、叩き落とす構え
 		BEAM_CHARGE,	// ビームの溜め(途中で狙いを固定する)
-		BEAM_FIRE		// ビーム発射
+		BEAM_FIRE,		// ビーム発射
+		KI_BARRAGE,		// 気弾の連射
+		SLAM_RISE,		// 上昇して溜める → 狙いを固定
+		SLAM_DIVE		// 急降下
 	};
 
 	// 攻撃の時間
@@ -133,8 +139,27 @@ private:
 		VECTOR horizontalDir;	// プレイヤーへの水平方向(単位ベクトル)
 	};
 
+	// 気弾の着弾点の目印
+	struct KiMarker
+	{
+		VECTOR pos;
+		float timer;	// 残り時間
+		float total;	// 最初の時間
+	};
+
+	// 高速移動の軌跡の1点
+	struct TrailPoint
+	{
+		VECTOR pos;
+		float life;
+		bool cut;		// 前の点とつなげない(瞬間移動したとき)
+	};
+
 	void DrawSyncRing(void);
 	void DrawTelegraph(void) const;
+	void DrawTrail(void) const;
+	void DrawKiMarkers(void) const;
+	void DrawAuraColumn(const VECTOR& base, float rate) const;
 
 	// 更新(戻り値: そのフレームの更新を終えたとき true)
 	bool UpdateKamehamePush(void);
@@ -151,6 +176,10 @@ private:
 	bool UpdateGrab(float deltaTime, const VECTOR& playerPos);
 	bool UpdateChase(float deltaTime, const VECTOR& playerPos);
 	bool UpdateBeam(float deltaTime, const VECTOR& playerPos);
+	bool UpdateKiBarrage(float deltaTime, const VECTOR& playerPos);
+	bool UpdateSlam(float deltaTime, const VECTOR& playerPos);
+	void UpdateTrail(float deltaTime);
+	void UpdateKiMarkers(float deltaTime);
 	void UpdateBlasts(float deltaTime);
 	void UpdateAreaBlasts(float deltaTime);
 	void UpdateGuardWatch(float deltaTime, float distance);
@@ -164,6 +193,8 @@ private:
 	void StartMeleeAttack(void);
 	void CheckMeleeHit(void);
 	void FireKiBlast(void);
+	void FireBarrageShot(void);
+	void SlamImpact(bool directHit);
 	void LaunchAreaBlasts(const VECTOR& playerPos);
 	void DoGrab(void);
 	void DoSmash(void);
@@ -303,10 +334,25 @@ private:
 	float grabCoolTimer_ = 0.0f;
 	float guardWatchTimer_ = 0.0f;		// プレイヤーがガードしている時間(長いほど投げに来る)
 
+	// 気弾の連射
+	float barrageCoolTimer_ = 0.0f;
+	int barrageShotsLeft_ = 0;
+	float barrageShotTimer_ = 0.0f;
+	std::vector<KiMarker> kiMarkers_;
+
+	// 急降下
+	float slamCoolTimer_ = 0.0f;
+	bool slamLocked_ = false;
+	VECTOR slamTarget_ = { 0.0f, 0.0f, 0.0f };
+	VECTOR slamDir_ = { 0.0f, -1.0f, 0.0f };
+
+	// 高速移動の軌跡
+	std::vector<TrailPoint> trail_;
+
 	// ビーム
 	float beamCoolTimer_ = 0.0f;
 	bool beamLocked_ = false;			// 狙いを固定したか
-	bool beamHit_ = false;				// 発射中に当てたか
+	float beamHitCool_ = 0.0f;			// 次にダメージが入るまでの時間(発射中、当たり続けると一定間隔で入る)
 	VECTOR beamOrigin_ = { 0.0f, 0.0f, 0.0f };
 	VECTOR beamDir_ = { 0.0f, 0.0f, 1.0f };
 

@@ -9,7 +9,8 @@ EnemyKiBlast::EnemyKiBlast(void)
 	radius_(10.0f),
 	life_(0.0f),
 	time_(0.0f),
-	isDead_(true)
+	isDead_(true),
+	damage_(3)
 {
 }
 

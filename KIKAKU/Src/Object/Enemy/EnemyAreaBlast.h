@@ -11,8 +11,8 @@ public:
 	EnemyAreaBlast(void);
 	~EnemyAreaBlast(void) = default;
 
-	// pos: ’†S / radius: ”š”­‚Ì”¼Œa / warnTime: Œx‚©‚ç”š”­‚Ü‚Å‚ÌŠÔ(•b)
-	void Init(const VECTOR& pos, float radius, float warnTime);
+	// pos: ’†S / radius: ”š”­‚Ì”¼Œa / warnTime: Œx‚©‚ç”š”­‚Ü‚Å‚ÌŠÔ(•b) / damage: ”š”­‚Ìƒ_ƒ[ƒW(0‚È‚çƒ_ƒ[ƒW‚È‚µ)
+	void Init(const VECTOR& pos, float radius, float warnTime, int damage = 6);
 
 	void Update(float deltaTime);
 	void Draw(void) const;
@@ -23,6 +23,7 @@ public:
 	bool IsDead(void) const { return state_ == State::DEAD; }
 	const VECTOR& GetPos(void) const { return pos_; }
 	float GetRadius(void) const { return radius_; }
+	int GetDamage(void) const { return damage_; }
 
 private:
 
@@ -42,4 +43,5 @@ private:
 	float timer_;
 	State state_;
 	bool explodeFlag_;
+	int damage_;
 };
