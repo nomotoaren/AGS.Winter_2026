@@ -2032,6 +2032,25 @@ void Player::UpdateBoostChase(void)
 	if (result.finished)
 	{
 		EndBoostChase();
+
+		// 敵の懐に着いたら、そのまま攻撃へ(カカロットの高速移動→殴りの流れ)
+		if (result.arrived && cfg::Boost::AUTO_ATTACK && hasAttackTarget_)
+		{
+			// 敵との位置を攻撃距離に合わせて、向きも合わせてから攻撃に入る
+			const PlayerAttack::Context attackCtx = MakeAttackContext();
+			VECTOR snapPos;
+
+			if (PlayerAttack::CalcSnapPos(attackCtx, snapPos))
+			{
+				transform_.pos.x = snapPos.x;
+				transform_.pos.z = snapPos.z;
+
+				FaceHorizontal(VSub(attackTargetPos_, transform_.pos));
+			}
+
+			StartAttack();
+		}
+
 		return;
 	}
 

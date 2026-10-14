@@ -43,7 +43,15 @@ void PlayerBoostChase::Start(const Context& ctx, int sideInput)
 {
 	isActive_ = true;
 	timer_ = 0.0f;
-	travelled_ = 0.0f;
+	// “ž’…‚Ü‚Å‚ÌŽžŠÔ‚Í‹——£‚É‰ž‚¶‚ÄŒˆ‚ß‚é(‹ß‚¯‚ê‚ÎˆêuA‰“‚­‚Ä‚à’·‚­‚È‚è‚·‚¬‚È‚¢)
+	{
+		const float startDistance = VSize(VSub(ctx.targetPos, ctx.playerPos));
+		float duration = cfg::Boost::DURATION_MIN + startDistance * cfg::Boost::DURATION_PER_DISTANCE;
+
+		if (duration > cfg::Boost::DURATION_MAX) { duration = cfg::Boost::DURATION_MAX; }
+
+		duration_ = duration;
+	}
 	afterImageTimer_ = 0.0f;
 
 	// ŒÊ‚Ì–c‚ç‚Þ‘¤: “ü—Í‚ª‚ ‚ê‚Î‚»‚Ì‘¤A‚È‚¯‚ê‚Î‘O‰ñ‚Æ‹t
@@ -76,6 +84,11 @@ void PlayerBoostChase::Start(const Context& ctx, int sideInput)
 
 	const float arcAngle = cfg::Boost::ARC_ANGLE * arcRate;
 
+	if (VSize(horizontal) > EPSILON)
+	{
+		lastHDir_ = horizontal;
+	}
+
 	dir_ = NormalizeSafe(VAdd(
 		VScale(toEnemy, cosf(arcAngle)),
 		VScale(side, sinf(arcAngle) * side_)));
@@ -104,12 +117,23 @@ PlayerBoostChase::Result PlayerBoostChase::Update(const Context& ctx)
 		return Finish();
 	}
 
-	VECTOR dir = VSub(ctx.targetPos, ctx.playerPos);
+	// –Ú“I’n = “G‚Æ“¯‚¶‚‚³‚ÅA…•½‚É STOP_DISTANCE Žè‘O‚Ì“_
+	// (“G‚Ì^‰º‚â^ã‚©‚ç“Ë‚Áž‚Ü‚¸AUŒ‚‚Å‚«‚é‰¡‚ÌˆÊ’u‚Ö“ü‚éBã‰º‚É“¦‚°‚é“G‚Å‚à‘Ì‚ªd‚È‚ç‚È‚¢)
+	const VECTOR toEnemyH = ToHorizontal(VSub(ctx.targetPos, ctx.playerPos));
+
+	if (VSize(toEnemyH) > EPSILON)
+	{
+		lastHDir_ = VNorm(toEnemyH);
+	}
+
+	const VECTOR goal = VSub(ctx.targetPos, VScale(lastHDir_, cfg::Boost::STOP_DISTANCE));
+
+	VECTOR dir = VSub(goal, ctx.playerPos);
 	const float distance = VSize(dir);
 
-	if (distance <= EPSILON)
+	if (distance <= cfg::Boost::ARRIVE_MARGIN)
 	{
-		return Finish();
+		return Finish(true);
 	}
 
 	dir = VNorm(dir);
@@ -119,12 +143,6 @@ PlayerBoostChase::Result PlayerBoostChase::Update(const Context& ctx)
 	{
 		result.faceDir = dir;
 		return result;
-	}
-
-	// “G‚ÌŽè‘O‚Å’âŽ~(­‚µ—]—T‚ðŽ‚½‚¹‚é)
-	if (distance <= cfg::Boost::STOP_DISTANCE + 1.0f)
-	{
-		return Finish();
 	}
 
 	const bool isNear = (distance <= cfg::Boost::NEAR_DISTANCE);
@@ -143,34 +161,30 @@ PlayerBoostChase::Result PlayerBoostChase::Update(const Context& ctx)
 
 	// Œü‚«‚Íis•ûŒü(“G‚ª‹ß‚¢‚Æ‚«‚Í“G‚Ì•û)
 	// (‰¡‚ÖŒü‚¢‚½‚Ü‚Ü”ò‚Ô‚Æ•sŽ©‘R‚È‚Ì‚ÅAis•ûŒü‚æ‚è“G‚Ì•û‚ð‹­‚ß‚ÉŒü‚­)
-	result.faceDir = isNear ? dir : NormalizeSafe(VAdd(VScale(dir_, 0.3f), VScale(dir, 0.7f)));
+	const VECTOR toEnemyDir = NormalizeSafe(VSub(ctx.targetPos, ctx.playerPos));
+	result.faceDir = isNear ? toEnemyDir : NormalizeSafe(VAdd(VScale(dir_, 0.3f), VScale(toEnemyDir, 0.7f)));
 
-	// ‰Á‘¬(\‚¦‚ªI‚í‚Á‚Ä‚©‚ç­‚µ‚¸‚Â‘¬‚­‚·‚é)
-	float speed = cfg::Boost::MAX_SPEED;
+	// u“ž’…Žžv‚ðŒˆ‚ß‚Ä‚¨‚«A‚»‚ÌŽž‚É“G‚Ì‰ù‚Ö’…‚­‚æ‚¤‚É–ˆƒtƒŒ[ƒ€i‚Þ—Ê‚ðŒˆ‚ß‚é
+	// (“G‚ª‰º‚ª‚Á‚Ä‚àA‚¢‚Ü‹‚éˆÊ’u‚ÖŒü‚©‚¢’¼‚·‚Ì‚ÅA•K‚¸“¯‚¶Žž‚É’Ç‚¢‚Â‚­)
+	const float elapsed = timer_ - cfg::Boost::INITIAL_DELAY;
+	float remain = duration_ - elapsed;
 
-	if (timer_ < cfg::Boost::ACCEL_WINDOW)
+	if (remain < ctx.deltaTime)
 	{
-		const float rate =
-			(timer_ - cfg::Boost::INITIAL_DELAY) /
-			(cfg::Boost::ACCEL_WINDOW - cfg::Boost::INITIAL_DELAY);
-
-		speed = cfg::Boost::MAX_SPEED * rate;
+		remain = ctx.deltaTime;
 	}
 
-	// “G‚É‹ß‚Ã‚­‚Ù‚ÇŒ¸‘¬‚µ‚ÄA¨‚¢‚æ‚­“Ë‚Áž‚Ý‚·‚¬‚È‚¢‚æ‚¤‚É‚·‚é
-	const float brakeSpeed = cfg::Boost::BRAKE_MIN + distance * cfg::Boost::BRAKE_RATE;
-	if (speed > brakeSpeed)
-	{
-		speed = brakeSpeed;
-	}
-
-	// “G‚ð’Ê‚è”²‚¯‚È‚¢‚æ‚¤‚É‚·‚é
-	float moveDistance = speed;
-	const float maxMove = distance - cfg::Boost::STOP_DISTANCE;
+	const float maxMove = distance;
+	float moveDistance = maxMove * (ctx.deltaTime / remain);
 
 	if (moveDistance > maxMove)
 	{
 		moveDistance = maxMove;
+	}
+
+	if (moveDistance > cfg::Boost::MAX_SPEED)
+	{
+		moveDistance = cfg::Boost::MAX_SPEED;
 	}
 
 	result.move = VScale(dir_, moveDistance);
@@ -193,7 +207,7 @@ void PlayerBoostChase::Cancel(void)
 	timer_ = 0.0f;
 }
 
-PlayerBoostChase::Result PlayerBoostChase::Finish(void)
+PlayerBoostChase::Result PlayerBoostChase::Finish(bool arrived)
 {
 	isActive_ = false;
 	timer_ = 0.0f;
@@ -201,5 +215,6 @@ PlayerBoostChase::Result PlayerBoostChase::Finish(void)
 
 	Result result;
 	result.finished = true;
+	result.arrived = arrived;
 	return result;
 }

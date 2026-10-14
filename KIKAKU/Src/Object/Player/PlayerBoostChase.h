@@ -25,6 +25,7 @@ public:
 		VECTOR faceDir = { 0.0f, 0.0f, 0.0f };	// 向いてほしい向き(長さ0なら変えない)
 		bool leaveAfterImage = false;			// 残像を残してほしい
 		bool finished = false;					// このフレームで終わった
+		bool arrived = false;					// 終わった理由が「敵の懐に着いた」(中断・見失いではない)
 	};
 
 	PlayerBoostChase(void);
@@ -51,13 +52,14 @@ public:
 private:
 
 	// 終わる(待ち時間を付ける)
-	Result Finish(void);
+	Result Finish(bool arrived = false);
 
 	bool isActive_;
 	float timer_;
 	VECTOR dir_;			// 進行方向(毎フレーム敵へ曲げていく)
 	float side_;			// 膨らむ側(+1:右 -1:左。毎回入れ替える)
 	float cooldown_;		// 再使用までの待ち時間
-	float travelled_ = 0.0f;	// 始めてから進んだ距離
+	VECTOR lastHDir_ = { 0.0f, 0.0f, 1.0f };	// 最後に分かっている「敵への水平方向」(真上・真下に敵がいるとき用)
+	float duration_ = 0.3f;		// 敵の懐に着くまでにかける時間(開始時の距離で決まる)
 	float afterImageTimer_;	// 次の残像までの時間
 };

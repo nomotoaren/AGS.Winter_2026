@@ -21,7 +21,7 @@ namespace PlayerConfig
 	// 高速接近の軌道(カカロット風に、敵へまっすぐではなく弧を描いて近づく)
 	namespace Boost
 	{
-		constexpr float ARC_ANGLE = 25.0f * 3.14159265f / 180.0f;	// 最初に敵の方向からどれだけ横へ振るか
+		constexpr float ARC_ANGLE = 8.0f * 3.14159265f / 180.0f;	// 最初に敵の方向からどれだけ横へ振るか
 		constexpr float ARC_MIN_DISTANCE = 300.0f;	// 敵との距離がこれ以下なら弧を描かず、まっすぐ近づく
 		constexpr float ARC_FULL_DISTANCE = 800.0f;	// 敵との距離がこれ以上なら弧を最大にする(間は距離に応じて滑らかに変わる)
 		constexpr float TURN_BASE = 6.0f;			// 敵へ向かって曲がる速さの最小値(1秒あたり)
@@ -31,12 +31,17 @@ namespace PlayerConfig
 		constexpr float BRAKE_RATE = 0.12f;			// 近づくほど減速する割合
 		constexpr float BRAKE_MIN = 24.0f;			// 減速したときの最低速度
 		constexpr float COOLDOWN = 0.4f;			// 終わってから次を出せるまでの時間(秒)
-		constexpr float STOP_DISTANCE = 90.0f;		// 敵のこの距離まで来たら止まる
-		constexpr float MAX_SPEED = 26.0f;			// 最高速度(1フレームの移動量)
-		constexpr float INITIAL_DELAY = 0.10f;		// 最初にその場で構える時間(秒)
+		constexpr float STOP_DISTANCE = 90.0f;		// 敵の水平方向のこの距離手前(敵と同じ高さ)まで来たら止まる
+		constexpr float ARRIVE_MARGIN = 10.0f;		// 目的地にこれ以内まで近づいたら到着とみなす
+		constexpr float MAX_SPEED = 90.0f;			// 1フレームの移動量の上限(通常は時間で決まるので届かない)
+		constexpr float DURATION_MIN = 0.22f;		// 敵の懐に着くまでの最短時間(秒)。短いほど「一瞬」で着く
+		constexpr float DURATION_MAX = 0.45f;		// 同、最長(遠くからでもこれ以上かからない)
+		constexpr float DURATION_PER_DISTANCE = 0.0002f;	// 距離1あたりに足す時間(秒)
+		constexpr float INITIAL_DELAY = 0.06f;		// 最初にその場で構える時間(秒)
 		constexpr float ACCEL_WINDOW = 0.40f;		// 加速が終わるまでの時間(秒)
-		constexpr float MAX_DURATION = 1.5f;		// 保険のタイムアウト(秒)
+		constexpr float MAX_DURATION = 1.0f;		// 保険のタイムアウト(秒)
 		constexpr float AFTER_IMAGE_INTERVAL = 0.03f;	// 残像を残す間隔(秒)
+		constexpr bool AUTO_ATTACK = true;			// 敵の懐に着いたら、そのまま1段目の攻撃に入る(カカロット風)
 	}
 
 	// 攻撃(コンボ・飛び込み・吸い付き)
