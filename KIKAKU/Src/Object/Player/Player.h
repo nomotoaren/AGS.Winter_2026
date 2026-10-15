@@ -208,6 +208,14 @@ public:
 
 	bool IsDodging(void) const;
 
+	// ジャスト回避(敵の攻撃が回避に当たったときに敵側から呼ぶ。成立したら true)
+	bool TryJustDodge(void);
+	bool ConsumeJustDodge(void);		// 成立したことを1回だけ受け取る(GameScene がスローモーションを始めるのに使う)
+
+	// 高速移動中か(カメラが落ち着いて追うために使う)
+	// 回避ステップ中も含める(横へ飛んでもカメラがついていけるように)
+	bool IsBoostChasing(void) const { return boostChase_.IsActive() || isDodge_; }
+
 	// ガード
 	bool IsGuard(void) const;
 	void GuardDamage(float damage);
@@ -515,6 +523,14 @@ private:
 	void CancelRootMotion(void);	// アニメの腰の水平移動を打ち消す
 
 	float dashHold_ = 0.0f;			// ×を押し続けている時間(パッドのダッシュ用)
+
+	float stepAfterImageTimer_ = 0.0f;
+
+	// ジャスト回避
+	bool justDodged_ = false;
+	float justCooldown_ = 0.0f;
+	float justBuffTimer_ = 0.0f;		// ダメージが上がっている残り時間
+	void StartStep(void);			// ステップを始める(向き・アニメ)
 
 	// HUD(HP・気ゲージ)
 	PlayerHud hud_;

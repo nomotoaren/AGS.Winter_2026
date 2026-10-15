@@ -34,8 +34,11 @@ namespace PlayerConfig
 		constexpr float STOP_DISTANCE = 90.0f;		// 敵の水平方向のこの距離手前(敵と同じ高さ)まで来たら止まる
 		constexpr float ARRIVE_MARGIN = 10.0f;		// 目的地にこれ以内まで近づいたら到着とみなす
 		constexpr float MAX_SPEED = 90.0f;			// 1フレームの移動量の上限(通常は時間で決まるので届かない)
-		constexpr float DURATION_MIN = 0.22f;		// 敵の懐に着くまでの最短時間(秒)。短いほど「一瞬」で着く
-		constexpr float DURATION_MAX = 0.45f;		// 同、最長(遠くからでもこれ以上かからない)
+		constexpr float ARC_RATE = 0.45f;			// 弧の横への膨らみ = 開始時の敵との距離 x これ(大きいほど大きく回り込む)
+		constexpr float ARC_MAX = 400.0f;			// 弧の横への膨らみの上限
+		constexpr float ARC_LIFT_RATE = 0.25f;		// 上への膨らみ(横の膨らみに対する割合。0で水平な弧)
+		constexpr float DURATION_MIN = 0.35f;		// 敵の懐に着くまでの最短時間(秒)。短いほど「一瞬」で着く
+		constexpr float DURATION_MAX = 0.70f;		// 同、最長(遠くからでもこれ以上かからない)
 		constexpr float DURATION_PER_DISTANCE = 0.0002f;	// 距離1あたりに足す時間(秒)
 		constexpr float INITIAL_DELAY = 0.06f;		// 最初にその場で構える時間(秒)
 		constexpr float ACCEL_WINDOW = 0.40f;		// 加速が終わるまでの時間(秒)
@@ -133,6 +136,31 @@ namespace PlayerConfig
 		constexpr float BEAM_RADIUS = 25.0f;		// ビームの当たり判定の半径
 		constexpr float KI_COST = 30.0f;			// 消費する気
 		constexpr float ENEMY_CENTER_HEIGHT = 100.0f;	// 敵の足元から狙う位置(胸)までの高さ
+	}
+
+	// 回避ステップ(×ボタン / LSHIFT。連打で続けて出せる。カカロットの高速ステップ風)
+	namespace Step
+	{
+		constexpr float SPEED_START = 30.0f;		// 出だしの速さ(1フレームの移動量)。大きいほど遠くまで飛ぶ(1回の移動距離 = 約 速さ x 時間 x 30)
+		constexpr float SPEED_END = 6.0f; 			// 終わり際の速さ(ここへ向かって減速する)
+		constexpr float DURATION = 0.22f;			// 1回のステップの時間(秒)。この間は攻撃を受けない
+		constexpr float CHAIN_TIME = 0.12f;			// ステップ開始からこの時間たてば、次のステップを重ねて出せる(連打用)
+		constexpr float LEAN = 0.5f;				// ステップ中に、進む向きへ体を倒す角度(rad)。0.5で約29度
+		constexpr float LEAN_SMOOTH = 22.0f;		// 倒れる速さ(大きいほどキビキビ)
+		constexpr float AFTER_IMAGE_INTERVAL = 0.014f;	// 残像を残す間隔(秒)。小さいほど途切れず帯のようになる
+	}
+
+	// ジャスト回避(敵の攻撃が当たる直前に回避すると成功)
+	//   成功すると: 敵だけスローモーション / 気が回復 / 一定時間、攻撃のダメージが上がる
+	namespace JustDodge
+	{
+		constexpr float WINDOW = 0.16f;				// ステップを始めてから、この時間以内に攻撃が来たらジャスト(大きいほど簡単)
+		constexpr float COOLDOWN = 0.6f;			// 続けて成立しない時間(秒)
+		constexpr float KI_GAIN = 20.0f;			// 回復する気
+		constexpr float BUFF_TIME = 2.0f;			// 攻撃のダメージが上がる時間(秒)
+		constexpr float DAMAGE_RATE = 1.5f;			// その間のダメージ倍率
+		constexpr float SLOW_TIME = 0.9f;			// 敵がスローモーションになる時間(秒)
+		constexpr int SLOW_DIV = 3;					// 敵を何フレームに1回だけ動かすか(3なら 1/3 の速さ)
 	}
 
 	// 移動

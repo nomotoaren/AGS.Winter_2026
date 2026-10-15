@@ -44,8 +44,8 @@ namespace
 
 	// プレイヤーの攻撃への反応(攻撃が始まった瞬間に、1回だけ決める)
 	constexpr float kReactDistance = 220.0f;		// この距離以内で攻撃されたら反応する
-	constexpr int   kDodgeChance = 35;				// 回避する確率(%)
-	constexpr int   kGuardChance = 35;				// ガードする確率(%)。残りは何もしない
+	constexpr int   kDodgeChance = 10;				// 回避する確率(%)
+	constexpr int   kGuardChance = 10;				// ガードする確率(%)。残りは何もしない
 	constexpr float kDodgeCoolTime = 5.0f;			// 回避の連発を防ぐ時間(秒)
 	constexpr float kDodgeBehindDistance = 110.0f;	// 回避で、プレイヤーの背後のこの距離へ移動する
 	constexpr float kDodgeInvincibleTime = 0.35f;	// 回避の直後に、攻撃を受けない時間(秒)
@@ -64,10 +64,10 @@ namespace
 
 	// 気弾
 	constexpr float kKiChargeTime = 0.8f;			// 気を溜める時間(秒)。この間に避ける・近づける
-	constexpr float kKiSpeed = 14.0f;				// 気弾の速さ(1/60秒あたり)
+	constexpr float kKiSpeed = 10.0f;				// 気弾の速さ(1/60秒あたり)
 	constexpr float kKiRadius = 18.0f;
 	constexpr float kKiLife = 4.0f;					// 気弾が消えるまでの時間(秒)
-	constexpr float kKiCoolTime = 4.0f;				// 次に気弾を撃てるまでの時間(秒)
+	constexpr float kKiCoolTime = 6.0f;				// 次に気弾を撃てるまでの時間(秒)
 	constexpr int   kKiDamage = 3;
 	constexpr float kBlastHitMargin = 35.0f;		// プレイヤーの体の大きさ(気弾との当たり判定に足す)
 	constexpr float kPlayerCenterHeight = 70.0f;	// プレイヤーの足元から体の中心までの高さ
@@ -75,10 +75,10 @@ namespace
 
 	// 突進
 	constexpr float kRushReadyTime = 0.5f;			// 構えの時間(秒)。この間に避けられる
-	constexpr float kRushSpeed = 32.0f;				// 突進の速さ(1/60秒あたり)
+	constexpr float kRushSpeed = 22.0f;				// 突進の速さ(1/60秒あたり)
 	constexpr float kRushTime = 0.6f;				// 突進する最大時間(秒)
 	constexpr float kRushHitRange = 90.0f;			// プレイヤーに当たる距離
-	constexpr float kRushCoolTime = 6.0f;
+	constexpr float kRushCoolTime = 9.0f;
 	constexpr int   kRushDamage = 5;
 
 	// 距離による行動の選び方
@@ -91,17 +91,20 @@ namespace
 
 	// AI
 	constexpr float kNormalBattleDistance = 280.0f;	// 普段戦う距離
-	constexpr float kWaitTime = 0.5f;
+	constexpr float kWaitTime = 1.2f;
 	constexpr float kSideMoveTime = 1.3f;
 	constexpr float kArriveDistance = 10.0f;
 	constexpr float kMoveWaitTime = 0.5f;
 	constexpr float kBoostStopDistance = 110.0f;
-	constexpr float kAttackApproachSpeed = 5.0f;
+	constexpr float kAttackApproachSpeed = 8.0f;	// 近接攻撃へ近づく速さ(1/60秒あたり)
+	constexpr float kAttackStartSlack = 60.0f;		// 攻撃位置のこの距離まで近づけば殴り始める(完全に着くまで待たない)
+	constexpr float kAttackGiveUpTime = 1.6f;		// これだけ追っても届かなければ、諦めて別の行動へ
+	constexpr float kAttackGiveUpCool = 2.5f;		// 諦めたあと、近接攻撃を選ばない時間(秒)
 	constexpr float kRecoverTime = 0.4f;			// 気弾・突進のあとの隙(秒)
 
 	// 空中での旋回(プレイヤーの周りを、高さも変えながら回る)
 	constexpr float kOrbitAngularSpeed = 0.9f;		// 1秒に回る角度(ラジアン)
-	constexpr float kOrbitMaxSpeed = 7.0f;			// 1/60秒あたりの最大移動量
+	constexpr float kOrbitMaxSpeed = 4.5f;			// 1/60秒あたりの最大移動量
 	constexpr float kOrbitMinRadius = 220.0f;
 	constexpr int   kOrbitRadiusRange = 180;		// 半径は kOrbitMinRadius ~ +この値
 	constexpr float kOrbitHeightMin = -80.0f;		// プレイヤーとの高さの差の最小
@@ -133,7 +136,7 @@ namespace
 	constexpr float kGuardWatchTrigger = 1.2f;		// この秒数ガードされたら、投げに来る
 	constexpr float kGrabCoolTime = 9.0f;
 	constexpr float kGrabReadyTime = 0.6f;			// 構えて接近する時間(ここで避けられる)
-	constexpr float kGrabApproachSpeed = 11.0f;
+	constexpr float kGrabApproachSpeed = 8.0f;
 	constexpr float kGrabHitRange = 150.0f;
 	constexpr int   kGrabDamage = 3;
 	constexpr float kGrabKnock = 45.0f;
@@ -173,7 +176,7 @@ namespace
 	constexpr float kBarrageInterval = 0.16f;		// 1発ごとの間隔
 	constexpr int   kBarrageCount = 6;
 	constexpr int   kBarrageCountEnraged = 10;		// HPが半分以下のとき
-	constexpr float kBarrageSpeed = 11.0f;			// 1/60秒あたり(単発の気弾より少し遅い)
+	constexpr float kBarrageSpeed = 8.0f;			// 1/60秒あたり(単発の気弾より少し遅い)
 	constexpr float kBarrageSpread = 90.0f;			// 狙いのばらつき
 	constexpr int   kBarrageDamage = 2;
 	constexpr float kBarrageCoolTime = 8.0f;
@@ -183,10 +186,10 @@ namespace
 
 	// 急降下(上昇 → 狙いを固定 → 急降下)
 	constexpr float kSlamHeight = 420.0f;			// プレイヤーより上へ上がる高さ
-	constexpr float kSlamRiseSpeed = 12.0f;			// 1/60秒あたり
+	constexpr float kSlamRiseSpeed = 8.0f;			// 1/60秒あたり
 	constexpr float kSlamChargeTime = 0.9f;			// 上昇して溜める時間
 	constexpr float kSlamLockTime = 0.4f;			// 狙いを固定してから降下までの時間(ここで避ける)
-	constexpr float kSlamDiveSpeed = 55.0f;			// 1/60秒あたり
+	constexpr float kSlamDiveSpeed = 40.0f;			// 1/60秒あたり
 	constexpr float kSlamDiveMaxTime = 0.7f;
 	constexpr float kSlamHitRange = 110.0f;			// 降下中に直接当たる距離
 	constexpr float kSlamArrive = 70.0f;			// 狙った場所へ着いたとみなす距離
@@ -285,17 +288,24 @@ namespace
 	// 水平な輪を線で描く
 	void DrawRing3D(const VECTOR& center, float radius, unsigned int color)
 	{
-		constexpr int kSeg = 32;
+		constexpr int kSeg = 48;
 
-		for (int i = 0; i < kSeg; i++)
+		// 線は細いので、半径と高さをずらして重ねて太く見せる
+		for (int k = 0; k < 5; k++)
 		{
-			const float a1 = DX_TWO_PI_F * (float)i / (float)kSeg;
-			const float a2 = DX_TWO_PI_F * (float)(i + 1) / (float)kSeg;
+			const float r = radius + (float)(k - 2) * 2.5f;
+			const float y = center.y + (float)(k % 2) * 1.5f;
 
-			DrawLine3D(
-				VGet(center.x + cosf(a1) * radius, center.y, center.z + sinf(a1) * radius),
-				VGet(center.x + cosf(a2) * radius, center.y, center.z + sinf(a2) * radius),
-				color);
+			for (int i = 0; i < kSeg; i++)
+			{
+				const float a1 = DX_TWO_PI_F * (float)i / (float)kSeg;
+				const float a2 = DX_TWO_PI_F * (float)(i + 1) / (float)kSeg;
+
+				DrawLine3D(
+					VGet(center.x + cosf(a1) * r, y, center.z + sinf(a1) * r),
+					VGet(center.x + cosf(a2) * r, y, center.z + sinf(a2) * r),
+					color);
+			}
 		}
 	}
 
@@ -527,6 +537,7 @@ bool MeleeEnemy::UpdateKnockBack(void)
 	if (VSize(knockBackPow_) <= kKnockBackThreshold)
 	{
 		knockBackPow_ = AsoUtility::VECTOR_ZERO;
+		armoredHit_ = false;
 		return false;
 	}
 
@@ -563,6 +574,13 @@ bool MeleeEnemy::UpdateKnockBack(void)
 	}
 
 	knockBackPow_ = VScale(knockBackPow_, kKnockBackDamping);
+
+	// ひるまない攻撃: 少し押されるだけで、行動は中断しない
+	if (armoredHit_)
+	{
+		transform_.Update();
+		return false;
+	}
 
 	if (!isDamage_)
 	{
@@ -811,6 +829,16 @@ bool MeleeEnemy::ConsumeDodged(void)
 	return result;
 }
 
+// 気を溜めている間・大技の直前だけ、弱い攻撃で怯まない(カカロットのスーパーアーマー)
+bool MeleeEnemy::IsSuperArmor(void) const
+{
+	return aiState_ == AI_STATE::KI_CHARGE ||
+		aiState_ == AI_STATE::BIG_CHARGE ||
+		aiState_ == AI_STATE::BEAM_CHARGE ||
+		aiState_ == AI_STATE::RUSH_READY ||
+		aiState_ == AI_STATE::SLAM_RISE;
+}
+
 bool MeleeEnemy::IsInvincible(void) const
 {
 	return invincibleTimer_ > 0.0f;
@@ -913,9 +941,10 @@ bool MeleeEnemy::ApplyHitToPlayer(const VECTOR& fromPos, int damage, float knock
 {
 	lastHitDamaged_ = false;
 
-	// 回避中は当たらない
+	// 回避中は当たらない(ステップを始めてすぐなら、ジャスト回避になる)
 	if (player_.IsDodging())
 	{
+		player_.TryJustDodge();
 		return false;
 	}
 
@@ -1116,6 +1145,8 @@ void MeleeEnemy::UpdateBlasts(float deltaTime)
 //----------------------------------------------------------------------
 // 突進
 //----------------------------------------------------------------------
+
+// 構え → 突進
 bool MeleeEnemy::UpdateRush(float deltaTime, const VECTOR& playerPos)
 {
 	if (aiState_ != AI_STATE::RUSH_READY && aiState_ != AI_STATE::RUSH)
@@ -1189,6 +1220,8 @@ bool MeleeEnemy::UpdateRush(float deltaTime, const VECTOR& playerPos)
 //----------------------------------------------------------------------
 // 範囲大技
 //----------------------------------------------------------------------
+
+// 溜め → 警告の球を出す
 bool MeleeEnemy::UpdateBigCharge(float deltaTime, const VECTOR& playerPos)
 {
 	if (aiState_ != AI_STATE::BIG_CHARGE)
@@ -1290,6 +1323,8 @@ void MeleeEnemy::UpdateAreaBlasts(float deltaTime)
 //----------------------------------------------------------------------
 // ガード崩し(投げ)
 //----------------------------------------------------------------------
+
+// プレイヤーがガードしている時間を数える(ガードをやめると、ゆっくり減る)
 void MeleeEnemy::UpdateGuardWatch(float deltaTime, float distance)
 {
 	if (player_.IsGuard() && distance < kGuardWatchRange)
@@ -1386,6 +1421,8 @@ void MeleeEnemy::DoGrab(void)
 //----------------------------------------------------------------------
 // 追撃
 //----------------------------------------------------------------------
+
+// 直前の攻撃でダメージが入っていたら、追撃の予定を入れる
 void MeleeEnemy::QueueChase(void)
 {
 	if (!lastHitDamaged_ || chaseCoolTimer_ > 0.0f)
@@ -1489,6 +1526,8 @@ void MeleeEnemy::DoSmash(void)
 //----------------------------------------------------------------------
 // 極太ビーム
 //----------------------------------------------------------------------
+
+// ビームの出る位置(胸の前)
 VECTOR MeleeEnemy::GetBeamOrigin(void) const
 {
 	return VAdd(GetChestPos(), VScale(transform_.quaRot.GetForward(), kBeamBallOffset));
@@ -1594,6 +1633,8 @@ bool MeleeEnemy::UpdateBeam(float deltaTime, const VECTOR& playerPos)
 //----------------------------------------------------------------------
 // 気弾の連射
 //----------------------------------------------------------------------
+
+// 少し溜めてから、時間差で何発も撃つ
 bool MeleeEnemy::UpdateKiBarrage(float deltaTime, const VECTOR& playerPos)
 {
 	if (aiState_ != AI_STATE::KI_BARRAGE)
@@ -2027,7 +2068,8 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 	switch (pick)
 	{
 	case ACT_ATTACK:
-		SetAIState(AI_STATE::MOVE);
+		// 間合いを取り直さず、そのまま殴りに行く
+		SetAIState(AI_STATE::ATTACK);
 		break;
 
 	case ACT_SIDE:
@@ -2220,10 +2262,11 @@ void MeleeEnemy::UpdateAIBoostAttack(const AIContext& ctx)
 	}
 
 	float boostMove = boostDistance;
+	const float boostMax = BOOST_CHASE_SPEED * ctx.deltaTime * 60.0f;
 
-	if (boostMove > BOOST_CHASE_SPEED)
+	if (boostMove > boostMax)
 	{
-		boostMove = BOOST_CHASE_SPEED;
+		boostMove = boostMax;
 	}
 
 	transform_.pos = VAdd(transform_.pos, VScale(boostDir, boostMove));
@@ -2234,6 +2277,16 @@ void MeleeEnemy::UpdateAIBoostAttack(const AIContext& ctx)
 // 攻撃距離まで近づいて、4連撃を開始する
 void MeleeEnemy::UpdateAIAttack(const AIContext& ctx)
 {
+	aiTimer_ += ctx.deltaTime;
+
+	// 追っても追いつけないときは諦めて、別の行動(気弾・突進・旋回など)へ移る
+	if (aiTimer_ >= kAttackGiveUpTime)
+	{
+		attackCoolTimer_ = kAttackGiveUpCool;
+		ReturnToWait();
+		return;
+	}
+
 	VECTOR attackPos =
 		VSub(ctx.playerPos, VScale(ctx.horizontalDir, kAttackDistance));
 
@@ -2245,13 +2298,14 @@ void MeleeEnemy::UpdateAIAttack(const AIContext& ctx)
 		attackMoveDir = VNorm(attackMoveDir);
 	}
 
-	if (attackMoveDistance > kArriveDistance)
+	if (attackMoveDistance > kAttackStartSlack)
 	{
 		float moveAmount = attackMoveDistance;
+		const float approachMax = kAttackApproachSpeed * ctx.deltaTime * 60.0f;
 
-		if (moveAmount > kAttackApproachSpeed)
+		if (moveAmount > approachMax)
 		{
-			moveAmount = kAttackApproachSpeed;
+			moveAmount = approachMax;
 		}
 
 		transform_.pos = VAdd(transform_.pos, VScale(attackMoveDir, moveAmount));
@@ -2323,8 +2377,8 @@ void MeleeEnemy::DrawTelegraph(void) const
 
 		SetUseLighting(FALSE);
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 110);
-		DrawSphere3D(pos, 8.0f + 36.0f * rate, 16, GetColor(170, 90, 255), GetColor(170, 90, 255), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 190);
+		DrawSphere3D(pos, 8.0f + 36.0f * rate, 16, GetColor(150, 40, 255), GetColor(150, 40, 255), TRUE);
 
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		DrawSphere3D(pos, 4.0f + 14.0f * rate, 16, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
@@ -2340,8 +2394,8 @@ void MeleeEnemy::DrawTelegraph(void) const
 
 		SetUseLighting(FALSE);
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 90 + (int)(80.0f * pulse));
-		DrawSphere3D(GetChestPos(), 30.0f + 30.0f * rate, 16, GetColor(255, 60, 40), GetColor(255, 60, 40), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 160 + (int)(80.0f * pulse));
+		DrawSphere3D(GetChestPos(), 30.0f + 30.0f * rate, 16, GetColor(255, 20, 0), GetColor(255, 20, 0), TRUE);
 
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		SetUseLighting(TRUE);
@@ -2357,8 +2411,8 @@ void MeleeEnemy::DrawTelegraph(void) const
 
 		SetUseLighting(FALSE);
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 110);
-		DrawSphere3D(pos, 10.0f + 60.0f * rate, 20, GetColor(255, 90, 50), GetColor(255, 90, 50), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 190);
+		DrawSphere3D(pos, 10.0f + 60.0f * rate, 20, GetColor(255, 50, 0), GetColor(255, 50, 0), TRUE);
 
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		DrawSphere3D(pos, 5.0f + 28.0f * rate, 16, GetColor(255, 230, 200), GetColor(255, 230, 200), TRUE);
@@ -2373,8 +2427,8 @@ void MeleeEnemy::DrawTelegraph(void) const
 
 		SetUseLighting(FALSE);
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 100 + (int)(70.0f * pulse));
-		DrawSphere3D(GetChestPos(), 50.0f + 20.0f * pulse, 16, GetColor(255, 170, 30), GetColor(255, 170, 30), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170 + (int)(70.0f * pulse));
+		DrawSphere3D(GetChestPos(), 50.0f + 20.0f * pulse, 16, GetColor(255, 140, 0), GetColor(255, 140, 0), TRUE);
 
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		SetUseLighting(TRUE);
@@ -2400,8 +2454,8 @@ void MeleeEnemy::DrawTelegraph(void) const
 
 		SetUseLighting(FALSE);
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 100 + (int)(80.0f * pulse));
-		DrawSphere3D(GetChestPos(), 55.0f, 16, GetColor(255, 240, 80), GetColor(255, 240, 80), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170 + (int)(80.0f * pulse));
+		DrawSphere3D(GetChestPos(), 55.0f, 16, GetColor(255, 230, 0), GetColor(255, 230, 0), TRUE);
 
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		SetUseLighting(TRUE);
@@ -2424,18 +2478,18 @@ void MeleeEnemy::DrawTelegraph(void) const
 			const VECTOR end = VAdd(beamOrigin_, VScale(beamDir_, kBeamLength));
 
 			// 当たる範囲(薄い帯)と、中心の線
-			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 22 + (int)(20.0f * pulse));
-			DrawCapsule3D(beamOrigin_, end, kBeamRadius, 12, GetColor(255, 40, 40), GetColor(255, 40, 40), TRUE);
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 85 + (int)(55.0f * pulse));
+			DrawCapsule3D(beamOrigin_, end, kBeamRadius, 12, GetColor(255, 0, 0), GetColor(255, 0, 0), TRUE);
 
-			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 110 + (int)(80.0f * pulse));
-			DrawCapsule3D(beamOrigin_, end, 4.0f, 6, GetColor(255, 80, 60), GetColor(255, 80, 60), TRUE);
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 220 + (int)(35.0f * pulse));
+			DrawCapsule3D(beamOrigin_, end, 8.0f, 6, GetColor(255, 220, 0), GetColor(255, 220, 0), TRUE);
 		}
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 100);
-		DrawSphere3D(ball, r * (1.2f + 0.1f * pulse), 20, GetColor(190, 60, 255), GetColor(190, 60, 255), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
+		DrawSphere3D(ball, r * (1.2f + 0.1f * pulse), 20, GetColor(150, 20, 255), GetColor(150, 20, 255), TRUE);
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 180);
-		DrawSphere3D(ball, r, 20, GetColor(235, 150, 255), GetColor(235, 150, 255), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 230);
+		DrawSphere3D(ball, r, 20, GetColor(210, 90, 255), GetColor(210, 90, 255), TRUE);
 
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		DrawSphere3D(ball, r * 0.55f, 16, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
@@ -2451,8 +2505,8 @@ void MeleeEnemy::DrawTelegraph(void) const
 
 		SetUseLighting(FALSE);
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 110);
-		DrawSphere3D(pos, 8.0f + 26.0f * rate, 16, GetColor(170, 90, 255), GetColor(170, 90, 255), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 190);
+		DrawSphere3D(pos, 8.0f + 26.0f * rate, 16, GetColor(150, 40, 255), GetColor(150, 40, 255), TRUE);
 
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		DrawSphere3D(pos, 4.0f + 10.0f * rate, 16, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
@@ -2470,21 +2524,21 @@ void MeleeEnemy::DrawTelegraph(void) const
 
 		SetUseLighting(FALSE);
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 80 + (int)(50.0f * pulse));
-		DrawSphere3D(GetChestPos(), 50.0f + 20.0f * rate, 16, GetColor(255, 110, 190), GetColor(255, 110, 190), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 150 + (int)(60.0f * pulse));
+		DrawSphere3D(GetChestPos(), 50.0f + 20.0f * rate, 16, GetColor(255, 40, 150), GetColor(255, 40, 150), TRUE);
 
 		if (slamLocked_)
 		{
 			// 降りる先(衝撃波の範囲)
-			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 25 + (int)(25.0f * pulse));
-			DrawSphere3D(slamTarget_, kSlamImpactRadius, 20, GetColor(255, 40, 40), GetColor(255, 40, 40), TRUE);
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 80 + (int)(50.0f * pulse));
+			DrawSphere3D(slamTarget_, kSlamImpactRadius, 20, GetColor(255, 0, 0), GetColor(255, 0, 0), TRUE);
 
-			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
-			DrawRing3D(slamTarget_, kSlamImpactRadius, GetColor(255, 80, 60));
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+			DrawRing3D(slamTarget_, kSlamImpactRadius, GetColor(255, 230, 0));
 
 			// 降りる道すじ
-			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 90 + (int)(60.0f * pulse));
-			DrawCapsule3D(GetChestPos(), slamTarget_, 6.0f, 6, GetColor(255, 80, 60), GetColor(255, 80, 60), TRUE);
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 200 + (int)(55.0f * pulse));
+			DrawCapsule3D(GetChestPos(), slamTarget_, 9.0f, 6, GetColor(255, 40, 0), GetColor(255, 40, 0), TRUE);
 		}
 
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
@@ -2537,12 +2591,15 @@ void MeleeEnemy::DrawKiMarkers(void) const
 		const float rate = Saturate(marker.timer / marker.total);
 		const float radius = kMarkerRadius * (0.25f + 0.75f * rate);
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 200);
-		DrawRing3D(marker.pos, radius, GetColor(255, 70, 60));
-		DrawRing3D(marker.pos, radius * 0.6f, GetColor(255, 150, 120));
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 70 + (int)(60.0f * (1.0f - rate)));
+		DrawSphere3D(marker.pos, radius, 16, GetColor(255, 0, 0), GetColor(255, 0, 0), TRUE);
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 70);
-		DrawSphere3D(marker.pos, 8.0f, 8, GetColor(255, 90, 70), GetColor(255, 90, 70), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
+		DrawRing3D(marker.pos, radius, GetColor(255, 30, 0));
+		DrawRing3D(marker.pos, radius * 0.6f, GetColor(255, 220, 0));
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 200);
+		DrawSphere3D(marker.pos, 10.0f, 8, GetColor(255, 220, 0), GetColor(255, 220, 0), TRUE);
 	}
 
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
@@ -2589,10 +2646,10 @@ void MeleeEnemy::DrawAuraColumn(const VECTOR& base, float rate) const
 
 	SetUseLighting(FALSE);
 
-	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 35 + (int)(40.0f * rate));
-	DrawCapsule3D(bottom, top, 35.0f + 25.0f * rate, 12, GetColor(255, 110, 190), GetColor(255, 110, 190), TRUE);
+	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 80 + (int)(70.0f * rate));
+	DrawCapsule3D(bottom, top, 35.0f + 25.0f * rate, 12, GetColor(255, 40, 150), GetColor(255, 40, 150), TRUE);
 
-	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 70 + (int)(60.0f * rate));
+	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 130 + (int)(80.0f * rate));
 	DrawCapsule3D(bottom, top, 12.0f + 10.0f * rate, 10, GetColor(255, 230, 245), GetColor(255, 230, 245), TRUE);
 
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);

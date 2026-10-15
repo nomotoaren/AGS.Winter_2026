@@ -247,6 +247,9 @@ void GameScene::Update(void)
 		// ロックオン中
 		if (isLockOn_)
 		{
+			// 高速移動中はカメラを落ち着かせる(向きの追従をゆっくり、位置の追従を速く)
+			mainCamera.SetBoostChase(player_->IsBoostChasing());
+
 			if (lockOnTarget_ == nullptr ||
 				lockOnTarget_->IsDead())
 			{
@@ -446,6 +449,27 @@ void GameScene::Update(void)
 		//wasKamehame_ =
 		//	isKamehame;
 
+		// ジャスト回避が成立したら、しばらく敵だけをスローモーションにする
+		//   (敵を数フレームに1回だけ更新する。プレイヤーは普通に動けるので、反撃できる)
+		static float justSlowTimer = 0.0f;
+		static int justSlowFrame = 0;
+
+		if (player_->ConsumeJustDodge())
+		{
+			justSlowTimer = PlayerConfig::JustDodge::SLOW_TIME;
+			justSlowFrame = 0;
+		}
+
+		bool updateEnemy = true;
+
+		if (justSlowTimer > 0.0f)
+		{
+			justSlowTimer -= SceneManager::GetInstance().GetDeltaTime();
+			justSlowFrame++;
+
+			updateEnemy = (justSlowFrame % PlayerConfig::JustDodge::SLOW_DIV) == 0;
+		}
+
 		// Enemy更新
 		for (auto& enemy : enemies_)
 		{
@@ -459,7 +483,10 @@ void GameScene::Update(void)
 				continue;
 			}
 
-			enemy->Update();
+			if (updateEnemy)
+			{
+				enemy->Update();
+			}
 		}
 
 		// プレイヤーと敵が重ならないように押し出す

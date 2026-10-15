@@ -477,7 +477,10 @@ float Player::GetAttackRate(void) const
 
 int Player::GetAttackDamage(int baseDamage) const
 {
-	const int damage = static_cast<int>(std::lround(baseDamage * GetAttackRate()));
+	// ジャスト回避の直後は、ダメージが上がる
+	const float justRate = (justBuffTimer_ > 0.0f) ? cfg::JustDodge::DAMAGE_RATE : 1.0f;
+
+	const int damage = static_cast<int>(std::lround(baseDamage * GetAttackRate() * justRate));
 	return damage < 1 ? 1 : damage;
 }
 
@@ -632,8 +635,27 @@ void Player::UpdateFloatLean(void)
 		targetRoll *= legTune_[TUNE_LEAN];
 	}
 
+	// 回避ステップ中は、進む向きへ体を大きく倒す(アニメは走りのままでも、飛んでいる感じが出る)
+	float smooth = cfg::Float::LEAN_SMOOTH;
+
+	if (isDodge_)
+	{
+		const VECTOR forward = GetForward();
+		const VECTOR right = VGet(forward.z, 0.0f, -forward.x);
+
+		const float f = VDot(dodgeDir_, forward);
+		const float s = VDot(dodgeDir_, right);
+
+		const float lean = cfg::Step::LEAN;
+
+		targetPitch = f * lean;
+		targetRoll = -s * lean * cfg::Float::ROLL_SIGN;
+
+		smooth = cfg::Step::LEAN_SMOOTH;
+	}
+
 	// (Windows.h の min マクロと衝突しないよう std::min は使わない)
-	float k = cfg::Float::LEAN_SMOOTH * dt;
+	float k = smooth * dt;
 	if (k > 1.0f) { k = 1.0f; }
 
 	floatPitch_ += (targetPitch - floatPitch_) * k;
@@ -2087,39 +2109,32 @@ void Player::UpdateDodge(void)
 {
 	auto& ins = InputManager::GetInstance();
 
+	// ジャスト回避の各タイマー
+	{
+		const float dt = scnMng_.GetDeltaTime();
+
+		if (justCooldown_ > 0.0f) { justCooldown_ -= dt; }
+		if (justBuffTimer_ > 0.0f) { justBuffTimer_ -= dt; }
+	}
+
+	const bool trg = ins.IsTrgDown(KEY_INPUT_LSHIFT) || PadInput::IsStepTrg();
+
+	// 開始: 回避していなければ、攻撃などの最中でない時だけ
+	//       回避中でも、一定時間たてば次のステップを重ねて出せる(連打で続けて高速移動)
+	bool canStart = false;
+
 	if (!isDodge_)
 	{
-		if (attack_.IsAttack() || boostChase_.IsActive() || kamehame_.IsActive())
-		{
-			return;
-		}
+		canStart = !(attack_.IsAttack() || boostChase_.IsActive() || kamehame_.IsActive());
+	}
+	else
+	{
+		canStart = dodgeTimer_ >= cfg::Step::CHAIN_TIME;
+	}
 
-		if (ins.IsTrgDown(KEY_INPUT_LSHIFT) || PadInput::IsStepTrg())
-		{
-			VECTOR forward;
-			VECTOR right;
-
-			if (!GetMoveBasis(forward, right))
-			{
-				return;
-			}
-
-			// 入力方向へ回避。入力なしなら後ろ
-			if (PadInput::IsStickTilted())
-			{
-				dodgeDir_ = NormalizeSafe(VAdd(
-					VScale(forward, PadInput::StickY()),
-					VScale(right, PadInput::StickX())));
-			}
-			else if (ins.IsNew(KEY_INPUT_W)) { dodgeDir_ = forward; }
-			else if (ins.IsNew(KEY_INPUT_S)) { dodgeDir_ = VScale(forward, -1.0f); }
-			else if (ins.IsNew(KEY_INPUT_A)) { dodgeDir_ = VScale(right, -1.0f); }
-			else if (ins.IsNew(KEY_INPUT_D)) { dodgeDir_ = right; }
-			else { dodgeDir_ = VScale(forward, -1.0f); }
-
-			isDodge_ = true;
-			dodgeTimer_ = 0.0f;
-		}
+	if (trg && canStart)
+	{
+		StartStep();
 	}
 
 	if (!isDodge_)
@@ -2129,7 +2144,15 @@ void Player::UpdateDodge(void)
 
 	dodgeTimer_ += scnMng_.GetDeltaTime();
 
-	movePow_ = VScale(dodgeDir_, Constants::DodgeSpeed);
+	// 出だしが速く、だんだん減速する(一気に飛んで、すっと止まる)
+	float t = dodgeTimer_ / cfg::Step::DURATION;
+
+	if (t > 1.0f) { t = 1.0f; }
+
+	const float ease = 1.0f - (1.0f - t) * (1.0f - t);	// 0 -> 1 (後半ほどゆっくり)
+	const float speed = cfg::Step::SPEED_START + (cfg::Step::SPEED_END - cfg::Step::SPEED_START) * ease;
+
+	movePow_ = VScale(dodgeDir_, speed);
 
 	// ロックオン中は敵の方を向いたまま
 	if (isLockOn_ && hasAttackTarget_)
@@ -2142,7 +2165,20 @@ void Player::UpdateDodge(void)
 		}
 	}
 
-	if (dodgeTimer_ >= Constants::DodgeDuration)
+	// 残像を一定間隔で残す
+	stepAfterImageTimer_ -= scnMng_.GetDeltaTime();
+
+	if (stepAfterImageTimer_ <= 0.0f)
+	{
+		BoostAfterImage image{};
+		image.matrix = MV1GetMatrix(transform_.modelId);
+		image.timer = Constants::BoostAfterImageDuration;
+		boostAfterImages_.push_back(image);
+
+		stepAfterImageTimer_ = cfg::Step::AFTER_IMAGE_INTERVAL;
+	}
+
+	if (dodgeTimer_ >= cfg::Step::DURATION)
 	{
 		isDodge_ = false;
 		dodgeTimer_ = 0.0f;
@@ -2151,9 +2187,92 @@ void Player::UpdateDodge(void)
 	}
 }
 
+// ステップを始める(入力方向を決めて、アニメと演出を出す)
+void Player::StartStep(void)
+{
+	auto& ins = InputManager::GetInstance();
+
+	VECTOR forward;
+	VECTOR right;
+
+	if (!GetMoveBasis(forward, right))
+	{
+		return;
+	}
+
+	// 入力方向へ回避。入力なしなら後ろ
+	if (PadInput::IsStickTilted())
+	{
+		dodgeDir_ = NormalizeSafe(VAdd(
+			VScale(forward, PadInput::StickY()),
+			VScale(right, PadInput::StickX())));
+	}
+	else if (ins.IsNew(KEY_INPUT_W)) { dodgeDir_ = forward; }
+	else if (ins.IsNew(KEY_INPUT_S)) { dodgeDir_ = VScale(forward, -1.0f); }
+	else if (ins.IsNew(KEY_INPUT_A)) { dodgeDir_ = VScale(right, -1.0f); }
+	else if (ins.IsNew(KEY_INPUT_D)) { dodgeDir_ = right; }
+	else { dodgeDir_ = VScale(forward, -1.0f); }
+
+	isDodge_ = true;
+	dodgeTimer_ = 0.0f;
+	stepAfterImageTimer_ = 0.0f;
+
+	// 向きに合わせて、飛んでいくアニメを選ぶ(プレイヤーの向きから見て前・後ろ・左・右)
+	{
+		const VECTOR f = NormalizeSafe(ToHorizontal(transform_.quaRot.GetForward()));
+		const VECTOR r = VGet(f.z, 0.0f, -f.x);
+		const VECTOR d = ToHorizontal(dodgeDir_);
+
+		const float dotF = VDot(d, f);
+		const float dotR = VDot(d, r);
+
+		ANIM_TYPE anim = ANIM_TYPE::FAST_RUN;
+
+		if (fabsf(dotR) > fabsf(dotF))
+		{
+			anim = (dotR > 0.0f) ? ANIM_TYPE::LOCK_RIGHT_RUN : ANIM_TYPE::LOCK_LEFT_RUN;
+		}
+		else if (dotF < 0.0f)
+		{
+			anim = ANIM_TYPE::LOCK_BACK_RUN;
+		}
+
+		animationController_->Play((int)anim);
+	}
+}
+
 bool Player::IsDodging(void) const
 {
 	return isDodge_;
+}
+
+// ジャスト回避: ステップを始めてすぐのうちに、敵の攻撃が来たら成立
+bool Player::TryJustDodge(void)
+{
+	if (!isDodge_ || dodgeTimer_ > cfg::JustDodge::WINDOW || justCooldown_ > 0.0f)
+	{
+		return false;
+	}
+
+	justCooldown_ = cfg::JustDodge::COOLDOWN;
+	justBuffTimer_ = cfg::JustDodge::BUFF_TIME;
+	justDodged_ = true;
+
+	ki_ += cfg::JustDodge::KI_GAIN;
+
+	if (ki_ > MAX_KI)
+	{
+		ki_ = MAX_KI;
+	}
+
+	return true;
+}
+
+bool Player::ConsumeJustDodge(void)
+{
+	const bool result = justDodged_;
+	justDodged_ = false;
+	return result;
 }
 
 // ガード

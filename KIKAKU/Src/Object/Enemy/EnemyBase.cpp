@@ -77,6 +77,15 @@ void EnemyBase::AddKnockBack(VECTOR dir, float power)
 		return;
 	}
 
+	// 弱い攻撃はほとんどひるまない(カカロットの敵のように、殴られても行動を続ける)
+	armoredHit_ = false;
+
+	if (power < HEAVY_KNOCK && !isStunned_ && (IsSuperArmor() || GetRand(99) >= FLINCH_CHANCE))
+	{
+		armoredHit_ = true;
+		power *= ARMOR_KNOCK_RATE;
+	}
+
 	knockBackPow_ = VScale(VNorm(dir), power);
 }
 
@@ -115,6 +124,7 @@ void EnemyBase::AddStun(float amount)
 
 		isStunned_ = true;
 		stunTimer_ = STUN_TIME;
+		breakTime_ = 0.0f;
 
 		OnStunStart();
 	}
@@ -123,6 +133,7 @@ void EnemyBase::AddStun(float amount)
 bool EnemyBase::UpdateStunGauge(float deltaTime)
 {
 	stunBarTime_ += deltaTime;
+	breakTime_ += deltaTime;
 
 	if (stunResist_ > 0.0f)
 	{
@@ -183,10 +194,12 @@ float EnemyBase::GetStunRate(void) const
 {
 	if (isStunned_)
 	{
-		return stunTimer_ / STUN_TIME;
+		// スタン中: 空のゲージが、時間をかけて回復していく
+		return 1.0f - stunTimer_ / STUN_TIME;
 	}
 
-	return stun_ / STUN_MAX;
+	// 普段は満タン。攻撃されるほど減る
+	return 1.0f - stun_ / STUN_MAX;
 }
 
 //------------------------------------------------------------
@@ -220,6 +233,7 @@ void EnemyBase::DrawHud(void)
 
 	// スタンゲージはHPバーの下に出す
 	stunBar_.Draw(GetStunRate(), isStunned_, stunBarTime_);
+	stunBar_.DrawBreak(breakTime_);
 }
 
 //------------------------------------------------------------

@@ -61,6 +61,7 @@ public:
 	// ‰ñ”ğ’†‚ÍUŒ‚‚ğó‚¯‚È‚¢
 	void Damage(int damage) override;
 	bool IsInvincible(void) const override;
+	bool IsSuperArmor(void) const override;
 
 	void InitAnimation(void);
 
@@ -126,7 +127,7 @@ private:
 
 	// UŒ‚‚ÌŠÔ
 	static constexpr float ATTACK_TIME = 0.8f;
-	static constexpr float ATTACK_COOL_TIME = 2.5f;		// ‹ßÚUŒ‚‚ğI‚¦‚Ä‚©‚çAŸ‚Ì‹ßÚUŒ‚‚Ü‚Å‚ÌŠÔ(•b)
+	static constexpr float ATTACK_COOL_TIME = 4.0f;		// ‹ßÚUŒ‚‚ğI‚¦‚Ä‚©‚çAŸ‚Ì‹ßÚUŒ‚‚Ü‚Å‚ÌŠÔ(•b)
 	static constexpr float ATTACK_HIT_START = 0.25f;
 	static constexpr float ATTACK_HIT_END = 0.45f;
 

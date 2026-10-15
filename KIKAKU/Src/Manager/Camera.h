@@ -29,7 +29,7 @@ public:
 	// カメラのX回転上限度角
 	static constexpr float LIMIT_X_UP_RAD = 40.0f * (DX_PI_F / 180.0f);
 	static constexpr float LIMIT_X_DW_RAD = 15.0f * (DX_PI_F / 180.0f);
-	
+
 	// 追従カメラのスムーズ度
 	static constexpr float FOLLOW_SMOOTH = 0.12f;
 
@@ -83,6 +83,9 @@ public:
 		float time,
 		float power
 	);
+
+	// 高速移動中か(ロックオンカメラを落ち着かせる)
+	void SetBoostChase(bool active) { isBoostChase_ = active; }
 
 private:
 
@@ -141,5 +144,6 @@ private:
 	float shakePower_;
 
 	VECTOR lockOnCameraDir_;
-};
 
+	bool isBoostChase_ = false;
+};
