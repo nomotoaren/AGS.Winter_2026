@@ -293,7 +293,7 @@ void PlayerHud::SetObjective(const std::string& text) { objective_ = text; }
 
 void PlayerHud::AddDamagePopup(const VECTOR& worldPos, int damage)
 {
-	DamagePopup popup;
+	DamagePopup popup{};
 	popup.pos = worldPos;
 	popup.value = damage;
 	popup.timer = POPUP_TIME;

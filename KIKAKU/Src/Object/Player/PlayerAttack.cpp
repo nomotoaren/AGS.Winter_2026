@@ -33,7 +33,6 @@ PlayerAttack::PlayerAttack(void)
 //------------------------------------------------------------
 // ’ÇŒ‚
 //------------------------------------------------------------
-
 void PlayerAttack::StartChase(void)
 {
 	isChasing_ = true;
@@ -167,7 +166,6 @@ bool PlayerAttack::CalcSnapPos(const Context& ctx, VECTOR& outPos)
 //------------------------------------------------------------
 // ƒRƒ“ƒ{
 //------------------------------------------------------------
-
 void PlayerAttack::StartAttack(void)
 {
 	isAttack_ = true;

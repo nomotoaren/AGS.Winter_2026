@@ -14,6 +14,6 @@ public:
 	void Draw(float rate, bool stunned, float time) const;
 
 	// ゲージが割れた瞬間の「BREAK!」演出(elapsed: 割れてからの経過秒。BREAK_TIME を過ぎたら何も描かない)
-	static constexpr float BREAK_TIME = 1.4f;
+	static constexpr float BREAK_TIME = 1.0f;
 	void DrawBreak(float elapsed) const;
 };

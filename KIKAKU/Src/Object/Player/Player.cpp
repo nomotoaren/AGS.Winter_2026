@@ -179,7 +179,6 @@ Player::Player(void)
 
 	capsule_(nullptr),
 
-
 	// 変身
 	form_(FORM::BASE),
 	nextForm_(FORM::BASE)
@@ -829,22 +828,22 @@ void Player::UpdateLegPose(void)
 
 	// アニメの結果とポーズを rate で混ぜて、ボーンに設定する
 	auto apply = [&](int frame, const MATRIX& rot)
+	{
+		if (frame < 0)
 		{
-			if (frame < 0)
-			{
-				return;
-			}
+			return;
+		}
 
-			// 一度上書きを外して、このフレームのアニメの姿勢を取り出す
-			MV1ResetFrameUserLocalMatrix(model, frame);
-			const MATRIX anim = MV1GetFrameLocalMatrix(model, frame);
+		// 一度上書きを外して、このフレームのアニメの姿勢を取り出す
+		MV1ResetFrameUserLocalMatrix(model, frame);
+		const MATRIX anim = MV1GetFrameLocalMatrix(model, frame);
 
-			// ポーズは初期姿勢(脚がまっすぐ下)を基準に回して作る
-			const MATRIX base = MV1GetFrameBaseLocalMatrix(model, frame);
-			const MATRIX pose = MMult(rot, base);
+		// ポーズは初期姿勢(脚がまっすぐ下)を基準に回して作る
+		const MATRIX base = MV1GetFrameBaseLocalMatrix(model, frame);
+		const MATRIX pose = MMult(rot, base);
 
-			MV1SetFrameUserLocalMatrix(model, frame, BlendMatrix(anim, pose, legPoseRate_));
-		};
+		MV1SetFrameUserLocalMatrix(model, frame, BlendMatrix(anim, pose, legPoseRate_));
+	};
 
 	auto rad = [](float deg) { return AsoUtility::Deg2RadF(deg); };
 
@@ -853,13 +852,13 @@ void Player::UpdateLegPose(void)
 	//     左右軸(+X)まわりのプラス回転で脚が前(-Z)へ出る
 	const float fs = lp::FORWARD_SIGN;
 	auto swing = [&](int leg, float deg)
-		{
-			return MGetRotAxis(legAxisSide_[leg], rad(deg) * fs);
-		};
+	{
+		return MGetRotAxis(legAxisSide_[leg], rad(deg) * fs);
+	};
 	auto spreadRot = [&](int leg, float deg)
-		{
-			return MGetRotAxis(legAxisFront_[leg], rad(deg));
-		};
+	{
+		return MGetRotAxis(legAxisFront_[leg], rad(deg));
+	};
 
 	// 太もも:前へ上げる / 膝:すねを後ろへ折る(太ももと逆向き) / 足首:つま先を下へ伸ばす(逆向き)
 	// 左脚(前へ上げて深く曲げる)
@@ -1045,14 +1044,14 @@ void Player::DrawShadow(void)
 
 	// 高さに応じた影の濃さ(足元に近いほど濃い)
 	auto calcAlpha = [&](float y) -> int
+	{
+		if (y <= transform_.pos.y - SHADOW_HEIGHT)
 		{
-			if (y <= transform_.pos.y - SHADOW_HEIGHT)
-			{
-				return 0;
-			}
-			float rate = 1.0f - fabsf(y - transform_.pos.y) / SHADOW_HEIGHT;
-			return static_cast<int>(roundf(SHADOW_MAX_ALPHA * rate));
-		};
+			return 0;
+		}
+		float rate = 1.0f - fabsf(y - transform_.pos.y) / SHADOW_HEIGHT;
+		return static_cast<int>(roundf(SHADOW_MAX_ALPHA * rate));
+	};
 
 	SetUseLighting(FALSE);
 	SetUseZBuffer3D(TRUE);

@@ -104,7 +104,7 @@ void EnemyStunBar::DrawBreak(float elapsed) const
 	GetDrawScreenSize(&sw, &sh);
 
 	const float cx = sw * 0.5f;
-	const float cy = sh * 0.42f;
+	const float cy = sh * 0.30f;
 	const float s = sw / BASE_WIDTH;
 
 	// ÅŒã‚Ì 0.4 •b‚Å”–‚­‚È‚é
@@ -118,13 +118,13 @@ void EnemyStunBar::DrawBreak(float elapsed) const
 	// •úŽËó‚ÌŒõ: Å‰‚Ì 0.2 •b‚Åˆê‹C‚ÉL‚Ñ‚é
 	float grow = elapsed / 0.2f;
 	if (grow > 1.0f) { grow = 1.0f; }
-	const float len = (260.0f + 700.0f * grow) * s;
+	const float len = (70.0f + 150.0f * grow) * s;
 
 	const int RAYS = 14;
 	const float PI2 = 6.2831853f;
 	const float spin = elapsed * 0.25f;
 
-	SetDrawBlendMode(DX_BLENDMODE_ADD, (int)(200.0f * fade));
+	SetDrawBlendMode(DX_BLENDMODE_ADD, (int)(110.0f * fade));
 	for (int i = 0; i < RAYS; i++)
 	{
 		// ‘¾‚³‚Æ’·‚³‚ð­‚µ‚¸‚ç‚µ‚ÄAƒMƒUƒMƒU‚ÉŒ©‚¹‚é
@@ -140,12 +140,12 @@ void EnemyStunBar::DrawBreak(float elapsed) const
 	}
 
 	// ’†S‚ÌŒõ‚Ì‹Ê
-	DrawCircleAA(cx, cy, (120.0f + 40.0f * grow) * s, 48, GetColor(255, 240, 170), TRUE);
+	DrawCircleAA(cx, cy, (35.0f + 15.0f * grow) * s, 48, GetColor(255, 240, 170), TRUE);
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
 	// ÕŒ‚”g‚Ì—Ö
-	SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(220.0f * fade * (1.0f - grow * 0.6f)));
-	DrawCircleAA(cx, cy, (80.0f + 420.0f * grow) * s, 64, GetColor(255, 245, 200), FALSE, 6.0f * s);
+	SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(150.0f * fade * (1.0f - grow * 0.6f)));
+	DrawCircleAA(cx, cy, (40.0f + 110.0f * grow) * s, 64, GetColor(255, 245, 200), FALSE, 3.0f * s);
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
 	// uBREAK!v: ‘å‚«‚­o‚ÄA‚·‚®•W€‚Ì‘å‚«‚³‚É–ß‚é
@@ -153,11 +153,11 @@ void EnemyStunBar::DrawBreak(float elapsed) const
 	float pop = 1.0f;
 	if (elapsed < 0.15f)
 	{
-		pop = 2.2f - 1.2f * (elapsed / 0.15f);
+		pop = 1.4f - 0.4f * (elapsed / 0.15f);
 	}
 
 	const int prevSize = GetFontSize();
-	const int fontSize = (int)(72.0f * s);
+	const int fontSize = (int)(36.0f * s);
 	SetFontSize(fontSize);
 
 	const int tw = GetDrawStringWidth(text, (int)strlen(text));
@@ -170,7 +170,7 @@ void EnemyStunBar::DrawBreak(float elapsed) const
 	SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(255.0f * fade));
 
 	// ‰Žæ‚è(”Z‚¢žò)¨ –{‘Ì(‰©F)
-	const int o = (int)(4.0f * s) + 1;
+	const int o = (int)(2.0f * s) + 1;
 	for (int dy = -o; dy <= o; dy += o)
 	{
 		for (int dx = -o; dx <= o; dx += o)

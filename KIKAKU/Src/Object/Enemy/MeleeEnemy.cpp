@@ -45,7 +45,7 @@ namespace
 	// プレイヤーの攻撃への反応(攻撃が始まった瞬間に、1回だけ決める)
 	constexpr float kReactDistance = 220.0f;		// この距離以内で攻撃されたら反応する
 	constexpr int   kDodgeChance = 10;				// 回避する確率(%)
-	constexpr int   kGuardChance = 10;				// ガードする確率(%)。残りは何もしない
+	constexpr int   kGuardChance = 0;				// ガードする確率(%)。カカロットの敵はガードしないので 0
 	constexpr float kDodgeCoolTime = 5.0f;			// 回避の連発を防ぐ時間(秒)
 	constexpr float kDodgeBehindDistance = 110.0f;	// 回避で、プレイヤーの背後のこの距離へ移動する
 	constexpr float kDodgeInvincibleTime = 0.35f;	// 回避の直後に、攻撃を受けない時間(秒)
@@ -716,6 +716,10 @@ bool MeleeEnemy::UpdateStunned(float deltaTime)
 	}
 
 	transform_.Update();
+
+	// スタン中のモーション(GuardBreak)を進める
+	animationController_->Update();
+
 	return true;
 }
 

@@ -14,7 +14,7 @@ public:
 
 	// スタンゲージ(ダメージを受けるとたまり、満タンで敵が動けなくなる)
 	static constexpr float STUN_MAX = 100.0f;			// ゲージの最大
-	static constexpr float STUN_TIME = 3.0f;			// スタンしている時間(秒)
+	static constexpr float STUN_TIME = 5.0f;			// スタンしている時間(秒)
 	static constexpr float STUN_DECAY_DELAY = 3.0f;		// 攻撃されなくなってから、ゲージが減り始めるまでの時間(秒)
 	static constexpr float STUN_DECAY_SPEED = 15.0f;	// ゲージが減る速さ(1秒あたり)
 	static constexpr float STUN_RESIST_TIME = 6.0f;		// スタンが終わったあと、ゲージがたまらない時間(秒)
