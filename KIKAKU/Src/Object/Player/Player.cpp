@@ -171,13 +171,14 @@ Player::Player(void)
 	// 残像
 	afterImageAttachNo_(-1),
 
-	hp_(100),
+	hp_(MAX_HP),
 	isDead_(false),
 
 	attackEndTimer_(0.0f),
 	rightHandFrame_(-1),
 
 	capsule_(nullptr),
+
 
 	// 変身
 	form_(FORM::BASE),
@@ -540,6 +541,14 @@ void Player::UpdateKnockBack(void)
 	if (VSize(knockBackPow_) > Constants::KnockBackThreshold)
 	{
 		transform_.pos = VAdd(transform_.pos, knockBackPow_);
+
+		// 床より下には押し出されない(すり抜け防止)
+		if (transform_.pos.y < Constants::MinHeight)
+		{
+			transform_.pos.y = Constants::MinHeight;
+			knockBackPow_.y = 0.0f;
+		}
+
 		knockBackPow_ = VScale(knockBackPow_, Constants::KnockBackDamping);
 	}
 	else
@@ -828,22 +837,22 @@ void Player::UpdateLegPose(void)
 
 	// アニメの結果とポーズを rate で混ぜて、ボーンに設定する
 	auto apply = [&](int frame, const MATRIX& rot)
-	{
-		if (frame < 0)
 		{
-			return;
-		}
+			if (frame < 0)
+			{
+				return;
+			}
 
-		// 一度上書きを外して、このフレームのアニメの姿勢を取り出す
-		MV1ResetFrameUserLocalMatrix(model, frame);
-		const MATRIX anim = MV1GetFrameLocalMatrix(model, frame);
+			// 一度上書きを外して、このフレームのアニメの姿勢を取り出す
+			MV1ResetFrameUserLocalMatrix(model, frame);
+			const MATRIX anim = MV1GetFrameLocalMatrix(model, frame);
 
-		// ポーズは初期姿勢(脚がまっすぐ下)を基準に回して作る
-		const MATRIX base = MV1GetFrameBaseLocalMatrix(model, frame);
-		const MATRIX pose = MMult(rot, base);
+			// ポーズは初期姿勢(脚がまっすぐ下)を基準に回して作る
+			const MATRIX base = MV1GetFrameBaseLocalMatrix(model, frame);
+			const MATRIX pose = MMult(rot, base);
 
-		MV1SetFrameUserLocalMatrix(model, frame, BlendMatrix(anim, pose, legPoseRate_));
-	};
+			MV1SetFrameUserLocalMatrix(model, frame, BlendMatrix(anim, pose, legPoseRate_));
+		};
 
 	auto rad = [](float deg) { return AsoUtility::Deg2RadF(deg); };
 
@@ -852,13 +861,13 @@ void Player::UpdateLegPose(void)
 	//     左右軸(+X)まわりのプラス回転で脚が前(-Z)へ出る
 	const float fs = lp::FORWARD_SIGN;
 	auto swing = [&](int leg, float deg)
-	{
-		return MGetRotAxis(legAxisSide_[leg], rad(deg) * fs);
-	};
+		{
+			return MGetRotAxis(legAxisSide_[leg], rad(deg) * fs);
+		};
 	auto spreadRot = [&](int leg, float deg)
-	{
-		return MGetRotAxis(legAxisFront_[leg], rad(deg));
-	};
+		{
+			return MGetRotAxis(legAxisFront_[leg], rad(deg));
+		};
 
 	// 太もも:前へ上げる / 膝:すねを後ろへ折る(太ももと逆向き) / 足首:つま先を下へ伸ばす(逆向き)
 	// 左脚(前へ上げて深く曲げる)
@@ -1044,14 +1053,14 @@ void Player::DrawShadow(void)
 
 	// 高さに応じた影の濃さ(足元に近いほど濃い)
 	auto calcAlpha = [&](float y) -> int
-	{
-		if (y <= transform_.pos.y - SHADOW_HEIGHT)
 		{
-			return 0;
-		}
-		float rate = 1.0f - fabsf(y - transform_.pos.y) / SHADOW_HEIGHT;
-		return static_cast<int>(roundf(SHADOW_MAX_ALPHA * rate));
-	};
+			if (y <= transform_.pos.y - SHADOW_HEIGHT)
+			{
+				return 0;
+			}
+			float rate = 1.0f - fabsf(y - transform_.pos.y) / SHADOW_HEIGHT;
+			return static_cast<int>(roundf(SHADOW_MAX_ALPHA * rate));
+		};
 
 	SetUseLighting(FALSE);
 	SetUseZBuffer3D(TRUE);
@@ -2267,6 +2276,29 @@ bool Player::TryJustDodge(void)
 	return true;
 }
 
+bool Player::ConsumeVanish(void)
+{
+	const bool result = vanishPending_;
+	vanishPending_ = false;
+	return result;
+}
+
+void Player::VanishTo(const VECTOR& pos, const VECTOR& targetPos)
+{
+	// 消える前の場所に残像を残す
+	BoostAfterImage image{};
+	image.matrix = MV1GetMatrix(transform_.modelId);
+	image.timer = Constants::BoostAfterImageDuration;
+	boostAfterImages_.push_back(image);
+
+	movePow_ = AsoUtility::VECTOR_ZERO;
+	transform_.pos = pos;
+	vanishCalmTimer_ = cfg::Vanish::CAMERA_CALM_TIME;
+
+	FaceHorizontal(VSub(targetPos, pos));
+	transform_.Update();
+}
+
 bool Player::ConsumeJustDodge(void)
 {
 	const bool result = justDodged_;
@@ -2294,6 +2326,17 @@ void Player::UpdateGuard(void)
 		!formChange_.IsActive();
 	ctx.hold = ins.IsNew(KEY_INPUT_L) || PadInput::IsGuard();
 	ctx.burstTrg = ins.IsTrgDown(KEY_INPUT_B) || PadInput::IsBurstTrg();
+	ctx.vanishTrg = ins.IsTrgDown(KEY_INPUT_V) || PadInput::IsVanishTrg();
+
+	if (vanishCalmTimer_ > 0.0f)
+	{
+		vanishCalmTimer_ -= ctx.deltaTime;
+	}
+
+	if (guardHitTimer_ > 0.0f)
+	{
+		guardHitTimer_ -= ctx.deltaTime;
+	}
 
 	const PlayerGuard::Result result = guard_.Update(ctx);
 
@@ -2324,6 +2367,19 @@ void Player::UpdateGuard(void)
 		animationController_->Play((int)ANIM_TYPE::IDLE);
 	}
 
+	// ガード中にバニッシュアタック(狙う敵がいない・気が足りないときは出さない)
+	if (result.vanishRequested && hasAttackTarget_ && guardHitTimer_ > 0.0f && UseKi(cfg::Guard::VANISH_KI_COST))
+	{
+		guard_.StartVanish();
+		vanishPending_ = true;
+
+		movePow_ = AsoUtility::VECTOR_ZERO;
+
+		animationController_->ClearEndLoop();
+		animationController_->Play((int)ANIM_TYPE::ATTACK08, false, 0.0f, -1.0f, false, true);
+		return;
+	}
+
 	// ガード中にバースト(気が足りない場合は発動しない)
 	if (result.burstRequested && UseKi(cfg::Guard::BURST_KI_COST))
 	{
@@ -2339,6 +2395,9 @@ void Player::UpdateGuard(void)
 
 void Player::GuardDamage(float damage)
 {
+	// 攻撃を受けている間だけ、バニッシュアタックで切り返せる
+	guardHitTimer_ = cfg::Guard::VANISH_WINDOW;
+
 	// ガードブレイクしたらモーションを変える
 	if (guard_.Damage(damage))
 	{

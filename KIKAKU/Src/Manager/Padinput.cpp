@@ -173,6 +173,11 @@ bool PadInput::IsBurstTrg(void)
 	return IsGuard() && IsTrg(BTN::CIRCLE);
 }
 
+bool PadInput::IsVanishTrg(void)
+{
+	return IsGuard() && IsTrg(BTN::CROSS);
+}
+
 bool PadInput::IsFightTrg(void)
 {
 	return IsTrg(BTN::SQUARE) && !IsSpecialPalette() && !IsFormPalette();

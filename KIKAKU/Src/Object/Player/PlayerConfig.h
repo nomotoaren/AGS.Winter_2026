@@ -98,7 +98,7 @@ namespace PlayerConfig
 	// ガード
 	namespace Guard
 	{
-		constexpr float MAX_HP = 100.0f;			// ガード耐久値の最大
+		constexpr float MAX_HP = 200.0f;			// ガード耐久値の最大
 		constexpr float RECOVER_SPEED = 25.0f;		// 耐久値の回復速度(1秒あたり)
 		constexpr float RECOVER_DELAY = 2.0f;		// 被弾してから回復し始めるまでの時間(秒)
 		constexpr float BREAK_TIME = 3.0f;			// ガードブレイクで動けない時間(秒)
@@ -106,6 +106,26 @@ namespace PlayerConfig
 		constexpr float BURST_TIME = 0.5f;			// ガードバーストの時間(秒)
 		constexpr float BURST_ANIM_END_STEP = 45.0f;	// バーストのモーションの最終フレーム
 		constexpr float ANIM_HOLD_STEP = 20.0f;		// ガードの構えが完成するフレーム(要調整)
+		constexpr float VANISH_WINDOW = 1.0f;		// ガードで攻撃を受けてから、バニッシュアタックを出せる時間(秒)。受けていない間は出せない
+		constexpr float VANISH_KI_COST = 40.0f;		// バニッシュアタック(ガード中に×)に必要な気。バーストより多い
+		constexpr float VANISH_TIME = 0.5f;			// バニッシュアタックの硬直時間(秒)
+	}
+
+	// バニッシュアタック: ガード中に×で、敵の背後へ瞬間移動して叩き落とす
+	namespace Vanish
+	{
+		constexpr float MAX_RANGE = 1500.0f;		// この距離以内の敵にだけ出せる
+		constexpr float BEHIND_DISTANCE = 140.0f;	// 敵の斜め後ろ、この距離に現れる(近すぎるとカメラに入らない)
+		constexpr float ABOVE_HEIGHT = 60.0f;		// 敵より少し上に現れる(上から叩く)
+		constexpr float SIDE_ANGLE_DEG = 40.0f;		// 真後ろからこの角度ずらす(カメラの旋回を小さくする)
+		constexpr float HIT_DELAY = 0.30f;			// 瞬間移動してから、叩き落とすまでの間(秒)
+		constexpr float CAMERA_CALM_TIME = 1.0f;	// カメラをゆっくり追従にする時間(秒)
+		constexpr int   DAMAGE_RATE = 3;			// 通常攻撃のダメージの倍率
+		constexpr float STUN = 30.0f;				// スタンゲージを削る量
+		constexpr float KNOCK = 100.0f;				// 叩き落とす強さ
+		constexpr float HIT_STOP = 0.10f;
+		constexpr float SHAKE_TIME = 0.15f;
+		constexpr float SHAKE_POWER = 8.0f;
 	}
 
 	// 気溜め
@@ -159,7 +179,7 @@ namespace PlayerConfig
 		constexpr float KI_GAIN = 20.0f;			// 回復する気
 		constexpr float BUFF_TIME = 2.0f;			// 攻撃のダメージが上がる時間(秒)
 		constexpr float DAMAGE_RATE = 1.5f;			// その間のダメージ倍率
-		constexpr float SLOW_TIME = 0.9f;			// 敵がスローモーションになる時間(秒)
+		constexpr float SLOW_TIME = 0.4f;			// 敵がスローモーションになる時間(秒)
 		constexpr int SLOW_DIV = 3;					// 敵を何フレームに1回だけ動かすか(3なら 1/3 の速さ)
 	}
 

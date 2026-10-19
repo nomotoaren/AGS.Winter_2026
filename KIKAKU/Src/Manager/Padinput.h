@@ -41,6 +41,7 @@ public:
 	// ---- 操作(カカロットの割り当て) ----
 	static bool IsGuard(void);			// L2
 	static bool IsBurstTrg(void);		// L2 + ○
+	static bool IsVanishTrg(void);		// L2 + ×(バニッシュアタック)
 	static bool IsFightTrg(void);		// □ 格闘攻撃
 	static bool IsKiBlastTrg(void);		// ○ 気弾攻撃
 	static bool IsStepTrg(void);		// × ステップ

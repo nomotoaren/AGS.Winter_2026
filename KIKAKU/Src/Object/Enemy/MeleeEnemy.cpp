@@ -44,7 +44,7 @@ namespace
 
 	// プレイヤーの攻撃への反応(攻撃が始まった瞬間に、1回だけ決める)
 	constexpr float kReactDistance = 220.0f;		// この距離以内で攻撃されたら反応する
-	constexpr int   kDodgeChance = 10;				// 回避する確率(%)
+	constexpr int   kDodgeChance = 25;				// 回避する確率(%)
 	constexpr int   kGuardChance = 0;				// ガードする確率(%)。カカロットの敵はガードしないので 0
 	constexpr float kDodgeCoolTime = 5.0f;			// 回避の連発を防ぐ時間(秒)
 	constexpr float kDodgeBehindDistance = 110.0f;	// 回避で、プレイヤーの背後のこの距離へ移動する
@@ -59,8 +59,9 @@ namespace
 	constexpr float kLookPitchRate = 0.35f;			// 見上げ・見下ろしの最大比率
 	constexpr float kMeleeHitRange = 140.0f;		// 近接攻撃が当たる水平距離
 	constexpr float kMeleeHitHeight = 150.0f;		// 近接攻撃が当たる高さの差
-	constexpr int   kComboDamage = 1;
-	constexpr int   kFinisherDamage = 3;			// 4段目
+	constexpr float kEnemyDamageRate = 1.0f;		// 敵の攻撃全体のダメージ倍率(0.5 なら半分)。まず全体の強さはここで調整する
+	constexpr int   kComboDamage = 10;
+	constexpr int   kFinisherDamage = 30;			// 4段目
 
 	// 気弾
 	constexpr float kKiChargeTime = 0.8f;			// 気を溜める時間(秒)。この間に避ける・近づける
@@ -68,7 +69,7 @@ namespace
 	constexpr float kKiRadius = 18.0f;
 	constexpr float kKiLife = 4.0f;					// 気弾が消えるまでの時間(秒)
 	constexpr float kKiCoolTime = 6.0f;				// 次に気弾を撃てるまでの時間(秒)
-	constexpr int   kKiDamage = 3;
+	constexpr int   kKiDamage = 30;
 	constexpr float kBlastHitMargin = 35.0f;		// プレイヤーの体の大きさ(気弾との当たり判定に足す)
 	constexpr float kPlayerCenterHeight = 70.0f;	// プレイヤーの足元から体の中心までの高さ
 	constexpr float kChestHeight = 90.0f;			// 敵の足元から胸までの高さ
@@ -79,10 +80,10 @@ namespace
 	constexpr float kRushTime = 0.6f;				// 突進する最大時間(秒)
 	constexpr float kRushHitRange = 90.0f;			// プレイヤーに当たる距離
 	constexpr float kRushCoolTime = 9.0f;
-	constexpr int   kRushDamage = 5;
+	constexpr int   kRushDamage = 50;
 
 	// 距離による行動の選び方
-	constexpr float kNearDistance = 350.0f;			// これより近い: 近接戦
+	constexpr float kNearDistance = 400.0f;			// これより近い: 近接戦
 	constexpr float kFarDistance = 650.0f;			// これより遠い: 高速接近か気弾
 
 	// 足元の円(SYNC)
@@ -90,7 +91,7 @@ namespace
 	constexpr float kRingRadius = 80.0f;
 
 	// AI
-	constexpr float kNormalBattleDistance = 280.0f;	// 普段戦う距離
+	constexpr float kNormalBattleDistance = 180.0f;	// 普段戦う距離
 	constexpr float kWaitTime = 1.2f;
 	constexpr float kSideMoveTime = 1.3f;
 	constexpr float kArriveDistance = 10.0f;
@@ -105,8 +106,8 @@ namespace
 	// 空中での旋回(プレイヤーの周りを、高さも変えながら回る)
 	constexpr float kOrbitAngularSpeed = 0.9f;		// 1秒に回る角度(ラジアン)
 	constexpr float kOrbitMaxSpeed = 4.5f;			// 1/60秒あたりの最大移動量
-	constexpr float kOrbitMinRadius = 220.0f;
-	constexpr int   kOrbitRadiusRange = 180;		// 半径は kOrbitMinRadius ~ +この値
+	constexpr float kOrbitMinRadius = 140.0f;
+	constexpr int   kOrbitRadiusRange = 100;		// 半径は kOrbitMinRadius ~ +この値
 	constexpr float kOrbitHeightMin = -80.0f;		// プレイヤーとの高さの差の最小
 	constexpr int   kOrbitHeightRange = 300;		// 高さの差は kOrbitHeightMin ~ +この値
 	constexpr float kOrbitRadiusLerp = 0.05f;
@@ -114,8 +115,8 @@ namespace
 	constexpr float kWaitDrift = 0.35f;				// 様子見の間は、旋回をこの倍率でゆっくり行う
 	constexpr float kHoverBobAmp = 25.0f;			// 様子見の間の上下のふらつき
 	constexpr float kHoverBobSpeed = 2.0f;
-	constexpr float kWaitMinRadius = 220.0f;
-	constexpr float kWaitMaxRadius = 420.0f;
+	constexpr float kWaitMinRadius = 140.0f;
+	constexpr float kWaitMaxRadius = 240.0f;
 
 	// 追撃(吹き飛ばした相手の先へ回り込んで、叩き落とす)
 	constexpr int   kChaseChance = 70;				// 追撃に入る確率(%)
@@ -129,7 +130,7 @@ namespace
 	constexpr float kChaseRecoverTime = 0.7f;
 	constexpr float kSmashRange = 190.0f;
 	constexpr float kSmashFromHeight = 150.0f;		// 上から叩くので、吹き飛ぶ向きは下になる
-	constexpr int   kSmashDamage = 2;
+	constexpr int   kSmashDamage = 20;
 
 	// ガード崩し(投げ)
 	constexpr float kGuardWatchRange = 450.0f;		// この距離以内でガードされ続けると数える
@@ -138,7 +139,7 @@ namespace
 	constexpr float kGrabReadyTime = 0.6f;			// 構えて接近する時間(ここで避けられる)
 	constexpr float kGrabApproachSpeed = 8.0f;
 	constexpr float kGrabHitRange = 150.0f;
-	constexpr int   kGrabDamage = 3;
+	constexpr int   kGrabDamage = 30;
 	constexpr float kGrabKnock = 45.0f;
 	constexpr float kGrabRecover = 0.6f;
 	constexpr float kGrabMissRecover = 1.0f;		// 外したときの大きな隙
@@ -150,7 +151,7 @@ namespace
 	constexpr float kBigWarnTime = 1.2f;			// 警告が出てから爆発するまで
 	constexpr float kBigStagger = 0.3f;				// 複数出すときの、爆発のずれ
 	constexpr float kBigSpread = 260.0f;			// 複数出すときの、横のずれ
-	constexpr int   kBigDamage = 6;
+	constexpr int   kBigDamage = 60;
 	constexpr float kBigRecoverTime = 0.9f;
 	constexpr float kBigRiseSpeed = 0.6f;			// 溜めている間に浮き上がる(1/60秒あたり)
 
@@ -165,22 +166,37 @@ namespace
 	constexpr float kBeamBallOffset = 70.0f;		// 溜める球の位置(胸の前)
 	constexpr float kBeamGrowTime = 0.12f;			// 発射してからビームが伸びきるまで
 	constexpr float kBeamFadeTime = 0.2f;			// 発射の終わりに細くなる時間
-	constexpr int   kBeamDamage = 4;
+	constexpr int   kBeamDamage = 40;
 	constexpr float kBeamTickTime = 0.45f;			// 当たり続けたときの、ダメージの間隔
 	constexpr float kBeamTrackRate = 1.2f;			// 発射中に、狙いがプレイヤーを追う速さ(大きいほど追う)
 	constexpr float kBeamKnock = 30.0f;
 	constexpr float kBeamRecoverTime = 1.0f;		// 撃ったあとの大きな隙
 
 	// 気弾の連射
-	constexpr float kBarrageChargeTime = 0.5f;
-	constexpr float kBarrageInterval = 0.16f;		// 1発ごとの間隔
-	constexpr int   kBarrageCount = 6;
-	constexpr int   kBarrageCountEnraged = 10;		// HPが半分以下のとき
-	constexpr float kBarrageSpeed = 8.0f;			// 1/60秒あたり(単発の気弾より少し遅い)
-	constexpr float kBarrageSpread = 90.0f;			// 狙いのばらつき
-	constexpr int   kBarrageDamage = 2;
-	constexpr float kBarrageCoolTime = 8.0f;
-	constexpr float kBarrageRecoverTime = 0.7f;
+	constexpr float kBarrageChargeTime = 1.0f;		// 赤いオーラをまとって気を溜める時間(この間、上へ昇る)
+	constexpr float kBarrageInterval = 0.035f;		// 1秒に約28発		// 1発ごとの間隔
+	constexpr int   kBarrageCount = 80;				// 追尾する気弾の数
+	constexpr int   kBarrageCountEnraged = 110;		// HPが半分以下のとき
+	constexpr float kBarrageSpeed = 18.0f;			// 1/60秒あたり(単発の気弾より少し遅い)
+	constexpr float kBarrageSpread = 280.0f;			// 狙いのばらつき(広く散らす)
+	constexpr int   kBarrageDirectChance = 25;		// プレイヤーを追い続ける弾の割合(%)
+	constexpr float kBarrageDirectSpread = 40.0f;	// 直接狙う弾のばらつき
+	constexpr float kBarrageOriginSpread = 160.0f;	// 弾が出る位置のばらつき(敵の周りの雲から出る)
+	constexpr float kBarrageRiseSpeed = 180.0f;		// 溜めている間に昇る速さ(1秒あたり)
+	constexpr float kBarrageHomingTurn = 3.0f;		// 追尾で曲がる強さ(1秒あたり)
+	constexpr float kBarrageHomingDelay = 0.35f;	// 放射状に飛んでから曲がり始めるまでの時間(秒)
+	constexpr float kBarrageHomingTime = 2.0f;		// 追尾する時間(秒)。過ぎたら直進するので避けられる
+
+	// 連射のあとの、大きな気弾
+	constexpr float kBarrageBigChargeTime = 1.2f;	// 大きな気弾を溜める時間(秒)。この間に近づいて殴れる
+	constexpr float kBarrageBigRadius = 55.0f;
+	constexpr float kBarrageBigSpeed = 12.0f;
+	constexpr int   kBarrageBigDamage = 40;
+	constexpr float kBarrageBigHomingTurn = 2.0f;
+	constexpr float kBarrageBigHomingTime = 3.0f;
+	constexpr int   kBarrageDamage = 6;
+	constexpr float kBarrageCoolTime = 12.0f;
+	constexpr float kBarrageRecoverTime = 1.0f;
 	constexpr float kMarkerRadius = 70.0f;			// 着弾点の輪の最大の大きさ
 	constexpr float kMarkerSlack = 0.25f;			// 気弾が着いたあと、輪が残る時間
 
@@ -193,9 +209,9 @@ namespace
 	constexpr float kSlamDiveMaxTime = 0.7f;
 	constexpr float kSlamHitRange = 110.0f;			// 降下中に直接当たる距離
 	constexpr float kSlamArrive = 70.0f;			// 狙った場所へ着いたとみなす距離
-	constexpr int   kSlamDamage = 4;				// 直接当たったとき
+	constexpr int   kSlamDamage = 40;				// 直接当たったとき
 	constexpr float kSlamImpactRadius = 220.0f;		// 衝撃波の半径
-	constexpr int   kSlamImpactDamage = 3;			// 衝撃波(直接当たったときは入らない)
+	constexpr int   kSlamImpactDamage = 30;			// 衝撃波(直接当たったときは入らない)
 	constexpr float kSlamCoolTime = 13.0f;
 	constexpr float kSlamRecoverTime = 1.0f;
 
@@ -983,7 +999,12 @@ bool MeleeEnemy::ApplyHitToPlayer(const VECTOR& fromPos, int damage, float knock
 	}
 
 	player_.LookAtDamageEnemy(transform_.pos);
-	player_.Damage(damage);
+	{
+		int scaled = (int)(damage * kEnemyDamageRate);
+		if (scaled < 1) { scaled = 1; }
+
+		player_.Damage(scaled);
+	}
 	player_.AddKnockBack(hitDir, knockPower);
 
 	EffekseerEffect::GetInstance()->PlayHitEffect(effectPos, 0.0f);
@@ -1133,7 +1154,7 @@ void MeleeEnemy::UpdateBlasts(float deltaTime)
 		}
 
 		// 当たった(回避されたときは、そのまま飛び続ける)
-		if (ApplyHitToPlayer(blast.GetPos(), blast.GetDamage(), 12.0f, 25.0f, 3.0f))
+		if (ApplyHitToPlayer(blast.GetPos(), blast.GetDamage(), blast.GetKnock(), 25.0f, blast.GetKnock() * 0.25f))
 		{
 			blast.Kill();
 		}
@@ -1652,9 +1673,13 @@ bool MeleeEnemy::UpdateKiBarrage(float deltaTime, const VECTOR& playerPos)
 
 	aiTimer_ += deltaTime;
 
-	// 溜め
+	// 溜め: 赤いオーラをまとって、上へ昇る
 	if (aiTimer_ < kBarrageChargeTime)
 	{
+		transform_.pos.y += kBarrageRiseSpeed * deltaTime;
+
+		if (transform_.pos.y > kMaxHeight) { transform_.pos.y = kMaxHeight; }
+
 		transform_.Update();
 		return true;
 	}
@@ -1669,51 +1694,98 @@ bool MeleeEnemy::UpdateKiBarrage(float deltaTime, const VECTOR& playerPos)
 		barrageShotTimer_ = kBarrageInterval;
 	}
 
-	// 撃ち終わったら、少し隙を作って戻る
+	// 連射が終わったら、大きな気弾を溜めて放つ
 	if (barrageShotsLeft_ <= 0 && barrageShotTimer_ <= 0.0f)
 	{
-		barrageCoolTimer_ = kBarrageCoolTime;
+		if (!barrageBigPhase_)
+		{
+			barrageBigPhase_ = true;
+			barrageBigTimer_ = 0.0f;
+		}
 
-		SetAIState(AI_STATE::WAIT);
-		aiTimer_ = -kBarrageRecoverTime;
+		barrageBigTimer_ += deltaTime;
+
+		if (barrageBigTimer_ >= kBarrageBigChargeTime)
+		{
+			FireBarrageBig();
+
+			barrageBigPhase_ = false;
+			barrageCoolTimer_ = kBarrageCoolTime;
+
+			SetAIState(AI_STATE::WAIT);
+			aiTimer_ = -kBarrageRecoverTime;
+		}
 	}
 
 	transform_.Update();
 	return true;
 }
 
-// 1発撃つ。狙いは少しばらつき、着弾点に目印の輪を出す
+// 1発撃つ。動画のように、敵の周りから上や外へ散らして放ち、あとから曲がって降ってくる
+//   プレイヤーを追い続ける弾は一部だけ。ほとんどは「撃った時のプレイヤー周辺」へ降るので、動けば避けられる
 void MeleeEnemy::FireBarrageShot(void)
 {
-	const VECTOR forward = transform_.quaRot.GetForward();
-	const VECTOR origin = VAdd(GetChestPos(), VScale(forward, 50.0f));
+	const float os = kBarrageOriginSpread;
 
-	const int spread = (int)kBarrageSpread;
-
-	const VECTOR target = VAdd(
-		VAdd(player_.GetTransform().pos, VGet(0.0f, kPlayerCenterHeight, 0.0f)),
+	// 弾が出る位置: 敵の周りでばらつかせる
+	const VECTOR origin = VAdd(
+		GetChestPos(),
 		VGet(
-			(float)(GetRand(spread * 2) - spread),
-			(float)(GetRand(spread * 2) - spread) * 0.6f,
-			(float)(GetRand(spread * 2) - spread)));
+			(float)(GetRand((int)(os * 2)) - (int)os),
+			(float)GetRand((int)os),
+			(float)(GetRand((int)(os * 2)) - (int)os)));
 
-	const VECTOR dir = VSub(target, origin);
+	// 最初に飛ぶ向き: 敵を中心に外側・上向きへ放射状に散らす
+	const float yaw = (float)GetRand(359) * DX_PI_F / 180.0f;
+	const float up = 0.25f + (float)GetRand(75) / 100.0f;
+	const VECTOR launchDir = VGet(sinf(yaw), up, cosf(yaw));
 
 	EnemyKiBlast blast;
-	blast.Init(origin, dir, kBarrageSpeed, kKiRadius * 0.8f, kKiLife);
+	blast.Init(origin, launchDir, kBarrageSpeed, kKiRadius * 1.3f, kKiLife);
 	blast.SetDamage(kBarrageDamage);
+	blast.SetKnock(0.0f);	// 連射は押し出さない(数が多く、床をすり抜けるほど飛ばされるため)
+
+	if (GetRand(99) < kBarrageDirectChance)
+	{
+		// プレイヤーを追い続ける弾(少しだけ)
+		blast.SetHoming(&player_.GetTransform().pos, kPlayerCenterHeight, kBarrageHomingTurn, kBarrageHomingTime);
+		blast.SetHomingDelay(kBarrageHomingDelay);
+	}
+	else
+	{
+		// 撃った時のプレイヤー周辺のどこかへ降る弾(追わない)
+		const int spread = (int)kBarrageSpread;
+		VECTOR goal = VAdd(
+			VAdd(player_.GetTransform().pos, VGet(0.0f, kPlayerCenterHeight, 0.0f)),
+			VGet(
+				(float)(GetRand(spread * 2) - spread),
+				(float)(GetRand(spread * 2) - spread) * 0.6f,
+				(float)(GetRand(spread * 2) - spread)));
+
+		const float floorY = player_.GetTransform().pos.y + 20.0f;
+		if (goal.y < floorY) { goal.y = floorY; }
+
+		blast.SetFixedGoal(goal, kBarrageHomingDelay, kBarrageHomingTurn, kBarrageHomingTime);
+	}
 
 	blasts_.push_back(blast);
+}
 
-	// 気弾が着くまでの時間だけ、目印の輪を出す
-	const float travel = VSize(dir) / (kBarrageSpeed * 60.0f) + kMarkerSlack;
+// 大きな気弾を放つ(遅いが大きく、追尾する)
+void MeleeEnemy::FireBarrageBig(void)
+{
+	const VECTOR forward = transform_.quaRot.GetForward();
+	const VECTOR origin = VAdd(GetChestPos(), VScale(forward, 80.0f));
 
-	KiMarker marker;
-	marker.pos = target;
-	marker.timer = travel;
-	marker.total = travel;
+	const VECTOR target = VAdd(player_.GetTransform().pos, VGet(0.0f, kPlayerCenterHeight, 0.0f));
 
-	kiMarkers_.push_back(marker);
+	EnemyKiBlast blast;
+	blast.Init(origin, VSub(target, origin), kBarrageBigSpeed, kBarrageBigRadius, kKiLife + 1.0f);
+	blast.SetDamage(kBarrageBigDamage);
+	blast.SetKnock(4.0f);
+	blast.SetHoming(&player_.GetTransform().pos, kPlayerCenterHeight, kBarrageBigHomingTurn, kBarrageBigHomingTime);
+
+	blasts_.push_back(blast);
 }
 
 void MeleeEnemy::UpdateKiMarkers(float deltaTime)
@@ -2030,8 +2102,8 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 
 	if (ctx.distance < kNearDistance)
 	{
-		weights[ACT_ATTACK] = canAttack ? 5 : 0;
-		weights[ACT_SIDE] = 2;
+		weights[ACT_ATTACK] = canAttack ? 6 : 0;
+		weights[ACT_SIDE] = 1;
 		weights[ACT_RUSH] = canRush ? (enraged ? 3 : 1) : 0;
 		weights[ACT_BIG] = canBig ? (enraged ? 2 : 1) : 0;
 		weights[ACT_SLAM] = canSlam ? 1 : 0;
@@ -2041,7 +2113,7 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 		weights[ACT_KI] = canKi ? (enraged ? 5 : 3) : 0;
 		weights[ACT_RUSH] = canRush ? (enraged ? 5 : 3) : 0;
 		weights[ACT_SIDE] = 2;
-		weights[ACT_BOOST] = 1;
+		weights[ACT_BOOST] = 3;
 		weights[ACT_BIG] = canBig ? (enraged ? 4 : 2) : 0;
 		weights[ACT_BEAM] = canBeam ? (enraged ? 3 : 2) : 0;
 		weights[ACT_BARRAGE] = canBarrage ? (enraged ? 4 : 3) : 0;
@@ -2118,6 +2190,8 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 		SetAIState(AI_STATE::KI_BARRAGE);
 		barrageShotsLeft_ = enraged ? kBarrageCountEnraged : kBarrageCount;
 		barrageShotTimer_ = 0.0f;
+		barrageBigPhase_ = false;
+		barrageBigTimer_ = 0.0f;
 		break;
 
 	case ACT_SLAM:
@@ -2347,6 +2421,18 @@ void MeleeEnemy::Draw(void)
 		SetUseLighting(TRUE);
 	}
 
+	// スーパーアーマー中(大技の溜めなど)は赤いオーラをまとう。この間は殴られても怯まない
+	if (!isHidden_ && IsSuperArmor())
+	{
+		const float pulse = 0.5f + 0.5f * sinf(hoverTime_ * 14.0f);
+
+		SetUseLighting(FALSE);
+		SetDrawBlendMode(DX_BLENDMODE_ADD, 70 + (int)(50.0f * pulse));
+		DrawSphere3D(GetChestPos(), 85.0f + 8.0f * pulse, 20, GetColor(255, 30, 10), GetColor(255, 30, 10), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		SetUseLighting(TRUE);
+	}
+
 	// 撃った気弾
 	for (const auto& blast : blasts_)
 	{
@@ -2501,11 +2587,33 @@ void MeleeEnemy::DrawTelegraph(void) const
 		SetUseLighting(TRUE);
 	}
 
+	// 連射のあとの大きな気弾の溜め: 胸の前に大きな球が育つ
+	if (aiState_ == AI_STATE::KI_BARRAGE && barrageBigPhase_)
+	{
+		const float rate = Saturate(barrageBigTimer_ / kBarrageBigChargeTime);
+		const VECTOR pos = VAdd(GetChestPos(), VScale(transform_.quaRot.GetForward(), 80.0f));
+
+		DrawAuraColumn(transform_.pos, rate);
+
+		SetUseLighting(FALSE);
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 190);
+		DrawSphere3D(pos, 14.0f + (kBarrageBigRadius * 1.8f) * rate, 20, GetColor(150, 40, 255), GetColor(150, 40, 255), TRUE);
+
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		DrawSphere3D(pos, 7.0f + (kBarrageBigRadius * 0.8f) * rate, 20, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+
+		SetUseLighting(TRUE);
+	}
+
 	// 気弾の連射の溜め: 胸の前に小さな球
 	if (aiState_ == AI_STATE::KI_BARRAGE && aiTimer_ < kBarrageChargeTime)
 	{
 		const float rate = Saturate(aiTimer_ / kBarrageChargeTime);
 		const VECTOR pos = VAdd(GetChestPos(), VScale(transform_.quaRot.GetForward(), 50.0f));
+
+		// 赤いオーラの柱(カカロットの溜め)
+		DrawAuraColumn(transform_.pos, rate);
 
 		SetUseLighting(FALSE);
 

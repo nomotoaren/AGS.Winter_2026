@@ -92,7 +92,22 @@ PlayerGuard::Result PlayerGuard::Update(const Context& ctx)
 		result.burstRequested = true;
 	}
 
+	// ガード中にバニッシュアタック入力
+	if (isGuard_ && ctx.vanishTrg)
+	{
+		result.vanishRequested = true;
+	}
+
 	return result;
+}
+
+void PlayerGuard::StartVanish(void)
+{
+	// バースト中と同じ「動けない」状態にする(ただし burstTrigger_ は立てない = 敵を吹き飛ばすバーストにはならない)
+	isBurst_ = true;
+	burstTimer_ = cfg::Guard::VANISH_TIME;
+
+	isGuard_ = false;
 }
 
 void PlayerGuard::StartBurst(void)

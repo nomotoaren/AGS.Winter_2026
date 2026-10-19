@@ -195,6 +195,7 @@ private:
 	void CheckMeleeHit(void);
 	void FireKiBlast(void);
 	void FireBarrageShot(void);
+	void FireBarrageBig(void);
 	void SlamImpact(bool directHit);
 	void LaunchAreaBlasts(const VECTOR& playerPos);
 	void DoGrab(void);
@@ -339,6 +340,8 @@ private:
 	float barrageCoolTimer_ = 0.0f;
 	int barrageShotsLeft_ = 0;
 	float barrageShotTimer_ = 0.0f;
+	bool barrageBigPhase_ = false;	// ˜AË‚Ì‚ ‚ÆA‘å‚«‚È‹C’e‚ğ—­‚ß‚Ä‚¢‚é
+	float barrageBigTimer_ = 0.0f;
 	std::vector<KiMarker> kiMarkers_;
 
 	// ‹}~‰º

@@ -27,6 +27,97 @@ namespace
 		const int w = GetDrawStringWidthToHandle(str, (int)std::strlen(str), font);
 		DrawStringToHandle(rightX - w, y, str, color, font);
 	}
+
+	// ---- 重なる体力ゲージ(カカロット方式) ----
+	//   体力を HP_LAYERS 枚の層に分け、いちばん上の層から順に減らす。
+	//   減りきると、下の層の色が現れる。層ごとに色が違う。
+	//   ダメージで減った分は、赤いバーが遅れて縮む。
+	constexpr int HP_LAYERS = 5;
+
+	// 層の色(下から順)。1層目(最後の1層)が赤、5層目(いちばん上)が濃い緑
+	unsigned int HpLayerColor(int layer)
+	{
+		switch (layer)
+		{
+		case 0:  return GetColor(190, 35, 45);		// 1層目: 赤
+		case 1:  return GetColor(250, 235, 120);	// 2層目: 薄い黄色
+		case 2:  return GetColor(225, 175, 20);		// 3層目: 濃い黄色
+		case 3:  return GetColor(140, 225, 110);	// 4層目: 薄い緑
+		default: return GetColor(25, 150, 55);		// 5層目: 濃い緑
+		}
+	}
+
+	// 値 v が何番目の層にあるか(0 が最下層)
+	int HpLayerOf(float v, float layerHp)
+	{
+		if (v <= 0.0f) { return 0; }
+
+		int layer = (int)std::ceil(v / layerHp) - 1;
+		if (layer < 0) { layer = 0; }
+		if (layer > HP_LAYERS - 1) { layer = HP_LAYERS - 1; }
+		return layer;
+	}
+
+	// 層の中での割合(0~1)
+	float HpLayerFrac(float v, int layer, float layerHp)
+	{
+		return std::clamp((v - layer * layerHp) / layerHp, 0.0f, 1.0f);
+	}
+
+	// 戻り値: 今の層の数(「x3」と表示する用)
+	int DrawLayeredHp(float x, float y, float w, float h, float s,
+		float hp, float delayedHp, float maxHp,
+		unsigned int frameColor, float frameThick, float time)
+	{
+		const float layerHp = maxHp / (float)HP_LAYERS;
+		const float right = x + w;
+
+		const int curL = HpLayerOf(hp, layerHp);
+		const float frac = (hp <= 0.0f) ? 0.0f : HpLayerFrac(hp, curL, layerHp);
+
+		// 影
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
+		DrawBoxAA(x - 3.0f * s, y - 3.0f * s, right + 3.0f * s, y + h + 3.0f * s,
+			GetColor(10, 10, 14), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+
+		// 空の部分 / 下の層(すぐ下の層の色が、全幅で見えている)
+		DrawBoxAA(x, y, right, y + h, GetColor(28, 30, 34), TRUE);
+
+		if (curL > 0)
+		{
+			DrawBoxAA(x, y, right, y + h, HpLayerColor(curL - 1), TRUE);
+		}
+
+		// ダメージで減った分: 明るい赤のバーが遅れて縮む
+		if (delayedHp > hp)
+		{
+			const int dL = HpLayerOf(delayedHp, layerHp);
+			const float dFrac = (dL == curL) ? HpLayerFrac(delayedHp, dL, layerHp) : 1.0f;
+
+			if (dFrac > frac)
+			{
+				DrawBoxAA(right - w * dFrac, y, right - w * frac, y + h, GetColor(255, 85, 70), TRUE);
+			}
+		}
+
+		// 今の層(1層目の赤は、元から赤いので脈打たせない)
+		const unsigned int color = HpLayerColor(curL);
+
+		if (frac > 0.0f)
+		{
+			DrawBoxAA(right - w * frac, y, right, y + h, color, TRUE);
+
+			// 上半分に光沢
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 75);
+			DrawBoxAA(right - w * frac, y, right, y + h * 0.45f, GetColor(255, 255, 255), TRUE);
+			SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		}
+
+		DrawBoxAA(x, y, right, y + h, frameColor, FALSE, frameThick);
+
+		return (hp <= 0.0f) ? 0 : curL + 1;
+	}
 }
 
 EnemyHud::EnemyHud(void)
@@ -201,41 +292,19 @@ void EnemyHud::Draw(void)
 		dark, TRUE);
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 
-	// 空の部分
-	DrawBoxAA(barX, barY, barRight, barY + barH, GetColor(28, 30, 34), TRUE);
+	// 重なる体力ゲージ(層ごとに色が違い、減った分は赤い)
+	const int layerNum = DrawLayeredHp(barX, barY, barW, barH, s,
+		(float)hp_, delayedHp_, (float)maxHp_, frameColor, frameThick, time_);
 
-	// 遅れて減る部分(水色)
-	if (delayedRate > rate)
+	// 残りの層の数(「x4」)をバーの左に出す
+	if (layerNum > 0)
 	{
-		DrawBoxAA(barRight - barW * delayedRate, barY, barRight - barW * rate, barY + barH,
-			GetColor(110, 215, 235), TRUE);
+		char layerBuf[16];
+		std::snprintf(layerBuf, sizeof(layerBuf), "x%d", layerNum);
+
+		DrawStringRight((int)(barX - 8.0f * s), (int)(barY - 3.0f * s),
+			layerBuf, HpLayerColor(layerNum - 1), fontNum_);
 	}
-
-	// 現在のHP。緑。ピンチ(25%以下)は赤く脈打つ
-	int r = 75;
-	int g = 215;
-	int b = 65;
-
-	if (rate <= 0.25f)
-	{
-		const float pulse = 0.5f + 0.5f * sinf(time_ * 9.0f);
-		r = 215 + (int)(40.0f * pulse);
-		g = 45 + (int)(45.0f * pulse);
-		b = 50;
-	}
-
-	if (rate > 0.0f)
-	{
-		DrawBoxAA(barRight - barW * rate, barY, barRight, barY + barH, GetColor(r, g, b), TRUE);
-
-		// 上半分に光沢
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 75);
-		DrawBoxAA(barRight - barW * rate, barY, barRight, barY + barH * 0.45f,
-			GetColor(255, 255, 255), TRUE);
-		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-	}
-
-	DrawBoxAA(barX, barY, barRight, barY + barH, frameColor, FALSE, frameThick);
 
 	// ---- HPの数値(バーの下、右寄せ) ----
 	char buf[32];

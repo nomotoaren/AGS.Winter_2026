@@ -333,6 +333,137 @@ void GameScene::Update(void)
 
 		player_->Update();
 
+		// バニッシュアタック: ガード中に×で、敵の斜め後ろへ瞬間移動し、少し間をおいて叩き落とす
+		{
+			static EnemyBase* vanishTarget = nullptr;
+			static float vanishTimer = 0.0f;
+			static VECTOR vanishDir = { 0.0f, 0.0f, 1.0f };
+
+			if (player_->ConsumeVanish())
+			{
+				auto* target = lockOnTarget_;
+
+				// ロックオンしていなければ、一番近い敵
+				if (target == nullptr || target->IsDead())
+				{
+					target = nullptr;
+					float best = PlayerConfig::Vanish::MAX_RANGE;
+
+					for (auto& enemy : enemies_)
+					{
+						if (!enemy || enemy->IsDead())
+						{
+							continue;
+						}
+
+						const float d = VSize(VSub(enemy->GetTransform().pos, player_->GetTransform().pos));
+
+						if (d < best)
+						{
+							best = d;
+							target = enemy.get();
+						}
+					}
+				}
+
+				if (target != nullptr)
+				{
+					const VECTOR enemyPos = target->GetTransform().pos;
+
+					// 敵の向きの後ろ側(水平)。少し横にずらして、カメラが大きく回らないようにする
+					VECTOR back = target->GetTransform().quaRot.GetForward();
+					back.y = 0.0f;
+
+					if (VSize(back) > 0.001f)
+					{
+						back = VNorm(back);
+					}
+					else
+					{
+						back = VGet(0.0f, 0.0f, 1.0f);
+					}
+
+					// 真後ろから左右どちらかへずらした2つの候補のうち、今のプレイヤーに近い方を選ぶ
+					const float rad = PlayerConfig::Vanish::SIDE_ANGLE_DEG * 3.14159265f / 180.0f;
+					const VECTOR playerNow = player_->GetTransform().pos;
+					VECTOR warpPos = enemyPos;
+					float bestDist = 1.0e9f;
+
+					for (int k = 0; k < 2; k++)
+					{
+						const float ang = (k == 0) ? rad : -rad;
+
+						// 敵の向きを ang だけ回した向きの「反対側」(= 斜め後ろ)
+						const VECTOR dir = VGet(
+							back.x * cosf(ang) - back.z * sinf(ang),
+							0.0f,
+							back.x * sinf(ang) + back.z * cosf(ang));
+
+						VECTOR cand = VSub(enemyPos, VScale(dir, PlayerConfig::Vanish::BEHIND_DISTANCE));
+						cand.y = enemyPos.y + PlayerConfig::Vanish::ABOVE_HEIGHT;
+
+						const float d = VSize(VSub(cand, playerNow));
+
+						if (d < bestDist)
+						{
+							bestDist = d;
+							warpPos = cand;
+						}
+					}
+
+					player_->VanishTo(warpPos, enemyPos);
+
+					vanishTarget = target;
+					vanishTimer = PlayerConfig::Vanish::HIT_DELAY;
+					vanishDir = back;
+				}
+			}
+
+			// 少し間をおいてから叩き落とす(消えて、現れて、叩く、が目で追えるように)
+			if (vanishTarget != nullptr)
+			{
+				vanishTimer -= SceneManager::GetInstance().GetDeltaTime();
+
+				if (vanishTarget->IsDead())
+				{
+					vanishTarget = nullptr;
+				}
+				else if (vanishTimer <= 0.0f)
+				{
+					EnemyBase* target = vanishTarget;
+					vanishTarget = nullptr;
+
+					const VECTOR enemyPos = target->GetTransform().pos;
+					const VECTOR back = vanishDir;
+
+					const int dmg =
+						player_->GetAttackDamage(Player::ATTACK_DAMAGE) * PlayerConfig::Vanish::DAMAGE_RATE;
+
+					target->Damage(dmg);
+					target->AddStun(PlayerConfig::Vanish::STUN);
+					player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 130.0f, 0.0f)), dmg);
+
+					MeleeEnemy* meleeEnemy = dynamic_cast<MeleeEnemy*>(target);
+
+					if (meleeEnemy != nullptr)
+					{
+						meleeEnemy->LookAtPlayer();
+						meleeEnemy->StartSlamDown();
+					}
+
+					const VECTOR slamDir = VNorm(VGet(back.x, -0.8f, back.z));
+					target->AddKnockBack(slamDir, PlayerConfig::Vanish::KNOCK);
+
+					EffekseerEffect::GetInstance()->
+						PlayHitEffect(VAdd(enemyPos, VGet(0.0f, 80.0f, 0.0f)), 0.0f);
+
+					isHitStop_ = true;
+					hitStopTimer_ = PlayerConfig::Vanish::HIT_STOP;
+					mainCamera.StartShake(PlayerConfig::Vanish::SHAKE_TIME, PlayerConfig::Vanish::SHAKE_POWER);
+				}
+			}
+		}
+
 		// ガードバースト
 		if (player_->IsGuardBurstTrigger())
 		{

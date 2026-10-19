@@ -43,7 +43,7 @@ public:
 	static constexpr int ATTACK_DAMAGE = 1;
 
 	// 最大HP(HUDの表示にも使う)
-	static constexpr int MAX_HP = 100;
+	static constexpr int MAX_HP = 1000;
 
 	static constexpr float ATTACK_END_WAIT = 0.15f;
 
@@ -210,11 +210,13 @@ public:
 
 	// ジャスト回避(敵の攻撃が回避に当たったときに敵側から呼ぶ。成立したら true)
 	bool TryJustDodge(void);
+	bool ConsumeVanish(void);			// バニッシュアタックを出したことを1回だけ受け取る(GameScene が瞬間移動と攻撃をする)
+	void VanishTo(const VECTOR& pos, const VECTOR& targetPos);	// 残像を残して pos へ瞬間移動し、targetPos の方を向く
 	bool ConsumeJustDodge(void);		// 成立したことを1回だけ受け取る(GameScene がスローモーションを始めるのに使う)
 
 	// 高速移動中か(カメラが落ち着いて追うために使う)
 	// 回避ステップ中も含める(横へ飛んでもカメラがついていけるように)
-	bool IsBoostChasing(void) const { return boostChase_.IsActive() || isDodge_; }
+	bool IsBoostChasing(void) const { return boostChase_.IsActive() || isDodge_ || vanishCalmTimer_ > 0.0f; }
 
 	// ガード
 	bool IsGuard(void) const;
@@ -528,6 +530,9 @@ private:
 
 	// ジャスト回避
 	bool justDodged_ = false;
+	float guardHitTimer_ = 0.0f;	// ガードで攻撃を受けてからの残り時間(この間だけバニッシュアタックを出せる)
+	float vanishCalmTimer_ = 0.0f;	// バニッシュアタック後、カメラをゆっくり追従にする残り時間(秒)
+	bool vanishPending_ = false;	// バニッシュアタックを出した(GameScene が受け取るまで true)
 	float justCooldown_ = 0.0f;
 	float justBuffTimer_ = 0.0f;		// ダメージが上がっている残り時間
 	void StartStep(void);			// ステップを始める(向き・アニメ)

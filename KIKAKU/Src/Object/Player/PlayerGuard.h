@@ -14,6 +14,7 @@ public:
 		bool canStart;			// ガードを始められる状態か(攻撃中などは false)
 		bool hold;				// ガードの入力を押しているか
 		bool burstTrg;			// バーストの入力を押したか
+		bool vanishTrg = false;	// バニッシュアタックの入力を押したか
 	};
 
 	// Update() の結果(このフレームに起きた出来事)
@@ -24,6 +25,7 @@ public:
 		bool breakEnded = false;		// ガードブレイクが終わった
 		bool burstEnded = false;		// バーストが終わった
 		bool burstRequested = false;	// バーストを出したい(気が足りるか確認して StartBurst() を呼ぶ)
+		bool vanishRequested = false;	// バニッシュアタックを出したい(気が足りるか確認して StartVanish() を呼ぶ)
 	};
 
 	PlayerGuard(void);
@@ -34,6 +36,9 @@ public:
 
 	// バーストを出す(気の消費は Player 側で済ませておく)
 	void StartBurst(void);
+
+	// バニッシュアタックを出す(気の消費は Player 側で済ませておく。バーストの状態を流用して動けなくする)
+	void StartVanish(void);
 
 	// ガード中に攻撃を受けた
 	//   戻り値: ガードブレイクしたら true
