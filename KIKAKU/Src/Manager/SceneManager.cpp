@@ -142,6 +142,12 @@ void SceneManager::Draw(void)
 	// Effekseerにより再生中のエフェクトを描画する。
 	DrawEffekseer3D();
 
+	// HUDなど(エフェクトより手前)
+	if (overlayDraw_)
+	{
+		overlayDraw_();
+	}
+
 	// 暗転・明転
 	fader_->Draw();
 
@@ -235,6 +241,8 @@ void SceneManager::DoChangeScene(SCENE_ID sceneId)
 	sceneId_ = sceneId;
 
 	// 現在のシーンを解放
+	overlayDraw_ = nullptr;
+
 	if (scene_ != nullptr)
 	{
 		scene_.reset();

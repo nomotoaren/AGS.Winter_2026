@@ -1,3 +1,4 @@
+#include <DxLib.h>
 #include "EnemyBase.h"
 #include "../../Manager/SceneManager.h"
 #include "../../Utility/AsoUtility.h"
@@ -80,7 +81,7 @@ void EnemyBase::AddKnockBack(VECTOR dir, float power)
 	// 弱い攻撃はほとんどひるまない(カカロットの敵のように、殴られても行動を続ける)
 	armoredHit_ = false;
 
-	if (power < HEAVY_KNOCK && !isStunned_ && (IsSuperArmor() || GetRand(99) >= FLINCH_CHANCE))
+	if (!isStunned_ && (IsSuperArmor() || (power < HEAVY_KNOCK && GetRand(99) >= FLINCH_CHANCE)))
 	{
 		armoredHit_ = true;
 		power *= ARMOR_KNOCK_RATE;
@@ -234,6 +235,28 @@ void EnemyBase::DrawHud(void)
 	// スタンゲージはHPバーの下に出す
 	stunBar_.Draw(GetStunRate(), isStunned_, stunBarTime_);
 	stunBar_.DrawBreak(breakTime_);
+
+	// 技の名前の帯
+	if (hasSkillName_)
+	{
+		const float elapsed = (float)(GetNowCount() - skillNameStartMs_) / 1000.0f;
+
+		if (elapsed >= EnemyStunBar::SKILL_BANNER_TIME)
+		{
+			hasSkillName_ = false;
+		}
+		else
+		{
+			stunBar_.DrawSkillBanner(skillName_.c_str(), elapsed);
+		}
+	}
+}
+
+void EnemyBase::ShowSkillName(const char* name)
+{
+	skillName_ = name;
+	skillNameStartMs_ = GetNowCount();
+	hasSkillName_ = true;
 }
 
 //------------------------------------------------------------

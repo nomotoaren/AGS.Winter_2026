@@ -472,7 +472,7 @@ bool Player::IsTransforming(void) const
 
 float Player::GetAttackRate(void) const
 {
-	return kFormData[(int)form_].attackRate;
+	return kFormData[(int)form_].attackRate * (heatUp_ ? cfg::HeatUp::ATTACK_RATE : 1.0f);
 }
 
 int Player::GetAttackDamage(int baseDamage) const
@@ -494,6 +494,9 @@ void Player::Update(void)
 
 	// HUDはダメージ中も更新する
 	hud_.Update(*this);
+
+	// テンション・ヒートアップ・追撃の受付・フィニッシュ気弾(ダメージ中も進める)
+	UpdateTensionTimers(scnMng_.GetDeltaTime());
 
 	UpdateKnockBack();
 
@@ -602,7 +605,10 @@ void Player::UpdateAfterImages(void)
 	{
 		it->timer -= scnMng_.GetDeltaTime();
 
-		if (it->timer <= 0.0f)
+		// 残像が多すぎると重くなるので、古いものから消す
+		const bool tooMany = (boostAfterImages_.size() > 6);
+
+		if (it->timer <= 0.0f || tooMany)
 		{
 			it = boostAfterImages_.erase(it);
 		}
@@ -961,6 +967,9 @@ void Player::UpdatePlay(void)
 		return;
 	}
 
+	// ヒートアップ(気力MAX + テンション満タンで長押し)
+	UpdateHeatUp();
+
 	// 気溜め
 	UpdateChase();
 
@@ -1012,14 +1021,16 @@ void Player::Draw(void)
 	MV1DrawModel(transform_.modelId);
 	SetUseLighting(true);
 
+	DrawHeatAura();
 	DrawKiBlast();
 	DrawKamehame();
 
-	// HUD(2D)は3D描画のあとに描く
-	hud_.Draw(*this);
-
 	DrawLegTune();
+}
 
+void Player::DrawHud(void)
+{
+	hud_.Draw(*this);
 }
 
 void Player::DrawAfterImage(const MATRIX& matrix, float opacity, bool disableLighting)
@@ -1040,6 +1051,11 @@ void Player::DrawAfterImage(const MATRIX& matrix, float opacity, bool disableLig
 void Player::DrawKiBlast(void)
 {
 	for (auto& blast : kiBlasts_)
+	{
+		blast->Draw();
+	}
+
+	for (auto& blast : finishBlasts_)
 	{
 		blast->Draw();
 	}
@@ -1261,7 +1277,8 @@ void Player::ProcessMove(void)
 
 		// 形態ごとの速度倍率をかける
 		speed_ = (isDash ? cfg::Move::DASH_SPEED : (isRun ? SPEED_RUN : SPEED_MOVE))
-			* kFormData[(int)form_].speedRate;
+			* kFormData[(int)form_].speedRate
+			* (heatUp_ ? cfg::HeatUp::SPEED_RATE : 1.0f);
 		moveDir_ = dir;
 		movePow_ = VScale(dir, speed_);
 
@@ -1495,6 +1512,32 @@ void Player::UpdateAttack(void)
 {
 	auto& ins = InputManager::GetInstance();
 	const bool pushAttack = ins.IsTrgDown(KEY_INPUT_F) || PadInput::IsFightTrg();
+
+	// 追撃: ふっ飛ばした直後に攻撃ボタンを押すと、相手の元へ瞬間移動して追い打ちする(ヒートアップ中は自動)
+	if (pursuitWindow_ > 0.0f &&
+		!pursuitPending_ &&
+		!kamehame_.IsActive() &&
+		!isCharging_ &&
+		!isChargeEnding_ &&
+		!formChange_.IsActive())
+	{
+		const bool autoChase = heatUp_ && pursuitAge_ >= cfg::HeatUp::PURSUIT_AUTO_DELAY;
+
+		if (pushAttack || autoChase)
+		{
+			pursuitPending_ = true;
+			pursuitWindow_ = 0.0f;
+			pursuitRecover_ = cfg::Pursuit::HIT_DELAY + cfg::Pursuit::RECOVER_TIME;
+
+			attack_.Reset();
+			attack_.CancelChase();
+			boostChase_.Cancel();
+			movePow_ = AsoUtility::VECTOR_ZERO;
+
+			animationController_->Play((int)ANIM_TYPE::ATTACK08, false);
+			return;
+		}
+	}
 
 	// 敵がいれば追撃(接近)から始める
 	if (hasAttackTarget_ &&
@@ -1998,9 +2041,23 @@ void Player::ShotKiBlast(void)
 		shotDir = NormalizeSafe(VSub(attackTargetPos_, shotPos));
 	}
 
-	kiBlasts_.push_back(std::make_unique<KiBlast>(shotPos, shotDir));
-
 	isKiBlastShot_ = true;
+
+	// 連続で撃つと、強力なフィニッシュ気弾になる
+	kiBlastChainTimer_ = cfg::Finish::RESET_TIME;
+	kiBlastCount_++;
+
+	if (kiBlastCount_ >= (heatUp_ ? cfg::Finish::COUNT_HEAT : cfg::Finish::COUNT))
+	{
+		kiBlastCount_ = 0;
+
+		auto finish = std::make_unique<PlayerFinishBlast>();
+		finish->Init(shotPos, shotDir);
+		finishBlasts_.push_back(std::move(finish));
+		return;
+	}
+
+	kiBlasts_.push_back(std::make_unique<KiBlast>(shotPos, shotDir));
 }
 
 const std::vector<std::unique_ptr<KiBlast>>& Player::GetKiBlasts(void) const
@@ -2266,6 +2323,8 @@ bool Player::TryJustDodge(void)
 	justBuffTimer_ = cfg::JustDodge::BUFF_TIME;
 	justDodged_ = true;
 
+	AddTension(cfg::Tension::GAIN_JUST_DODGE);
+
 	ki_ += cfg::JustDodge::KI_GAIN;
 
 	if (ki_ > MAX_KI)
@@ -2276,11 +2335,279 @@ bool Player::TryJustDodge(void)
 	return true;
 }
 
+//----------------------------------------------------------------------
+// テンション / ヒートアップ / 追撃 / 相殺勝負
+//----------------------------------------------------------------------
+
+void Player::AddTension(float amount)
+{
+	// ヒートアップ中は、ゲージは持続時間を表すので増やさない
+	if (heatUp_)
+	{
+		return;
+	}
+
+	tension_ += amount;
+
+	if (tension_ > MAX_TENSION) { tension_ = MAX_TENSION; }
+	if (tension_ < 0.0f) { tension_ = 0.0f; }
+}
+
+bool Player::CanHeatUp(void) const
+{
+	return !heatUp_ && tension_ >= MAX_TENSION && ki_ >= MAX_KI - 0.01f;
+}
+
+float Player::GetHeatHoldRate(void) const
+{
+	const float rate = heatHold_ / cfg::HeatUp::HOLD_TIME;
+	return rate > 1.0f ? 1.0f : rate;
+}
+
+// ヒートアップ: 条件がそろった状態で、気溜めのボタン(T / △)を押し続ける
+void Player::UpdateHeatUp(void)
+{
+	auto& ins = InputManager::GetInstance();
+
+	const bool hold = ins.IsNew(KEY_INPUT_T) || PadInput::IsChargeHold();
+
+	if (!CanHeatUp() ||
+		!hold ||
+		attack_.IsAttack() ||
+		attack_.IsChasing() ||
+		kamehame_.IsActive() ||
+		boostChase_.IsActive() ||
+		isKiBlast_ ||
+		isDodge_)
+	{
+		heatHold_ = 0.0f;
+		return;
+	}
+
+	heatHold_ += scnMng_.GetDeltaTime();
+
+	if (heatHold_ >= cfg::HeatUp::HOLD_TIME)
+	{
+		heatHold_ = 0.0f;
+		heatUp_ = true;
+		heatUpTimer_ = cfg::HeatUp::DURATION;
+		tension_ = MAX_TENSION;
+		ki_ = MAX_KI;
+
+		// 気溜めのエフェクトが残らないように止め、閃光は自前で短く出す
+		EffekseerEffect::GetInstance()->StopChargeEffect();
+		heatBurst_ = 0.6f;
+	}
+}
+
+// 毎フレーム進めるもの(ダメージ中・気溜め中でも止めない)
+void Player::UpdateTensionTimers(float deltaTime)
+{
+	if (heatBurst_ > 0.0f)
+	{
+		heatBurst_ -= deltaTime;
+	}
+
+	// ヒートアップ: ゲージが持続時間として減っていく。気力は減らない
+	if (heatUp_)
+	{
+		heatUpTimer_ -= deltaTime;
+		ki_ = MAX_KI;
+
+		const float rate = heatUpTimer_ / cfg::HeatUp::DURATION;
+		tension_ = MAX_TENSION * (rate > 0.0f ? rate : 0.0f);
+
+		if (heatUpTimer_ <= 0.0f)
+		{
+			heatUp_ = false;
+			heatUpTimer_ = 0.0f;
+			tension_ = 0.0f;
+		}
+	}
+
+	// 追撃できる時間
+	if (pursuitWindow_ > 0.0f)
+	{
+		pursuitWindow_ -= deltaTime;
+		pursuitAge_ += deltaTime;
+
+		if (pursuitWindow_ < 0.0f) { pursuitWindow_ = 0.0f; }
+	}
+
+	// 追撃のあと、待機に戻す
+	if (pursuitRecover_ > 0.0f)
+	{
+		pursuitRecover_ -= deltaTime;
+
+		if (pursuitRecover_ <= 0.0f)
+		{
+			pursuitRecover_ = 0.0f;
+
+			if (!attack_.IsAttack() && !kamehame_.IsActive() && !IsMoveKeyDown(InputManager::GetInstance()))
+			{
+				animationController_->Play((int)ANIM_TYPE::IDLE);
+			}
+		}
+	}
+
+	// フィニッシュ気弾の回数: 間が空いたら戻る
+	if (kiBlastChainTimer_ > 0.0f)
+	{
+		kiBlastChainTimer_ -= deltaTime;
+
+		if (kiBlastChainTimer_ <= 0.0f)
+		{
+			kiBlastChainTimer_ = 0.0f;
+			kiBlastCount_ = 0;
+		}
+	}
+
+	// フィニッシュ気弾を飛ばす(狙っている敵がいれば少し曲がる)
+	{
+		VECTOR aim = VAdd(attackTargetPos_, VGet(0.0f, Constants::EnemyCenterHeight, 0.0f));
+		const bool hasAim = isLockOn_ && hasAttackTarget_;
+
+		for (auto& blast : finishBlasts_)
+		{
+			blast->Update(deltaTime, hasAim ? &aim : nullptr);
+		}
+
+		finishBlasts_.erase(
+			std::remove_if(finishBlasts_.begin(), finishBlasts_.end(),
+				[](const std::unique_ptr<PlayerFinishBlast>& b) { return b->IsDead(); }),
+			finishBlasts_.end());
+	}
+}
+
+// 追撃のチャンスを始める
+void Player::OpenPursuit(bool fromPursuit)
+{
+	if (fromPursuit)
+	{
+		pursuitChain_++;
+
+		const int limit = heatUp_ ? cfg::HeatUp::CHAIN_MAX : cfg::Pursuit::CHAIN_MAX;
+
+		if (pursuitChain_ >= limit)
+		{
+			pursuitWindow_ = 0.0f;
+			return;
+		}
+	}
+	else
+	{
+		pursuitChain_ = 0;
+	}
+
+	pursuitWindow_ = cfg::Pursuit::WINDOW;
+	pursuitAge_ = 0.0f;
+}
+
+bool Player::ConsumePursuit(void)
+{
+	const bool result = pursuitPending_;
+	pursuitPending_ = false;
+	return result;
+}
+
+float Player::GetPursuitRate(void) const
+{
+	return pursuitWindow_ > 0.0f ? pursuitWindow_ / cfg::Pursuit::WINDOW : 0.0f;
+}
+
+void Player::SetClash(bool active, float rate)
+{
+	clashActive_ = active;
+	clashRate_ = rate;
+	kamehame_.SetHold(active);
+}
+
+// ヒートアップ中のオーラ
+void Player::DrawHeatAura(void) const
+{
+	if (!heatUp_ && heatBurst_ <= 0.0f)
+	{
+		return;
+	}
+
+	const float t = (float)GetNowCount() * 0.001f;
+	const float pulse = 0.5f + 0.5f * sinf(t * 14.0f);
+	const VECTOR base = transform_.pos;
+
+	SetUseLighting(FALSE);
+
+	// 半透明の光が奥の敵を隠さないように、深度は書き込まない
+	SetWriteZBuffer3D(FALSE);
+
+	// 発動の瞬間の閃光(広がりながら消える。短時間だけ)
+	if (heatBurst_ > 0.0f)
+	{
+		const float rate = 1.0f - heatBurst_ / 0.6f;
+
+		SetDrawBlendMode(DX_BLENDMODE_ADD, (int)(110.0f * (1.0f - rate)));
+		DrawSphere3D(VAdd(base, VGet(0.0f, 80.0f, 0.0f)), 40.0f + 220.0f * rate, 20,
+			GetColor(255, 220, 90), GetColor(255, 220, 90), TRUE);
+	}
+
+	if (!heatUp_)
+	{
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		SetWriteZBuffer3D(TRUE);
+		SetUseLighting(TRUE);
+		return;
+	}
+
+	SetDrawBlendMode(DX_BLENDMODE_ADD, 55 + (int)(40.0f * pulse));
+	DrawCapsule3D(VAdd(base, VGet(0.0f, 30.0f, 0.0f)), VAdd(base, VGet(0.0f, 130.0f, 0.0f)),
+		46.0f + 6.0f * pulse, 12, GetColor(255, 200, 60), GetColor(255, 200, 60), TRUE);
+
+	SetDrawBlendMode(DX_BLENDMODE_ADD, 30);
+	DrawCapsule3D(VAdd(base, VGet(0.0f, 20.0f, 0.0f)), VAdd(base, VGet(0.0f, 150.0f, 0.0f)),
+		70.0f + 10.0f * pulse, 12, GetColor(255, 235, 140), GetColor(255, 235, 140), TRUE);
+
+	// 昇っていく火花
+	SetDrawBlendMode(DX_BLENDMODE_ADD, 200);
+
+	for (int i = 0; i < 8; i++)
+	{
+		const float up = fmodf(t * 1.8f + i * 0.37f, 1.0f);
+		const float ang = i * 0.8f + t * 2.0f;
+		const VECTOR p = VAdd(base, VGet(cosf(ang) * 55.0f, 20.0f + up * 170.0f, sinf(ang) * 55.0f));
+
+		DrawSphere3D(p, 1.0f + 5.0f * (1.0f - up), 6, GetColor(255, 230, 120), GetColor(255, 230, 120), TRUE);
+	}
+
+	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+	SetWriteZBuffer3D(TRUE);
+	SetUseLighting(TRUE);
+}
+
 bool Player::ConsumeVanish(void)
 {
 	const bool result = vanishPending_;
 	vanishPending_ = false;
 	return result;
+}
+
+void Player::DashStepTo(const VECTOR& pos, const VECTOR& targetPos)
+{
+	// 数コマに1回だけ残像を残す
+	static int s_count = 0;
+
+	if ((s_count++ % 3) == 0)
+	{
+		BoostAfterImage image{};
+		image.matrix = MV1GetMatrix(transform_.modelId);
+		image.timer = Constants::BoostAfterImageDuration;
+		boostAfterImages_.push_back(image);
+	}
+
+	movePow_ = AsoUtility::VECTOR_ZERO;
+	transform_.pos = pos;
+	vanishCalmTimer_ = cfg::Vanish::CAMERA_CALM_TIME;
+
+	FaceHorizontal(VSub(targetPos, pos));
+	transform_.Update();
 }
 
 void Player::VanishTo(const VECTOR& pos, const VECTOR& targetPos)
@@ -2395,6 +2722,8 @@ void Player::UpdateGuard(void)
 
 void Player::GuardDamage(float damage)
 {
+	AddTension(cfg::Tension::GAIN_GUARD);
+
 	// 攻撃を受けている間だけ、バニッシュアタックで切り返せる
 	guardHitTimer_ = cfg::Guard::VANISH_WINDOW;
 
@@ -2423,6 +2752,13 @@ void Player::Damage(int damage)
 
 	hp_ -= damage;
 
+	// 攻撃を受けるとテンションが溜まる
+	{
+		float gain = damage * cfg::Tension::GAIN_TAKEN_RATE;
+		if (gain > cfg::Tension::GAIN_TAKEN_MAX) { gain = cfg::Tension::GAIN_TAKEN_MAX; }
+		AddTension(gain);
+	}
+
 	if (hp_ <= 0)
 	{
 		hp_ = 0;
@@ -2431,6 +2767,10 @@ void Player::Damage(int damage)
 
 	// 攻撃をなくす
 	attack_.Reset();
+
+	// 追撃のチャンスもなくなる
+	pursuitWindow_ = 0.0f;
+	pursuitPending_ = false;
 
 	// 気溜めを解除
 	if (isCharging_ || isChargeEnding_)
@@ -2460,6 +2800,14 @@ void Player::Damage(int damage)
 	damageTimer_ = Constants::DamageStateTime;
 
 	animationController_->Play((int)ANIM_TYPE::DAMAGE, false);
+}
+
+void Player::ExtendDamageStun(float time)
+{
+	if (isDamage_ && damageTimer_ < time)
+	{
+		damageTimer_ = time;
+	}
 }
 
 void Player::AddKnockBack(VECTOR dir, float power)
@@ -2524,6 +2872,12 @@ bool Player::CanChase(void) const { return canChase_; }
 
 bool Player::UseKi(float amount)
 {
+	// ヒートアップ中は気力を消費しない
+	if (heatUp_)
+	{
+		return true;
+	}
+
 	if (ki_ < amount)
 	{
 		return false;

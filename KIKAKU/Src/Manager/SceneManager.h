@@ -1,7 +1,9 @@
 #pragma once
 #include <memory>
 #include <chrono>
+#include <functional>
 
+// 推奨しませんが、どうしても使いたい方は
 #define mainCamera SceneManager::GetInstance().GetCamera()
 
 class SceneBase;
@@ -51,6 +53,9 @@ public:
 
 	float GetTotalTime(void) const;
 
+	// エフェクトより手前に描くもの(HUDなど)。シーンが切り替わると消える
+	void SetOverlayDraw(std::function<void(void)> func) { overlayDraw_ = std::move(func); }
+
 private:
 
 	// 静的インスタンス
@@ -68,6 +73,9 @@ private:
 
 	// カメラ
 	std::unique_ptr<Camera> camera_;
+
+	// 最前面に描く処理
+	std::function<void(void)> overlayDraw_;
 
 	// シーン遷移中判定
 	bool isSceneChanging_;

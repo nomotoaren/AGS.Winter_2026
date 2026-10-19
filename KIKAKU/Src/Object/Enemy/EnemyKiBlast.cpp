@@ -51,6 +51,13 @@ void EnemyKiBlast::Update(float deltaTime)
 
 	time_ += deltaTime;
 
+	// Ž~‚ß‚ç‚ê‚Ä‚¢‚éŠÔ‚Í“®‚©‚¸AŽõ–½‚àŒ¸‚ç‚³‚È‚¢
+	if (isFrozen_)
+	{
+		life_ += deltaTime;
+		return;
+	}
+
 	if (time_ >= life_)
 	{
 		isDead_ = true;
@@ -87,7 +94,7 @@ void EnemyKiBlast::Update(float deltaTime)
 
 void EnemyKiBlast::Draw(void) const
 {
-	if (isDead_)
+	if (isDead_ || isFrozen_)
 	{
 		return;
 	}

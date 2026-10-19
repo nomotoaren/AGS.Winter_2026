@@ -184,3 +184,79 @@ void EnemyStunBar::DrawBreak(float elapsed) const
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 	SetFontSize(prevSize);
 }
+
+// 技の名前の帯(紫の半透明の帯。左へ向かって薄くなる)
+void EnemyStunBar::DrawSkillBanner(const char* name, float elapsed) const
+{
+	if (name == nullptr || elapsed < 0.0f || elapsed >= SKILL_BANNER_TIME)
+	{
+		return;
+	}
+
+	int sw = 0;
+	int sh = 0;
+	GetDrawScreenSize(&sw, &sh);
+	const float s = sw / BASE_WIDTH;
+
+	// EnemyHud と同じ式で、HPバーの右端と下端を求める(スタンゲージのさらに下)
+	const float iconR = ICON_RADIUS * s;
+	const float iconX = sw - MARGIN_X * s - iconR - 10.0f * s;
+	const float iconY = MARGIN_Y * s + iconR;
+
+	const float barRight = iconX - iconR * 0.35f;
+	const float hpBarY = iconY - 20.0f * s;
+
+	// 右から滑り込む / 終わり際に薄くなる
+	float slide = elapsed / 0.15f;
+	if (slide > 1.0f) { slide = 1.0f; }
+
+	const float remain = SKILL_BANNER_TIME - elapsed;
+	const float fade = (remain < 0.35f) ? remain / 0.35f : 1.0f;
+
+	const float w = 430.0f * s;
+	const float h = 30.0f * s;
+	const float right = barRight + (1.0f - slide) * 140.0f * s;
+	// 「バトル条件」(右上の帯)の下に出す
+	const float y = 214.0f * s;
+
+	// 帯: 左ほど透明
+	constexpr int SLICES = 28;
+	const float sliceW = w / SLICES;
+
+	for (int i = 0; i < SLICES; i++)
+	{
+		const float u = (float)(i + 1) / SLICES;
+		const int a = (int)(215.0f * fade * powf(u, 0.8f));
+
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, a);
+		DrawBoxAA(right - w + sliceW * i, y, right - w + sliceW * (i + 1) + 1.0f, y + h,
+			GetColor(130, 55, 200), TRUE);
+	}
+
+	// 上下の細い線
+	SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(200.0f * fade));
+	DrawBoxAA(right - w * 0.6f, y, right, y + 2.0f * s, GetColor(235, 190, 255), TRUE);
+	DrawBoxAA(right - w * 0.6f, y + h - 2.0f * s, right, y + h, GetColor(235, 190, 255), TRUE);
+
+	// 文字(右寄せ)。左に小さな印
+	const double scale = 1.35;
+	const int tw = (int)(GetDrawStringWidth(name, (int)strlen(name)) * scale);
+	const float textRight = right - 16.0f * s;
+	const float textX = textRight - tw;
+
+	SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(255.0f * fade));
+
+	// 印(爆発のような形)
+	{
+		const float ix = textX - 22.0f * s;
+		const float iy = y + h * 0.5f;
+		const float r = 9.0f * s;
+
+		DrawTriangleAA(ix - r, iy - r * 0.2f, ix + r * 0.1f, iy - r, ix + r * 0.2f, iy + r * 0.1f, GetColor(255, 235, 140), TRUE);
+		DrawTriangleAA(ix + r, iy + r * 0.2f, ix - r * 0.1f, iy + r, ix - r * 0.2f, iy - r * 0.1f, GetColor(255, 235, 140), TRUE);
+	}
+
+	DrawExtendString((int)textX, (int)(y + 4.0f * s), scale, scale, name, GetColor(255, 255, 255), GetColor(70, 20, 120));
+
+	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+}

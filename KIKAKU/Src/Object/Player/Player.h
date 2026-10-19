@@ -14,6 +14,7 @@
 #include "PlayerBoostChase.h"
 #include "PlayerGuard.h"
 #include "PlayerAttack.h"
+#include "PlayerFinishBlast.h"
 #include "../../Manager/ResourceManager.h"
 
 class AnimationController;
@@ -134,6 +135,7 @@ public:
 	void Init(void) override;
 	void Update(void) override;
 	void Draw(void) override;
+	void DrawHud(void);		// HUD(2D)。3Dやエフェクトより手前に出すため、Draw とは別に呼ぶ
 
 	void StopRecord(void);
 
@@ -160,6 +162,7 @@ public:
 
 	// ノックバック
 	void AddKnockBack(VECTOR dir, float power);
+	void ExtendDamageStun(float time);	// 被弾中なら、動けない時間を time 秒までのばす
 
 	// 敵と重ならないように位置をずらす(GameScene から呼ぶ)
 	void PushOut(const VECTOR& offset);
@@ -208,9 +211,32 @@ public:
 
 	bool IsDodging(void) const;
 
+	// テンションゲージ / ヒートアップ
+	static constexpr float MAX_TENSION = PlayerConfig::Tension::MAX;
+	float GetTension(void) const { return tension_; }
+	void AddTension(float amount);
+	bool IsHeatUp(void) const { return heatUp_; }
+	bool CanHeatUp(void) const;			// テンション満タン + 気力MAX(長押しで発動できる)
+	float GetHeatHoldRate(void) const;	// 長押しの進み具合(0~1)
+
+	// 追撃(ふっ飛ばした直後に攻撃ボタンで追い打ち。GameScene が瞬間移動と攻撃をする)
+	void OpenPursuit(bool fromPursuit);	// 追撃できる時間を始める(追撃の直後なら true で回数を数える)
+	bool ConsumePursuit(void);			// 追撃を出したことを1回だけ受け取る
+	bool IsPursuitReady(void) const { return pursuitWindow_ > 0.0f; }
+	float GetPursuitRate(void) const;	// 受付の残り(1~0)
+
+	// フィニッシュ気弾
+	const std::vector<std::unique_ptr<PlayerFinishBlast>>& GetFinishBlasts(void) const { return finishBlasts_; }
+
+	// 相殺勝負(GameScene が決める。かめはめ波を出し続けて、HUDに優劣を出す)
+	void SetClash(bool active, float rate);
+	bool IsClash(void) const { return clashActive_; }
+	float GetClashRate(void) const { return clashRate_; }
+
 	// ジャスト回避(敵の攻撃が回避に当たったときに敵側から呼ぶ。成立したら true)
 	bool TryJustDodge(void);
 	bool ConsumeVanish(void);			// バニッシュアタックを出したことを1回だけ受け取る(GameScene が瞬間移動と攻撃をする)
+	void DashStepTo(const VECTOR& pos, const VECTOR& targetPos);	// 追撃の移動: 瞬間移動せず、1コマ分だけ pos へ動く
 	void VanishTo(const VECTOR& pos, const VECTOR& targetPos);	// 残像を残して pos へ瞬間移動し、targetPos の方を向く
 	bool ConsumeJustDodge(void);		// 成立したことを1回だけ受け取る(GameScene がスローモーションを始めるのに使う)
 
@@ -229,7 +255,11 @@ public:
 	bool IsTransforming(void) const;
 	float GetAttackRate(void) const;	// 形態ごとの攻撃力倍率
 	// 敵に当てたときのダメージ数字(worldPos = 3D位置)
-	void AddDamagePopup(const VECTOR& worldPos, int damage) { hud_.AddDamagePopup(worldPos, damage); }
+	void AddDamagePopup(const VECTOR& worldPos, int damage)
+	{
+		hud_.AddDamagePopup(worldPos, damage);
+		AddTension(PlayerConfig::Tension::GAIN_DEAL);	// 攻撃を当てるとテンションが溜まる
+	}
 
 	FORM GetForm(void) const { return form_; }	// HUD表示用
 	int GetAttackDamage(int baseDamage) const;	// 基本ダメージに倍率をかけた値(最低1)
@@ -454,6 +484,11 @@ private:
 	void UpdateDodge(void);
 	void UpdateGuard(void);
 
+	// テンション・ヒートアップ・追撃・フィニッシュ気弾
+	void UpdateHeatUp(void);
+	void UpdateTensionTimers(float deltaTime);
+	void DrawHeatAura(void) const;
+
 	// 変身
 	void UpdateTransform(void);
 	void ApplyForm(FORM form);
@@ -534,6 +569,29 @@ private:
 	float vanishCalmTimer_ = 0.0f;	// バニッシュアタック後、カメラをゆっくり追従にする残り時間(秒)
 	bool vanishPending_ = false;	// バニッシュアタックを出した(GameScene が受け取るまで true)
 	float justCooldown_ = 0.0f;
+
+	// テンション / ヒートアップ
+	float tension_ = 0.0f;
+	bool heatUp_ = false;
+	float heatUpTimer_ = 0.0f;
+	float heatHold_ = 0.0f;
+	float heatBurst_ = 0.0f;		// ヒートアップ発動の閃光の残り時間
+
+	// 追撃
+	float pursuitWindow_ = 0.0f;	// 追撃できる残り時間
+	float pursuitAge_ = 0.0f;		// 追撃できるようになってからの時間
+	int pursuitChain_ = 0;			// 続けて追撃した回数
+	bool pursuitPending_ = false;	// 追撃を出した(GameScene が受け取るまで true)
+	float pursuitRecover_ = 0.0f;	// 追撃のあと、待機に戻すまでの残り時間
+
+	// フィニッシュ気弾
+	int kiBlastCount_ = 0;
+	float kiBlastChainTimer_ = 0.0f;
+	std::vector<std::unique_ptr<PlayerFinishBlast>> finishBlasts_;
+
+	// 相殺勝負
+	bool clashActive_ = false;
+	float clashRate_ = 0.5f;
 	float justBuffTimer_ = 0.0f;		// ダメージが上がっている残り時間
 	void StartStep(void);			// ステップを始める(向き・アニメ)
 

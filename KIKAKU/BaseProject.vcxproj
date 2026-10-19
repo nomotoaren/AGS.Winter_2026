@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Src\Object\Player\PlayerFinishBlast.cpp" />
     <ClCompile Include="Src\Object\Enemy\EnemyAreaBlast.cpp" />
     <ClCompile Include="Src\Object\Enemy\EnemyKiBlast.cpp" />
     <ClCompile Include="Src\Object\Enemy\EnemyStunBar.cpp" />
@@ -67,6 +68,7 @@
     <ClCompile Include="Src\Controller\TimeStopController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Src\Object\Player\PlayerFinishBlast.h" />
     <ClInclude Include="Src\Object\Enemy\EnemyAreaBlast.h" />
     <ClInclude Include="Src\Object\Enemy\EnemyKiBlast.h" />
     <ClInclude Include="Src\Object\Enemy\EnemyStunBar.h" />

@@ -46,6 +46,7 @@ private:
 	void DrawObjective(void) const;
 	void DrawCombo(void) const;
 	void DrawCommandPanel(const Player& player) const;
+	void DrawBattleHints(const Player& player) const;	// 追撃の案内・相殺勝負のゲージ
 	void DrawDamagePopups(void) const;
 
 	// 残量に応じたHPの色

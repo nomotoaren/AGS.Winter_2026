@@ -86,6 +86,16 @@ public:
 	// 叩きつけ開始
 	void StartSlamDown(void);
 
+	// 大きな気弾(相殺勝負用)
+	bool GetBigBlast(VECTOR& pos, float& radius, int& damage) const;	// あれば true
+	void SetBigBlastFrozen(bool frozen);	// 止める/再開
+	void KillBigBlast(void);
+
+	// ビーム(相殺勝負用)
+	bool GetBeam(VECTOR& origin, VECTOR& dir, float& radius, int& damage) const;	// 発射中なら true
+	void SetBeamClash(bool clash);	// ぶつかっている間は、止まって当たらない
+	void EndBeam(void);				// ビームを終わらせる(大きな隙ができる)
+
 	// ダウン中か
 	bool IsDown(void) const;
 
@@ -224,7 +234,13 @@ private:
 	void ReturnToWait(void);
 	void ResetAttack(void);
 	void CancelBoostChase(void);
-	void CancelSpecials(void);		// 気弾・突進の途中なら、やめて様子見に戻る
+	void CancelSpecials(void);
+
+	// 反撃(殴られ続けたら吹き飛ばす)と、見えない気(たまると、ひるまずに大技を出す)
+	void UpdateCounterAndKi(float deltaTime, bool isStunned);
+	void DoCounterBurst(void);
+	bool ForceSpecial(void);
+	bool IsDoingSpecial(void) const;		// 気弾・突進の途中なら、やめて様子見に戻る
 
 	// AI
 	void UpdateAI(const AIContext& ctx);
@@ -355,6 +371,14 @@ private:
 
 	// ビーム
 	float beamCoolTimer_ = 0.0f;
+	int hitStreak_ = 0;				// 短い間に殴られた回数
+	float hitStreakTimer_ = 0.0f;
+	float hitGate_ = 0.0f;			// 連続で数えすぎないための間隔
+	float burstCool_ = 0.0f;		// 反撃の再使用までの時間
+	float burstFx_ = 0.0f;			// 反撃の衝撃波の表示時間
+	float enemyKi_ = 0.0f;			// 敵の気(見えない)。自動で回復し、たまると大技を出す
+	bool clashLock_ = false;			// 相殺勝負中: 敵は動かず、攻撃も受けない
+	bool beamClash_ = false;			// 相殺勝負中(ビームは止まり、ダメージも出ない)
 	bool beamLocked_ = false;			// 狙いを固定したか
 	float beamHitCool_ = 0.0f;			// 次にダメージが入るまでの時間(発射中、当たり続けると一定間隔で入る)
 	VECTOR beamOrigin_ = { 0.0f, 0.0f, 0.0f };

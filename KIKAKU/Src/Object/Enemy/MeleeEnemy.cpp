@@ -75,7 +75,7 @@ namespace
 	constexpr float kChestHeight = 90.0f;			// 敵の足元から胸までの高さ
 
 	// 突進
-	constexpr float kRushReadyTime = 0.5f;			// 構えの時間(秒)。この間に避けられる
+	constexpr float kRushReadyTime = 1.3f;			// 赤く光って溜める時間(秒)。殴ってもひるまず、この間に避けられる
 	constexpr float kRushSpeed = 22.0f;				// 突進の速さ(1/60秒あたり)
 	constexpr float kRushTime = 0.6f;				// 突進する最大時間(秒)
 	constexpr float kRushHitRange = 90.0f;			// プレイヤーに当たる距離
@@ -146,6 +146,20 @@ namespace
 
 	// 範囲大技
 	constexpr float kBigChargeTime = 1.3f;			// 溜め。ここで殴れば中断できる
+	// 反撃(殴られ続けたとき、プレイヤーを吹き飛ばす)
+	constexpr int   kBurstHits = 7;					// この回数殴られたら反撃
+	constexpr float kBurstWindow = 2.5f;			// 殴られた回数を数える時間
+	constexpr float kBurstRange = 320.0f;			// 反撃が届く距離
+	constexpr float kBurstCoolTime = 5.0f;
+	constexpr float kBurstFxTime = 1.2f;
+	constexpr int   kBurstDamage = 8;
+	constexpr float kBurstKnock = 90.0f;			// 吹き飛ばす強さ(約450の距離。すぐ殴り返せない)
+	constexpr float kBurstStun = 0.8f;				// 吹き飛ばされたあと、プレイヤーが動けない時間(秒)
+
+	// 敵の気(見えない)
+	constexpr float kEnemyKiMax = 100.0f;
+	constexpr float kEnemyKiRegen = 7.0f;			// 1秒あたりの回復量
+
 	constexpr float kBigCoolTime = 12.0f;
 	constexpr float kBigRadius = 190.0f;
 	constexpr float kBigWarnTime = 1.2f;			// 警告が出てから爆発するまで
@@ -172,6 +186,13 @@ namespace
 	constexpr float kBeamKnock = 30.0f;
 	constexpr float kBeamRecoverTime = 1.0f;		// 撃ったあとの大きな隙
 
+	// 技の名前(画面右上に帯で出す)
+	constexpr const char* kNameBeam = "ギャリック砲";
+	constexpr const char* kNameBarrage = "連続エネルギー弾";
+	constexpr const char* kNameBarrageBig = "ビッグバンアタック";
+	constexpr const char* kNameBigBlast = "ギガンティックボム";
+	constexpr const char* kNameSlam = "メテオダイブ";
+
 	// 気弾の連射
 	constexpr float kBarrageChargeTime = 1.0f;		// 赤いオーラをまとって気を溜める時間(この間、上へ昇る)
 	constexpr float kBarrageInterval = 0.035f;		// 1秒に約28発		// 1発ごとの間隔
@@ -190,7 +211,7 @@ namespace
 	// 連射のあとの、大きな気弾
 	constexpr float kBarrageBigChargeTime = 1.2f;	// 大きな気弾を溜める時間(秒)。この間に近づいて殴れる
 	constexpr float kBarrageBigRadius = 55.0f;
-	constexpr float kBarrageBigSpeed = 12.0f;
+	constexpr float kBarrageBigSpeed = 8.0f;
 	constexpr int   kBarrageBigDamage = 40;
 	constexpr float kBarrageBigHomingTurn = 2.0f;
 	constexpr float kBarrageBigHomingTime = 3.0f;
@@ -445,6 +466,15 @@ void MeleeEnemy::Update(void)
 	UpdateBlasts(deltaTime);
 	UpdateAreaBlasts(deltaTime);
 
+	// 相殺勝負中は、その場から動かない(他の攻撃を受けても押されたりしない)
+	if (clashLock_)
+	{
+		knockBackPow_ = AsoUtility::VECTOR_ZERO;
+		animationController_->Update();
+		transform_.Update();
+		return;
+	}
+
 	animationController_->Update();
 
 	CountDown(guardCoolTimer_, deltaTime);
@@ -481,6 +511,8 @@ void MeleeEnemy::Update(void)
 
 	// 以下の関数は、そのフレームの更新を終えたときに true を返す
 	if (UpdateKamehamePush()) { return; }
+
+	UpdateCounterAndKi(deltaTime, isStunned);
 
 	const VECTOR playerPos = player_.GetTransform().pos;
 	const float distance = VSize(VSub(playerPos, transform_.pos));
@@ -598,7 +630,12 @@ bool MeleeEnemy::UpdateKnockBack(void)
 		return false;
 	}
 
-	if (!isDamage_)
+	if (isDamage_)
+	{
+		// 殴られている間は、よろめきが続く(動かない)
+		damageTimer_ = kKnockBackDamageTime;
+	}
+	else
 	{
 		isDamage_ = true;
 		damageTimer_ = kKnockBackDamageTime;
@@ -770,6 +807,12 @@ void MeleeEnemy::OnStunEnd(void)
 // プレイヤーが攻撃を始めたときに、1回だけ「回避する / ガードする / 何もしない」を決める
 bool MeleeEnemy::TryReactToPlayerAttack(float distance)
 {
+	// 必殺技の最中は、ガードや回避に切り替えない
+	if (IsSuperArmor())
+	{
+		return false;
+	}
+
 	if (distance > kReactDistance)
 	{
 		return false;
@@ -856,12 +899,17 @@ bool MeleeEnemy::IsSuperArmor(void) const
 		aiState_ == AI_STATE::BIG_CHARGE ||
 		aiState_ == AI_STATE::BEAM_CHARGE ||
 		aiState_ == AI_STATE::RUSH_READY ||
-		aiState_ == AI_STATE::SLAM_RISE;
+		aiState_ == AI_STATE::SLAM_RISE ||
+		// 必殺技の本番中も、殴られても止まらない
+		aiState_ == AI_STATE::BEAM_FIRE ||
+		aiState_ == AI_STATE::KI_BARRAGE ||
+		aiState_ == AI_STATE::SLAM_DIVE ||
+		aiState_ == AI_STATE::RUSH;
 }
 
 bool MeleeEnemy::IsInvincible(void) const
 {
-	return invincibleTimer_ > 0.0f;
+	return invincibleTimer_ > 0.0f || clashLock_;
 }
 
 void MeleeEnemy::Damage(int damage)
@@ -870,6 +918,14 @@ void MeleeEnemy::Damage(int damage)
 	if (IsInvincible())
 	{
 		return;
+	}
+
+	// 殴られた回数を数える(反撃のきっかけ)
+	if (hitGate_ <= 0.0f)
+	{
+		hitStreak_++;
+		hitGate_ = 0.1f;
+		hitStreakTimer_ = kBurstWindow;
 	}
 
 	EnemyBase::Damage(damage);
@@ -1141,7 +1197,7 @@ void MeleeEnemy::UpdateBlasts(float deltaTime)
 	{
 		blast.Update(deltaTime);
 
-		if (blast.IsDead())
+		if (blast.IsDead() || blast.IsFrozen())
 		{
 			continue;
 		}
@@ -1165,6 +1221,83 @@ void MeleeEnemy::UpdateBlasts(float deltaTime)
 		std::remove_if(blasts_.begin(), blasts_.end(),
 			[](const EnemyKiBlast& b) { return b.IsDead(); }),
 		blasts_.end());
+}
+
+// ビーム(相殺勝負用)
+bool MeleeEnemy::GetBeam(VECTOR& origin, VECTOR& dir, float& radius, int& damage) const
+{
+	if (aiState_ != AI_STATE::BEAM_FIRE)
+	{
+		return false;
+	}
+
+	origin = beamOrigin_;
+	dir = beamDir_;
+	radius = kBeamRadius;
+	damage = kBeamDamage;
+	return true;
+}
+
+void MeleeEnemy::SetBeamClash(bool clash)
+{
+	beamClash_ = clash;
+	clashLock_ = clash;
+}
+
+void MeleeEnemy::EndBeam(void)
+{
+	beamClash_ = false;
+	clashLock_ = false;
+	beamLocked_ = false;
+	beamCoolTimer_ = kBeamCoolTime;
+
+	// 撃ったあとと同じ、大きな隙
+	SetAIState(AI_STATE::WAIT);
+	aiTimer_ = -kBeamRecoverTime;
+}
+
+// 大きな気弾(相殺勝負用)
+bool MeleeEnemy::GetBigBlast(VECTOR& pos, float& radius, int& damage) const
+{
+	for (const auto& blast : blasts_)
+	{
+		if (!blast.IsDead() && blast.IsBig())
+		{
+			pos = blast.GetPos();
+			radius = blast.GetRadius();
+			damage = blast.GetDamage();
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void MeleeEnemy::SetBigBlastFrozen(bool frozen)
+{
+	clashLock_ = frozen;
+
+	for (auto& blast : blasts_)
+	{
+		if (blast.IsBig())
+		{
+			blast.SetFrozen(frozen);
+		}
+	}
+}
+
+void MeleeEnemy::KillBigBlast(void)
+{
+	clashLock_ = false;
+
+	for (auto& blast : blasts_)
+	{
+		if (blast.IsBig())
+		{
+			blast.SetFrozen(false);
+			blast.Kill();
+		}
+	}
 }
 
 //----------------------------------------------------------------------
@@ -1568,6 +1701,13 @@ bool MeleeEnemy::UpdateBeam(float deltaTime, const VECTOR& playerPos)
 
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 
+	// 相殺勝負中は、ビームも時間も止める
+	if (beamClash_ && aiState_ == AI_STATE::BEAM_FIRE)
+	{
+		transform_.Update();
+		return true;
+	}
+
 	aiTimer_ += deltaTime;
 
 	const VECTOR playerCenter = VAdd(playerPos, VGet(0.0f, kPlayerCenterHeight, 0.0f));
@@ -1700,6 +1840,7 @@ bool MeleeEnemy::UpdateKiBarrage(float deltaTime, const VECTOR& playerPos)
 		if (!barrageBigPhase_)
 		{
 			barrageBigPhase_ = true;
+			ShowSkillName(kNameBarrageBig);
 			barrageBigTimer_ = 0.0f;
 		}
 
@@ -1783,6 +1924,7 @@ void MeleeEnemy::FireBarrageBig(void)
 	blast.Init(origin, VSub(target, origin), kBarrageBigSpeed, kBarrageBigRadius, kKiLife + 1.0f);
 	blast.SetDamage(kBarrageBigDamage);
 	blast.SetKnock(4.0f);
+	blast.SetBig(true);
 	blast.SetHoming(&player_.GetTransform().pos, kPlayerCenterHeight, kBarrageBigHomingTurn, kBarrageBigHomingTime);
 
 	blasts_.push_back(blast);
@@ -1953,6 +2095,163 @@ void MeleeEnemy::UpdateTrail(float deltaTime)
 	}
 }
 
+// 大技・突進などの最中か
+bool MeleeEnemy::IsDoingSpecial(void) const
+{
+	return aiState_ == AI_STATE::KI_CHARGE ||
+		aiState_ == AI_STATE::RUSH_READY ||
+		aiState_ == AI_STATE::RUSH ||
+		aiState_ == AI_STATE::BIG_CHARGE ||
+		aiState_ == AI_STATE::GRAB_READY ||
+		aiState_ == AI_STATE::CHASE_VANISH ||
+		aiState_ == AI_STATE::CHASE_APPEAR ||
+		aiState_ == AI_STATE::BEAM_CHARGE ||
+		aiState_ == AI_STATE::BEAM_FIRE ||
+		aiState_ == AI_STATE::KI_BARRAGE ||
+		aiState_ == AI_STATE::SLAM_RISE ||
+		aiState_ == AI_STATE::SLAM_DIVE ||
+		aiState_ == AI_STATE::BOOST_ATTACK;
+}
+
+// 反撃と気: 毎フレーム呼ぶ(スタン中は反撃も大技もしない)
+void MeleeEnemy::UpdateCounterAndKi(float deltaTime, bool isStunned)
+{
+	CountDown(hitGate_, deltaTime);
+	CountDown(burstCool_, deltaTime);
+	CountDown(burstFx_, deltaTime);
+
+	if (hitStreakTimer_ > 0.0f)
+	{
+		hitStreakTimer_ -= deltaTime;
+
+		if (hitStreakTimer_ <= 0.0f)
+		{
+			hitStreak_ = 0;
+		}
+	}
+
+	// 気は自動で回復する
+	enemyKi_ += kEnemyKiRegen * deltaTime;
+
+	if (enemyKi_ > kEnemyKiMax)
+	{
+		enemyKi_ = kEnemyKiMax;
+	}
+
+	if (isStunned || isDead_ || clashLock_ || isKamehameHit_ || IsDoingSpecial())
+	{
+		return;
+	}
+
+	// 殴られ続けたら、プレイヤーを吹き飛ばす
+	if (hitStreak_ >= kBurstHits && burstCool_ <= 0.0f)
+	{
+		DoCounterBurst();
+		return;
+	}
+
+	// 気がたまったら、殴られていてもひるまずに大技を出す
+	if (enemyKi_ >= kEnemyKiMax)
+	{
+		ForceSpecial();
+	}
+}
+
+// 反撃: 衝撃波でプレイヤーを吹き飛ばす(ガードバースト)
+void MeleeEnemy::DoCounterBurst(void)
+{
+	hitStreak_ = 0;
+	hitStreakTimer_ = 0.0f;
+	burstCool_ = kBurstCoolTime;
+
+	// よろめきをやめて、こちらから動く
+	isDamage_ = false;
+	damageTimer_ = 0.0f;
+	knockBackPow_ = AsoUtility::VECTOR_ZERO;
+	ResetAttack();
+	CancelBoostChase();
+	ReturnToWait();
+	if (attackCoolTimer_ < 1.5f)
+	{
+		attackCoolTimer_ = 1.5f;
+	}
+
+	LookAtPlayer();
+
+	const VECTOR toPlayer = VSub(player_.GetTransform().pos, transform_.pos);
+
+	if (VSize(toPlayer) > kBurstRange)
+	{
+		return;
+	}
+
+	burstFx_ = kBurstFxTime;
+
+	ApplyHitToPlayer(transform_.pos, kBurstDamage, kBurstKnock, 60.0f, 8.0f);
+
+	// 吹き飛ばされたあと、少しの間動けない
+	if (lastHitDamaged_)
+	{
+		player_.ExtendDamageStun(kBurstStun);
+	}
+
+	EffekseerEffect::GetInstance()->PlayHitEffect(VAdd(transform_.pos, VGet(0.0f, 90.0f, 0.0f)), 0.0f);
+
+	// 離れたところで、すぐに大技の溜めに入る
+	ForceSpecial();
+}
+
+// 気がたまった: 大技を出す(使える中からランダム。出せるものが無ければ何もしない)
+bool MeleeEnemy::ForceSpecial(void)
+{
+	const bool enraged = (hp_ * 2 <= maxHp_);
+
+	int options[3] = {};
+	int count = 0;
+
+	if (bigCoolTimer_ <= 0.0f) { options[count++] = 0; }
+	if (beamCoolTimer_ <= 0.0f) { options[count++] = 1; }
+	if (barrageCoolTimer_ <= 0.0f) { options[count++] = 2; }
+
+	if (count == 0)
+	{
+		return false;
+	}
+
+	const int pick = options[GetRand(count - 1)];
+
+	// 今の行動(よろめき・ガード・近接攻撃)をやめる
+	isDamage_ = false;
+	damageTimer_ = 0.0f;
+	isGuard_ = false;
+	guardTimer_ = 0.0f;
+	knockBackPow_ = AsoUtility::VECTOR_ZERO;
+	ResetAttack();
+	CancelBoostChase();
+
+	switch (pick)
+	{
+	case 0:
+		SetAIState(AI_STATE::BIG_CHARGE);
+		break;
+
+	case 1:
+		SetAIState(AI_STATE::BEAM_CHARGE);
+		beamLocked_ = false;
+		break;
+
+	default:
+		SetAIState(AI_STATE::KI_BARRAGE);
+		barrageShotsLeft_ = enraged ? kBarrageCountEnraged : kBarrageCount;
+		barrageShotTimer_ = 0.0f;
+		barrageBigPhase_ = false;
+		barrageBigTimer_ = 0.0f;
+		break;
+	}
+
+	return true;
+}
+
 // 気弾・突進の途中なら、やめて様子見に戻る(殴られたときなど)
 void MeleeEnemy::CancelSpecials(void)
 {
@@ -1985,6 +2284,30 @@ void MeleeEnemy::SetAIState(AI_STATE state)
 {
 	aiState_ = state;
 	aiTimer_ = 0.0f;
+
+	// ビーム発射以外になったら、相殺勝負は終わり
+	if (state != AI_STATE::BEAM_FIRE)
+	{
+		if (beamClash_) { clashLock_ = false; }
+		beamClash_ = false;
+	}
+
+	// 大技は、名前を画面に出す
+	// 大技を出すと、気を使い切る
+	if (state == AI_STATE::BEAM_CHARGE || state == AI_STATE::KI_BARRAGE ||
+		state == AI_STATE::BIG_CHARGE || state == AI_STATE::SLAM_RISE)
+	{
+		enemyKi_ = 0.0f;
+	}
+
+	switch (state)
+	{
+	case AI_STATE::BEAM_CHARGE:	ShowSkillName(kNameBeam);		break;
+	case AI_STATE::KI_BARRAGE:	ShowSkillName(kNameBarrage);	break;
+	case AI_STATE::BIG_CHARGE:	ShowSkillName(kNameBigBlast);	break;
+	case AI_STATE::SLAM_RISE:	ShowSkillName(kNameSlam);		break;
+	default: break;
+	}
 }
 
 // 待機状態に戻して、IDLEアニメーションにする
@@ -2102,9 +2425,12 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 
 	if (ctx.distance < kNearDistance)
 	{
-		weights[ACT_ATTACK] = canAttack ? 6 : 0;
-		weights[ACT_SIDE] = 1;
-		weights[ACT_RUSH] = canRush ? (enraged ? 3 : 1) : 0;
+		// 近いからといって殴り続けない: 下がって気弾を撃ったり、動き回って間合いを取り直す
+		weights[ACT_ATTACK] = canAttack ? 2 : 0;
+		weights[ACT_SIDE] = 3;
+		weights[ACT_KI] = canKi ? 2 : 0;
+		// 近距離でも、赤く光って溜めてからの強攻撃(突進)を出す
+		weights[ACT_RUSH] = canRush ? (enraged ? 5 : 4) : 0;
 		weights[ACT_BIG] = canBig ? (enraged ? 2 : 1) : 0;
 		weights[ACT_SLAM] = canSlam ? 1 : 0;
 	}
@@ -2121,11 +2447,12 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 	}
 	else
 	{
-		weights[ACT_BOOST] = 3;
-		weights[ACT_KI] = canKi ? (enraged ? 5 : 3) : 0;
-		weights[ACT_BIG] = canBig ? (enraged ? 4 : 2) : 0;
-		weights[ACT_BEAM] = canBeam ? (enraged ? 4 : 3) : 0;
-		weights[ACT_BARRAGE] = canBarrage ? (enraged ? 5 : 4) : 0;
+		// 遠いときは詰めてくるのを優先(遠距離攻撃だけで居座らせない)
+		weights[ACT_BOOST] = 12;
+		weights[ACT_KI] = canKi ? (enraged ? 3 : 2) : 0;
+		weights[ACT_BIG] = canBig ? (enraged ? 2 : 1) : 0;
+		weights[ACT_BEAM] = canBeam ? (enraged ? 2 : 1) : 0;
+		weights[ACT_BARRAGE] = canBarrage ? (enraged ? 3 : 2) : 0;
 	}
 
 	if (wantGrab)
@@ -2418,6 +2745,19 @@ void MeleeEnemy::Draw(void)
 	{
 		SetUseLighting(FALSE);
 		MV1DrawModel(transform_.modelId);
+
+		// スーパーアーマー中(大技の溜めなど)は、体が赤く光る
+		if (IsSuperArmor())
+		{
+			const float glow = 0.5f + 0.5f * sinf(hoverTime_ * 14.0f);
+
+			SetDrawBlendMode(DX_BLENDMODE_ADD, 120 + (int)(80.0f * glow));
+			MV1SetDifColorScale(transform_.modelId, GetColorF(1.0f, 0.15f, 0.1f, 1.0f));
+			MV1DrawModel(transform_.modelId);
+			MV1SetDifColorScale(transform_.modelId, GetColorF(1.0f, 1.0f, 1.0f, 1.0f));
+			SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		}
+
 		SetUseLighting(TRUE);
 	}
 
@@ -2427,9 +2767,28 @@ void MeleeEnemy::Draw(void)
 		const float pulse = 0.5f + 0.5f * sinf(hoverTime_ * 14.0f);
 
 		SetUseLighting(FALSE);
+		SetWriteZBuffer3D(FALSE);
 		SetDrawBlendMode(DX_BLENDMODE_ADD, 70 + (int)(50.0f * pulse));
 		DrawSphere3D(GetChestPos(), 85.0f + 8.0f * pulse, 20, GetColor(255, 30, 10), GetColor(255, 30, 10), TRUE);
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		SetWriteZBuffer3D(TRUE);
+		SetUseLighting(TRUE);
+	}
+
+	// 反撃の衝撃波
+	if (burstFx_ > 0.0f && !isHidden_)
+	{
+		// 最初の0.3割で一気に広がり、しばらく残ってから消える
+		const float t = 1.0f - burstFx_ / kBurstFxTime;
+		const float grow = Saturate(t / 0.25f);
+		const float fade = (t < 0.6f) ? 1.0f : Saturate((1.0f - t) / 0.4f);
+
+		SetUseLighting(FALSE);
+		SetWriteZBuffer3D(FALSE);
+		SetDrawBlendMode(DX_BLENDMODE_ADD, (int)(130.0f * fade));
+		DrawSphere3D(GetChestPos(), 50.0f + 270.0f * grow, 24, GetColor(170, 215, 255), GetColor(170, 215, 255), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		SetWriteZBuffer3D(TRUE);
 		SetUseLighting(TRUE);
 	}
 
@@ -2452,8 +2811,7 @@ void MeleeEnemy::Draw(void)
 	// 気弾・突進の予告(プレイヤーが避ける目印)
 	DrawTelegraph();
 
-	// HPバー・スタンゲージ(2D)
-	DrawHud();
+	// HPバー・スタンゲージ(2D)は DrawOverlay で、最後にまとめて描く
 }
 
 // 気を溜めている光・突進の構えの光
@@ -2571,8 +2929,6 @@ void MeleeEnemy::DrawTelegraph(void) const
 			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 85 + (int)(55.0f * pulse));
 			DrawCapsule3D(beamOrigin_, end, kBeamRadius, 12, GetColor(255, 0, 0), GetColor(255, 0, 0), TRUE);
 
-			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 220 + (int)(35.0f * pulse));
-			DrawCapsule3D(beamOrigin_, end, 8.0f, 6, GetColor(255, 220, 0), GetColor(255, 220, 0), TRUE);
 		}
 
 		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
@@ -2658,7 +3014,7 @@ void MeleeEnemy::DrawTelegraph(void) const
 	}
 
 	// ビーム発射: 紫の太い光線(外側→中→白い芯)
-	if (aiState_ == AI_STATE::BEAM_FIRE)
+	if (aiState_ == AI_STATE::BEAM_FIRE && !beamClash_)
 	{
 		const float grow = Saturate(aiTimer_ / kBeamGrowTime);
 		const float remain = kBeamFireTime - aiTimer_;

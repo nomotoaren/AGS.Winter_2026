@@ -18,7 +18,7 @@ public:
 	static constexpr float STUN_DECAY_DELAY = 3.0f;		// 攻撃されなくなってから、ゲージが減り始めるまでの時間(秒)
 	static constexpr float STUN_DECAY_SPEED = 15.0f;	// ゲージが減る速さ(1秒あたり)
 	static constexpr float STUN_RESIST_TIME = 6.0f;		// スタンが終わったあと、ゲージがたまらない時間(秒)
-	static constexpr int FLINCH_CHANCE = 12;			// 弱い攻撃でひるむ確率(%)。普段は怯まず、殴られても行動を続ける
+	static constexpr int FLINCH_CHANCE = 100;			// 弱い攻撃でひるむ確率(%)。普段は怯まず、殴られても行動を続ける
 	static constexpr float HEAVY_KNOCK = 20.0f;		// これ以上の吹き飛ばしは必ずひるむ(フィニッシュ・かめはめ波など)
 	static constexpr float ARMOR_KNOCK_RATE = 0.25f;	// ひるまないときの、押される強さの倍率
 	static constexpr int STUN_DAMAGE_RATE = 2;			// スタン中に受けるダメージの倍率
@@ -54,6 +54,9 @@ public:
 	// スタン中か
 	bool IsStunned(void) const;
 
+	// HPバーなどの2D表示(3Dより手前に出すため、Draw とは別に呼ぶ)
+	void DrawOverlay(void) { DrawHud(); }
+
 	// スタンゲージの割合(0~1)。スタン中は、残り時間の割合
 	float GetStunRate(void) const;
 
@@ -84,6 +87,9 @@ protected:
 	void InitHud(const std::string& name, int maxHp);
 	void UpdateHud(void);
 	void DrawHud(void);
+
+	// 技の名前を画面に出す(技を出す瞬間に各敵が呼ぶ)
+	void ShowSkillName(const char* name);
 
 	// スタンゲージの更新(各敵が Update で毎フレーム呼ぶ)
 	//   戻り値: スタン中なら true
@@ -129,5 +135,10 @@ private:
 	float stunResist_;			// スタン直後の、ゲージがたまらない残り時間
 	float breakTime_ = 999.0f;	// ゲージが割れてからの経過時間(BREAK!演出用)
 	float stunBarTime_;			// ゲージの点滅用
+
+	// 技の名前の帯
+	std::string skillName_;
+	int skillNameStartMs_ = 0;
+	bool hasSkillName_ = false;
 
 };

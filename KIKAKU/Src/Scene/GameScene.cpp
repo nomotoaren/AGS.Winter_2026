@@ -4,6 +4,7 @@
 #include "../Manager/SceneManager.h"
 #include "../Manager/Camera.h"
 #include "../Manager/InputManager.h"
+#include "../Manager/PadInput.h"
 #include "../Manager/EffekseerEffect.h"
 #include "../Object/Common/Capsule.h"
 #include "../Object/Common/Collider.h"
@@ -20,6 +21,7 @@
 #include "GameScene.h"
 #include <cmath>
 #include <cfloat>
+#include <unordered_map>
 
 namespace
 {
@@ -37,6 +39,85 @@ namespace
 	constexpr float ATTACK_HEIGHT_RANGE = 150.0f;
 	// 水平距離がこれ以下のときは向き判定をしない(真上・真下の敵用)
 	constexpr float ATTACK_DOT_MIN_DISTANCE = 20.0f;
+
+	// 相殺勝負(かめはめ波と敵の大きな気弾のぶつかり合い)の状態
+	struct ClashState
+	{
+		bool active = false;
+		MeleeEnemy* enemy = nullptr;
+		VECTOR pos = { 0.0f, 0.0f, 0.0f };	// ぶつかっている光の位置
+		float rate = 0.5f;					// 優劣(0=負け 1=勝ち)
+		float timer = 0.0f;
+		bool isBeam = false;				// 相手は大きな気弾ではなく、ビーム
+		VECTOR enemySide = { 0.0f, 0.0f, 0.0f };	// 敵側の光線の出どころ
+	};
+
+	ClashState g_clash;
+
+	float Clamp01(float v)
+	{
+		return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
+	}
+
+	// 2本の線分の最短距離(c1, c2 は、それぞれの線分上の最も近い点)
+	float SegmentDistance(const VECTOR& p1, const VECTOR& q1, const VECTOR& p2, const VECTOR& q2,
+		VECTOR& c1, VECTOR& c2)
+	{
+		const VECTOR d1 = VSub(q1, p1);
+		const VECTOR d2 = VSub(q2, p2);
+		const VECTOR r = VSub(p1, p2);
+		const float a = VDot(d1, d1);
+		const float e = VDot(d2, d2);
+		const float f = VDot(d2, r);
+		float s = 0.0f;
+		float t = 0.0f;
+
+		if (a <= 1.0e-6f && e <= 1.0e-6f)
+		{
+			s = 0.0f;
+			t = 0.0f;
+		}
+		else if (a <= 1.0e-6f)
+		{
+			t = Clamp01(f / e);
+		}
+		else
+		{
+			const float c = VDot(d1, r);
+
+			if (e <= 1.0e-6f)
+			{
+				s = Clamp01(-c / a);
+			}
+			else
+			{
+				const float bb = VDot(d1, d2);
+				const float denom = a * e - bb * bb;
+
+				s = (denom > 1.0e-6f) ? Clamp01((bb * f - c * e) / denom) : 0.0f;
+				t = (bb * s + f) / e;
+
+				if (t < 0.0f)
+				{
+					t = 0.0f;
+					s = Clamp01(-c / a);
+				}
+				else if (t > 1.0f)
+				{
+					t = 1.0f;
+					s = Clamp01((bb - c) / a);
+				}
+			}
+		}
+
+		c1 = VAdd(p1, VScale(d1, s));
+		c2 = VAdd(p2, VScale(d2, t));
+
+		return VSize(VSub(c1, c2));
+	}
+
+	// かめはめ波が敵に当たったか(ビームが終わったら追撃のチャンスを出す)
+	bool g_kamehameHit = false;
 }
 
 GameScene::GameScene(void)
@@ -68,6 +149,25 @@ GameScene::~GameScene(void)
 
 void GameScene::Init(void)
 {
+
+	// HUD(自分・敵のHPバーなど)は、エフェクトや弾より手前に出す
+	SceneManager::GetInstance().SetOverlayDraw([this]()
+		{
+			for (auto& enemy : enemies_)
+			{
+				if (enemy && !enemy->IsDead())
+				{
+					enemy->DrawOverlay();
+				}
+			}
+
+			if (player_)
+			{
+				player_->DrawHud();
+			}
+		});
+	g_clash = ClashState();
+	g_kamehameHit = false;
 
 	// プレイヤー
 	player_ = std::make_unique<Player>();
@@ -460,6 +560,342 @@ void GameScene::Update(void)
 					isHitStop_ = true;
 					hitStopTimer_ = PlayerConfig::Vanish::HIT_STOP;
 					mainCamera.StartShake(PlayerConfig::Vanish::SHAKE_TIME, PlayerConfig::Vanish::SHAKE_POWER);
+
+					// (追撃はブレイクしたときだけ)
+				}
+			}
+		}
+
+		// 追撃: ふっ飛ばした敵の元へ瞬間移動して、追い打ちする
+		{
+			static EnemyBase* pursuitTarget = nullptr;
+			static float pursuitTimer = 0.0f;
+			static VECTOR pursuitDir = { 0.0f, 0.0f, 1.0f };
+
+			if (player_->ConsumePursuit())
+			{
+				auto* target = lockOnTarget_;
+
+				if (target == nullptr || target->IsDead())
+				{
+					target = nullptr;
+					float best = FLT_MAX;
+
+					for (auto& enemy : enemies_)
+					{
+						if (!enemy || enemy->IsDead())
+						{
+							continue;
+						}
+
+						const float d = VSize(VSub(enemy->GetTransform().pos, player_->GetTransform().pos));
+
+						if (d < best)
+						{
+							best = d;
+							target = enemy.get();
+						}
+					}
+				}
+
+				if (target != nullptr)
+				{
+					// 瞬間移動はせず、敵のところまで速く飛んでいく(下で毎コマ動かす)
+					pursuitTarget = target;
+					pursuitTimer = PlayerConfig::Pursuit::HIT_DELAY;
+					pursuitDir = VGet(0.0f, 0.0f, 1.0f);
+				}
+			}
+
+			if (pursuitTarget != nullptr)
+			{
+				pursuitTimer -= SceneManager::GetInstance().GetDeltaTime();
+
+				if (pursuitTarget->IsDead())
+				{
+					pursuitTarget = nullptr;
+				}
+				else
+				{
+					// 敵の手前まで、決まった速さで近づく
+					const VECTOR enemyNow = pursuitTarget->GetTransform().pos;
+					const VECTOR playerNow = player_->GetTransform().pos;
+
+					VECTOR flat = VSub(enemyNow, playerNow);
+					flat.y = 0.0f;
+					flat = (VSize(flat) > 0.001f) ? VNorm(flat) : pursuitDir;
+					pursuitDir = flat;
+
+					VECTOR stop = VSub(enemyNow, VScale(flat, PlayerConfig::Pursuit::DISTANCE));
+					stop.y = enemyNow.y + PlayerConfig::Pursuit::HEIGHT;
+
+					if (stop.y < PlayerConfig::Pursuit::MIN_HEIGHT)
+					{
+						stop.y = PlayerConfig::Pursuit::MIN_HEIGHT;
+					}
+
+					const VECTOR toStop = VSub(stop, playerNow);
+					const float remain = VSize(toStop);
+					const float step = PlayerConfig::Pursuit::DASH_SPEED * SceneManager::GetInstance().GetDeltaTime();
+
+					const bool arrived = (remain <= step) || (pursuitTimer <= 0.0f);
+
+					if (arrived)
+					{
+						player_->DashStepTo(stop, enemyNow);
+					}
+					else
+					{
+						player_->DashStepTo(VAdd(playerNow, VScale(toStop, step / remain)), enemyNow);
+					}
+
+					if (arrived)
+					{
+						EnemyBase* target = pursuitTarget;
+						pursuitTarget = nullptr;
+
+						const VECTOR enemyPos = target->GetTransform().pos;
+						const VECTOR dir = pursuitDir;
+
+						const int dmg =
+							player_->GetAttackDamage(Player::ATTACK_DAMAGE) * PlayerConfig::Pursuit::DAMAGE_RATE;
+
+						target->Damage(dmg);
+						target->AddStun(PlayerConfig::Pursuit::STUN);
+						player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 130.0f, 0.0f)), dmg);
+
+						MeleeEnemy* meleeEnemy = dynamic_cast<MeleeEnemy*>(target);
+
+						if (meleeEnemy != nullptr)
+						{
+							meleeEnemy->LookAtPlayer();
+						}
+
+						// また遠くへふっ飛ばす
+						target->AddKnockBack(VNorm(VGet(dir.x, 0.35f, dir.z)), PlayerConfig::Pursuit::KNOCK);
+
+						EffekseerEffect::GetInstance()->
+							PlayHitEffect(VAdd(enemyPos, VGet(0.0f, 80.0f, 0.0f)), 0.0f);
+
+						isHitStop_ = true;
+						hitStopTimer_ = PlayerConfig::Pursuit::HIT_STOP;
+						mainCamera.StartShake(PlayerConfig::Pursuit::SHAKE_TIME, PlayerConfig::Pursuit::SHAKE_POWER);
+
+						// 追撃はブレイク後の最初の一発だけ(続けての追撃はなし)
+					}
+				}
+			}
+		}
+
+		// 相殺勝負: かめはめ波が敵の大きな気弾にぶつかったら、連打で押し合う
+		{
+			ClashState& c = g_clash;
+			const float dt = SceneManager::GetInstance().GetDeltaTime();
+
+			if (!c.active)
+			{
+				if (player_->IsKamehameBeam())
+				{
+					const VECTOR bs = player_->GetKamehameStartPos();
+					const VECTOR be = player_->GetKamehameEndPos();
+					const VECTOR bv = VSub(be, bs);
+					const float len2 = VDot(bv, bv);
+
+					for (auto& enemy : enemies_)
+					{
+						if (!enemy || enemy->IsDead())
+						{
+							continue;
+						}
+
+						MeleeEnemy* me = dynamic_cast<MeleeEnemy*>(enemy.get());
+
+						if (me == nullptr)
+						{
+							continue;
+						}
+
+						bool found = false;
+						bool isBeam = false;
+						VECTOR hitPos = { 0.0f, 0.0f, 0.0f };
+						VECTOR enemySide = { 0.0f, 0.0f, 0.0f };
+
+						// 大きな気弾にぶつかった
+						VECTOR bp = { 0.0f, 0.0f, 0.0f };
+						float br = 0.0f;
+						int bd = 0;
+
+						if (me->GetBigBlast(bp, br, bd))
+						{
+							float t = (len2 > 0.001f) ? VDot(VSub(bp, bs), bv) / len2 : 0.0f;
+							t = Clamp01(t);
+
+							const VECTOR closest = VAdd(bs, VScale(bv, t));
+
+							if (VSize(VSub(bp, closest)) <= br + player_->GetKamehameRadius())
+							{
+								found = true;
+								hitPos = bp;
+								enemySide = VAdd(me->GetTransform().pos, VGet(0.0f, 100.0f, 0.0f));
+							}
+						}
+
+						// 敵のビームにぶつかった
+						if (!found)
+						{
+							VECTOR bo = { 0.0f, 0.0f, 0.0f };
+							VECTOR bdir = { 0.0f, 0.0f, 1.0f };
+							float brad = 0.0f;
+							int bdmg = 0;
+
+							if (me->GetBeam(bo, bdir, brad, bdmg))
+							{
+								VECTOR c1 = { 0.0f, 0.0f, 0.0f };
+								VECTOR c2 = { 0.0f, 0.0f, 0.0f };
+
+								const float d = SegmentDistance(bs, be, bo, VAdd(bo, VScale(bdir, 3000.0f)), c1, c2);
+
+								// 敵のビームは太いので、中心線が少し近づけばぶつかったことにする
+								if (d <= brad * 0.6f + player_->GetKamehameRadius())
+								{
+									found = true;
+									isBeam = true;
+									hitPos = VScale(VAdd(c1, c2), 0.5f);
+									enemySide = bo;
+								}
+							}
+						}
+
+						if (!found)
+						{
+							continue;
+						}
+
+						c.active = true;
+						c.enemy = me;
+						c.isBeam = isBeam;
+						c.pos = hitPos;
+						c.enemySide = enemySide;
+						c.rate = PlayerConfig::Clash::START_RATE;
+						c.timer = 0.0f;
+
+						if (isBeam)
+						{
+							me->SetBeamClash(true);
+						}
+						else
+						{
+							me->SetBigBlastFrozen(true);
+						}
+
+						// ビームのエフェクトは、ぶつかった所までにする(あとは自前で描く)
+						EffekseerEffect::GetInstance()->SetKamehameEffectScale(
+							PlayerConfig::Kamehame::BEAM_SCALE_XY,
+							PlayerConfig::Kamehame::BEAM_SCALE_XY,
+							VSize(VSub(hitPos, bs)) / 30.0f);
+
+						mainCamera.StartShake(0.2f, 6.0f);
+						break;
+					}
+				}
+			}
+			else
+			{
+				c.timer += dt;
+
+				const bool press =
+					ins.IsTrgDown(KEY_INPUT_F) ||
+					ins.IsTrgDown(KEY_INPUT_U) ||
+					PadInput::IsFightTrg() ||
+					PadInput::IsKiBlastTrg();
+
+				if (press) { c.rate += PlayerConfig::Clash::PUSH_PER_PRESS; }
+
+				c.rate -= PlayerConfig::Clash::ENEMY_PUSH_PER_SEC * dt;
+
+				if (player_->IsHeatUp()) { c.rate += PlayerConfig::Clash::HEAT_BONUS_PER_SEC * dt; }
+
+				if (c.rate > 1.0f) { c.rate = 1.0f; }
+
+				VECTOR bp = { 0.0f, 0.0f, 0.0f };
+				float br = 0.0f;
+				int bd = 0;
+				VECTOR bo = { 0.0f, 0.0f, 0.0f };
+				VECTOR bdir = { 0.0f, 0.0f, 1.0f };
+
+				const bool alive = !c.enemy->IsDead() &&
+					(c.isBeam ? c.enemy->GetBeam(bo, bdir, br, bd) : c.enemy->GetBigBlast(bp, br, bd));
+
+				// かめはめ波が途切れた(被弾など) / 敵や気弾がなくなった → 勝負を終える
+				if (!alive || !player_->IsKamehame())
+				{
+					// 相手のビーム・気弾を動かし直す
+					if (c.isBeam) { c.enemy->SetBeamClash(false); }
+					else if (alive) { c.enemy->SetBigBlastFrozen(false); }
+
+					c.active = false;
+					c.enemy = nullptr;
+					player_->SetClash(false, 0.5f);
+				}
+				else
+				{
+					// ぶつかっている光は、優劣に応じて自分と敵の間を動く
+					// ぶつかっている光の位置は動かさない(連打で押し引きされるのはゲージだけ)
+					c.enemySide = c.isBeam ? bo : VAdd(c.enemy->GetTransform().pos, VGet(0.0f, 100.0f, 0.0f));
+
+					player_->SetClash(true, c.rate);
+
+					const bool win = (c.rate >= 1.0f);
+					const bool lose = (c.rate <= 0.0f) || (c.timer >= PlayerConfig::Clash::MAX_TIME);
+
+					if (win || lose)
+					{
+						const VECTOR hitPos = c.pos;
+						MeleeEnemy* me = c.enemy;
+
+						if (c.isBeam) { me->EndBeam(); }
+						else { me->KillBigBlast(); }
+
+						VECTOR dir = VSub(me->GetTransform().pos, player_->GetTransform().pos);
+						dir.y = 0.0f;
+						dir = (VSize(dir) > 0.001f) ? VNorm(dir) : VGet(0.0f, 0.0f, 1.0f);
+
+						EffekseerEffect::GetInstance()->PlayHitEffect(hitPos, 0.0f);
+
+						if (win)
+						{
+							// 押し勝った: 大きな気弾を押し返して、敵に大ダメージ
+							const VECTOR enemyPos = me->GetTransform().pos;
+							const int dmg = player_->GetAttackDamage(PlayerConfig::Clash::WIN_DAMAGE);
+
+							me->Damage(dmg);
+							me->AddStun(PlayerConfig::Clash::WIN_STUN);
+							player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 130.0f, 0.0f)), dmg);
+
+							me->AddKnockBack(VNorm(VGet(dir.x, 0.2f, dir.z)), PlayerConfig::Clash::WIN_KNOCK);
+
+							EffekseerEffect::GetInstance()->
+								PlayHitEffect(VAdd(enemyPos, VGet(0.0f, 80.0f, 0.0f)), 0.0f);
+
+							isHitStop_ = true;
+							hitStopTimer_ = 0.15f;
+							mainCamera.StartShake(0.3f, 14.0f);
+
+							// (追撃はブレイクしたときだけ)
+						}
+						else
+						{
+							// 押し負けた: 大きな気弾を受ける
+							player_->Damage(bd * PlayerConfig::Clash::LOSE_DAMAGE_RATE);
+							player_->AddKnockBack(dir, PlayerConfig::Clash::LOSE_KNOCK);
+
+							mainCamera.StartShake(0.3f, 12.0f);
+						}
+
+						c.active = false;
+						c.enemy = nullptr;
+						player_->SetClash(false, 0.5f);
+					}
 				}
 			}
 		}
@@ -589,6 +1025,42 @@ void GameScene::Update(void)
 		{
 			justSlowTimer = PlayerConfig::JustDodge::SLOW_TIME;
 			justSlowFrame = 0;
+		}
+
+		// ブレイク(スタン)した瞬間: 敵をスローで吹っ飛ばし、追撃のチャンスを作る
+		{
+			static std::unordered_map<EnemyBase*, bool> prevStun;
+
+			for (auto& enemy : enemies_)
+			{
+				if (!enemy || enemy->IsDead())
+				{
+					continue;
+				}
+
+				const bool now = enemy->IsStunned();
+				bool& prev = prevStun[enemy.get()];
+
+				if (now && !prev)
+				{
+					VECTOR away = VSub(enemy->GetTransform().pos, player_->GetTransform().pos);
+					away.y = 0.0f;
+					away = (VSize(away) > 0.001f) ? VNorm(away) : VGet(0.0f, 0.0f, 1.0f);
+
+					enemy->AddKnockBack(VNorm(VGet(away.x, 0.3f, away.z)), PlayerConfig::Break::KNOCK);
+
+					justSlowTimer = PlayerConfig::Break::SLOW_TIME;
+					justSlowFrame = 0;
+
+					EffekseerEffect::GetInstance()->
+						PlayHitEffect(VAdd(enemy->GetTransform().pos, VGet(0.0f, 80.0f, 0.0f)), 0.0f);
+					mainCamera.StartShake(0.25f, 8.0f);
+
+					player_->OpenPursuit(false);
+				}
+
+				prev = now;
+			}
 		}
 
 		bool updateEnemy = true;
@@ -950,6 +1422,7 @@ void GameScene::Update(void)
 
 					// 8段目が当たったら高速追撃できる
 					player_->SetCanChase(true);
+					// (追撃はブレイクしたときだけ)	// ふっ飛ばしたので、追撃できる
 				}
 
 				enemy->AddKnockBack(hitDir, knockPower);
@@ -1035,6 +1508,51 @@ void GameScene::Update(void)
 		}
 
 		// かめはめ波ダメージタイマー
+		// フィニッシュ気弾
+		for (auto& finish : player_->GetFinishBlasts())
+		{
+			if (finish->IsDead())
+			{
+				continue;
+			}
+
+			for (auto& enemy : enemies_)
+			{
+				if (!enemy || enemy->IsDead())
+				{
+					continue;
+				}
+
+				const VECTOR enemyPos = enemy->GetTransform().pos;
+				const VECTOR center = VAdd(enemyPos, VGet(0.0f, 70.0f, 0.0f));
+
+				if (VSize(VSub(finish->GetPos(), center)) > finish->GetRadius() + 45.0f)
+				{
+					continue;
+				}
+
+				const int dmg = player_->GetAttackDamage(PlayerConfig::Finish::DAMAGE);
+
+				enemy->Damage(dmg);
+				enemy->AddStun(PlayerConfig::Finish::STUN);
+				player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 130.0f, 0.0f)), dmg);
+
+				enemy->AddKnockBack(finish->GetDir(), PlayerConfig::Finish::KNOCK);
+
+				EffekseerEffect::GetInstance()->PlayHitEffect(center, 0.0f);
+
+				isHitStop_ = true;
+				hitStopTimer_ = 0.08f;
+				mainCamera.StartShake(0.12f, 6.0f);
+
+				finish->Kill();
+
+				// ふっ飛ばしたので、追撃できる
+				// (追撃はブレイクしたときだけ)
+				break;
+			}
+		}
+
 		if (player_->IsKamehameBeam())
 		{
 			kamehameDamageTimer_ +=
@@ -1043,6 +1561,13 @@ void GameScene::Update(void)
 		else
 		{
 			kamehameDamageTimer_ = 0.0f;
+
+			// かめはめ波が当たったまま終わったら、追撃できる
+			if (g_kamehameHit)
+			{
+				g_kamehameHit = false;
+				// (追撃はブレイクしたときだけ)
+			}
 
 			for (auto& enemy : enemies_)
 			{
@@ -1064,7 +1589,7 @@ void GameScene::Update(void)
 		}
 
 		// かめはめ波の攻撃判定
-		if (player_->IsKamehameBeam())
+		if (player_->IsKamehameBeam() && !g_clash.active)
 		{
 			VECTOR beamStart =
 				player_->GetKamehameStartPos();
@@ -1195,6 +1720,7 @@ void GameScene::Update(void)
 							enemy->Damage(beamDamage);
 							enemy->AddStun(4.0f);
 							player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 60.0f, 0.0f)), beamDamage);
+							g_kamehameHit = true;
 						}
 
 						kamehameDamageTimer_ = 0.0f;
@@ -1276,6 +1802,41 @@ void GameScene::Draw(void)
 		}
 
 		enemy->Draw();
+	}
+
+	// 相殺勝負: ぶつかっている光
+	if (g_clash.active && g_clash.enemy != nullptr)
+	{
+		const VECTOR bs = player_->GetKamehameStartPos();
+		const VECTOR es = g_clash.enemySide;
+		const VECTOR bp = g_clash.pos;
+
+		const float tt = (float)GetNowCount() * 0.001f;
+		const float pulse = 0.5f + 0.5f * sinf(tt * 40.0f);
+
+		SetUseLighting(FALSE);
+
+		// 自分側のビーム(青)
+		SetDrawBlendMode(DX_BLENDMODE_ADD, 170);
+		DrawCapsule3D(bs, bp, 24.0f + 5.0f * pulse, 10, GetColor(60, 140, 255), GetColor(60, 140, 255), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ADD, 230);
+		DrawCapsule3D(bs, bp, 11.0f, 8, GetColor(230, 245, 255), GetColor(230, 245, 255), TRUE);
+
+		// 敵側(紫)
+		SetDrawBlendMode(DX_BLENDMODE_ADD, 170);
+		DrawCapsule3D(es, bp, 24.0f + 5.0f * pulse, 10, GetColor(190, 70, 255), GetColor(190, 70, 255), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ADD, 230);
+		DrawCapsule3D(es, bp, 11.0f, 8, GetColor(255, 225, 255), GetColor(255, 225, 255), TRUE);
+
+		// ぶつかっている光の球
+		SetDrawBlendMode(DX_BLENDMODE_ADD, 120);
+		DrawSphere3D(bp, 80.0f + 30.0f * pulse, 20, GetColor(255, 220, 120), GetColor(255, 220, 120), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ADD, 200);
+		DrawSphere3D(bp, 48.0f + 14.0f * pulse, 20, GetColor(255, 250, 200), GetColor(255, 250, 200), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+		DrawSphere3D(bp, 28.0f, 16, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+
+		SetUseLighting(TRUE);
 	}
 
 	// STAGE CLEAR演出
@@ -1609,6 +2170,11 @@ void GameScene::Draw(void)
 void GameScene::ChangeGameStage(STAGE_NO stageNo)
 {
 	stageNo_ = stageNo;
+
+	// 敵を作り直すので、相殺勝負の相手は忘れる
+	g_clash = ClashState();
+	g_kamehameHit = false;
+	player_->SetClash(false, 0.5f);
 
 	enemies_.clear();
 

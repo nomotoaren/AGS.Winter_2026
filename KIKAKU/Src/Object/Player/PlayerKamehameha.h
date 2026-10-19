@@ -35,6 +35,9 @@ public:
 	//   戻り値  : かめはめ波が終わったフレームで true
 	bool Update(const Context& ctx, VECTOR& faceAim);
 
+	// ビームを出し続ける(相殺勝負中。true の間は終わらない)
+	void SetHold(bool hold) { hold_ = hold; }
+
 	// 途中でやめる(被弾したときなど)
 	void Cancel(void);
 
@@ -65,6 +68,7 @@ private:
 
 	bool isActive_;
 	bool isBeam_;
+	bool hold_ = false;
 	float timer_;
 	VECTOR dir_;
 

@@ -126,6 +126,12 @@ bool PlayerKamehameha::Update(const Context& ctx, VECTOR& faceAim)
 		EffekseerEffect::GetInstance()->UpdateKamehameEffect(GetStartPos(), effectDir);
 	}
 
+	// ‘ŠŽEŸ•‰’†‚ÍAI‚í‚é’¼‘O‚ÅŽ~‚ß‚Ä‚¨‚­
+	if (hold_ && isBeam_ && timer_ >= cfg::Kamehame::END_TIME - 0.2f)
+	{
+		timer_ = cfg::Kamehame::END_TIME - 0.2f;
+	}
+
 	// I—¹
 	if (timer_ >= cfg::Kamehame::END_TIME)
 	{
@@ -138,6 +144,7 @@ bool PlayerKamehameha::Update(const Context& ctx, VECTOR& faceAim)
 
 void PlayerKamehameha::Cancel(void)
 {
+	hold_ = false;
 	isActive_ = false;
 	isBeam_ = false;
 	timer_ = 0.0f;

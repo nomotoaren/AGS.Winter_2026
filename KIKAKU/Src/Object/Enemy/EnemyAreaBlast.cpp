@@ -62,6 +62,7 @@ void EnemyAreaBlast::Draw(void) const
 	}
 
 	SetUseLighting(FALSE);
+	SetWriteZBuffer3D(FALSE);
 
 	if (state_ == State::WARN)
 	{
@@ -71,23 +72,19 @@ void EnemyAreaBlast::Draw(void) const
 		// ”š”­‚ª‹ß‚¢‚Ù‚Ç‘¬‚­“_–Å‚·‚é
 		const float pulse = 0.5f + 0.5f * sinf(timer_ * (10.0f + 30.0f * rate));
 
-		// ”ÍˆÍ‚Ì˜g(ƒƒCƒ„[)
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 255);
-		DrawSphere3D(pos_, radius_, 20, GetColor(255, 230, 0), GetColor(255, 230, 0), FALSE);
-
-		// ”ÍˆÍ‚Ì’†‚ð”–‚­“h‚é
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 90 + (int)(50.0f * pulse));
-		DrawSphere3D(pos_, radius_, 20, GetColor(255, 0, 0), GetColor(255, 0, 0), TRUE);
+		// ”ÍˆÍ‚Ì’†‚ð‚¤‚Á‚·‚ç“h‚é(ƒJƒƒ‰‚ª’†‚É“ü‚Á‚Ä‚à‰æ–Ê‚ª–„‚Ü‚ç‚È‚¢”Z‚³)
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 28 + (int)(22.0f * pulse));
+		DrawSphere3D(pos_, radius_, 24, GetColor(255, 40, 20), GetColor(255, 40, 20), TRUE);
 
 		// ’†‚©‚çL‚ª‚é‹…(‚±‚ê‚ªŠO˜g‚É“Í‚­‚Æ”š”­)
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170 + (int)(60.0f * pulse));
-		DrawSphere3D(pos_, radius_ * rate, 20, GetColor(255, 100, 0), GetColor(255, 100, 0), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 60 + (int)(40.0f * pulse));
+		DrawSphere3D(pos_, radius_ * rate, 24, GetColor(255, 120, 30), GetColor(255, 120, 30), TRUE);
 
-		// ”š”­‚Ì’¼‘O‚Í”’‚­Œõ‚é
+		// ”š”­‚Ì’¼‘O‚Í”’‚­Œõ‚é(Žã‚ß)
 		if (rate > 0.8f)
 		{
-			SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(120.0f * (rate - 0.8f) / 0.2f));
-			DrawSphere3D(pos_, radius_, 20, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(50.0f * (rate - 0.8f) / 0.2f));
+			DrawSphere3D(pos_, radius_ * rate, 24, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
 		}
 	}
 	else
@@ -105,5 +102,6 @@ void EnemyAreaBlast::Draw(void) const
 	}
 
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+	SetWriteZBuffer3D(TRUE);
 	SetUseLighting(TRUE);
 }

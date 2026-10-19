@@ -26,6 +26,14 @@ public:
 	void Update(float deltaTime);
 	void Draw(void) const;
 
+	// ‘ŠEŸ•‰‚Ì‘ÎÛ‚É‚È‚é‘å‚«‚È‹C’e‚©
+	void SetBig(bool big) { isBig_ = big; }
+	bool IsBig(void) const { return isBig_; }
+
+	// ~‚ß‚é(‘ŠEŸ•‰’†B“®‚©‚¸AÁ‚¦‚¸A•`‚©‚ê‚¸A“–‚½‚è‚à‚µ‚È‚¢)
+	void SetFrozen(bool frozen) { isFrozen_ = frozen; }
+	bool IsFrozen(void) const { return isFrozen_; }
+
 	// “–‚½‚Á‚½‚Æ‚«‚È‚Ç‚ÉÁ‚·
 	void Kill(void) { isDead_ = true; }
 
@@ -52,6 +60,8 @@ private:
 	bool isDead_;
 	int damage_;
 	float knock_ = 12.0f;
+	bool isBig_ = false;
+	bool isFrozen_ = false;
 
 	// ’Ç”ö
 	const VECTOR* homingTarget_ = nullptr;

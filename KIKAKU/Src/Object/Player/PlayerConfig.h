@@ -238,4 +238,83 @@ namespace PlayerConfig
 		constexpr float SIDE_SIGN = 1.0f;			// 脚が進行方向へ流れたら反転
 		constexpr float OPEN_SIGN = 1.0f;			// 脚が開かずに交差(内股)したら反転
 	}
+
+	// テンションゲージ(攻撃を当てる・受ける・ジャスト回避で溜まる。満タン+気力MAXで△(T)長押しでヒートアップ)
+	namespace Tension
+	{
+		constexpr float MAX = 100.0f;
+		constexpr float GAIN_DEAL = 2.0f;			// 攻撃を1回当てるごと
+		constexpr float GAIN_TAKEN_RATE = 0.3f;		// 受けたダメージ x これ
+		constexpr float GAIN_TAKEN_MAX = 6.0f;		// 1回に増える上限
+		constexpr float GAIN_GUARD = 1.0f;			// ガードで受けたとき
+		constexpr float GAIN_JUST_DODGE = 25.0f;	// ジャスト回避に成功したとき
+	}
+
+	// ヒートアップ(各ステータス上昇・気力消費なし・追撃が自動・フィニッシュ気弾が出やすい)
+	namespace HeatUp
+	{
+		constexpr float HOLD_TIME = 0.8f;			// △(T)をこの時間押し続けると発動
+		constexpr float DURATION = 25.0f;			// 持続時間(秒)。テンションゲージがこの間に空になる
+		constexpr float ATTACK_RATE = 1.5f;			// 攻撃力の倍率
+		constexpr float SPEED_RATE = 1.2f;			// 移動速度の倍率
+		constexpr float PURSUIT_AUTO_DELAY = 0.35f;	// 追撃のチャンスが出てから、自動で追撃するまでの時間(秒)
+		constexpr int CHAIN_MAX = 5;				// 連続で追撃できる回数
+	}
+
+	// 追撃(ふっ飛ばした相手へ、攻撃ボタンで瞬間移動して追い打ち)
+	namespace Pursuit
+	{
+		constexpr float WINDOW = 1.6f;				// ふっ飛ばしてから、追撃できる時間(秒)
+		constexpr int CHAIN_MAX = 2;				// 通常時に連続で追撃できる回数
+		constexpr float DISTANCE = 120.0f;			// 相手のこの距離手前に現れる
+		constexpr float HEIGHT = 30.0f;				// 相手の足元からの高さ
+		constexpr float MIN_HEIGHT = 100.0f;		// これより低い位置には現れない(床)
+		constexpr float HIT_DELAY = 0.50f;			// 敵のところへ飛んでいく最長の時間(秒)。着いたら叩く
+		constexpr float DASH_SPEED = 2200.0f;		// 敵のところへ飛んでいく速さ(1秒あたり)
+		constexpr int DAMAGE_RATE = 2;				// 通常攻撃のダメージの倍率
+		constexpr float STUN = 15.0f;
+		constexpr float KNOCK = 60.0f;
+		constexpr float HIT_STOP = 0.08f;
+		constexpr float SHAKE_TIME = 0.12f;
+		constexpr float SHAKE_POWER = 6.0f;
+		constexpr float RECOVER_TIME = 0.6f;		// 追撃したあと、待機に戻すまでの時間(秒)
+	}
+
+	// ブレイク(スタン)した瞬間の演出
+	namespace Break
+	{
+		constexpr float KNOCK = 70.0f;				// 吹っ飛ばす強さ
+		constexpr float SLOW_TIME = 0.7f;			// 敵がスローになる時間(秒)
+	}
+
+	// フィニッシュ気弾(気弾を連続で撃つと、強力なものを撃つ)
+	namespace Finish
+	{
+		constexpr int COUNT = 4;					// この回数目がフィニッシュ
+		constexpr int COUNT_HEAT = 2;				// ヒートアップ中
+		constexpr float RESET_TIME = 1.5f;			// 次を撃つまでにこれ以上空くと、回数が戻る(秒)
+		constexpr int DAMAGE = 6;
+		constexpr float STUN = 40.0f;
+		constexpr float KNOCK = 40.0f;
+		constexpr float RADIUS = 38.0f;
+		constexpr float SPEED = 26.0f;				// 1/60秒あたり
+		constexpr float LIFE = 3.5f;
+		constexpr float TURN = 3.0f;				// 狙っている敵へ曲がる強さ(1秒あたり)
+		constexpr float HOMING_TIME = 1.5f;
+	}
+
+	// 相殺勝負(かめはめ波と、敵の大きな気弾がぶつかる)
+	namespace Clash
+	{
+		constexpr float START_RATE = 0.5f;			// 最初の優劣(0=負け 1=勝ち)
+		constexpr float PUSH_PER_PRESS = 0.065f;	// 連打1回で押し返す量
+		constexpr float ENEMY_PUSH_PER_SEC = 0.20f;	// 敵が押してくる量(1秒あたり)
+		constexpr float HEAT_BONUS_PER_SEC = 0.12f;	// ヒートアップ中の押し返しの補正(1秒あたり)
+		constexpr float MAX_TIME = 7.0f;			// これを過ぎたら負け
+		constexpr int WIN_DAMAGE = 15;				// 勝ったときの敵へのダメージ(通常攻撃の倍率)
+		constexpr float WIN_STUN = 60.0f;
+		constexpr float WIN_KNOCK = 100.0f;
+		constexpr int LOSE_DAMAGE_RATE = 3;			// 負けたときに受ける、気弾のダメージの倍率
+		constexpr float LOSE_KNOCK = 40.0f;
+	}
 }
