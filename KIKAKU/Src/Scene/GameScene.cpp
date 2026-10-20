@@ -21,6 +21,7 @@
 #include "GameScene.h"
 #include <cmath>
 #include <cfloat>
+#include <vector>
 #include <unordered_map>
 
 namespace
@@ -1063,6 +1064,68 @@ void GameScene::Update(void)
 			}
 		}
 
+		// ヒートアップ発動の演出カメラ(光の柱 → はじける → 拳と顔のアップ → 引き)
+		{
+			namespace hu = PlayerConfig::HeatUp;
+
+			static bool wasActivating = false;
+			static bool shookBurst = false;
+			static bool shookClose = false;
+
+			const bool activating = player_->IsHeatActivating();
+
+			if (activating)
+			{
+				if (!wasActivating)
+				{
+					shookBurst = false;
+					shookClose = false;
+
+					using Key = Camera::CineKey;
+
+					// 座標は プレイヤーからの相対: x=右 y=上 z=前(プレイヤーの向き)
+					const std::vector<Key> keys =
+					{
+						// 正面の少し低い位置から、昇っていく光を見上げる
+						{ 0.0f,                   { 110.0f,  20.0f, 460.0f }, { 0.0f, 110.0f, 0.0f }, 60.0f, false },
+						{ hu::ACTIVATE_FLASH,     { 110.0f, -10.0f, 420.0f }, { 0.0f, 230.0f, 0.0f }, 62.0f, false },
+						// 光がはじける: 少し引いて画角を広げる
+						{ hu::ACTIVATE_BURST_END, {  90.0f,  40.0f, 470.0f }, { 0.0f, 150.0f, 0.0f }, 72.0f, false },
+						// 拳と顔のアップ(カット)。画角を狭め、ゆっくり寄る
+						{ hu::ACTIVATE_BURST_END, {  25.0f, 135.0f, 150.0f }, { 0.0f, 120.0f, 0.0f }, 38.0f, true },
+						{ hu::ACTIVATE_CLOSE_END, {  25.0f, 135.0f, 115.0f }, { 0.0f, 120.0f, 0.0f }, 34.0f, false },
+						// 引いて、金色をまとった全身を見せる(カット → 少しずつ引く)
+						{ hu::ACTIVATE_CLOSE_END, {  40.0f, 110.0f, 180.0f }, { 0.0f, 100.0f, 0.0f }, 55.0f, true },
+						{ hu::ACTIVATE_TIME,      {  40.0f, 110.0f, 340.0f }, { 0.0f, 100.0f, 0.0f }, 60.0f, false },
+					};
+
+					mainCamera.StartCinematic(keys);
+				}
+
+				mainCamera.UpdateCinematicPivot(player_->GetTransform().pos, player_->GetForward());
+
+				const float t = player_->GetHeatActivateElapsed();
+
+				if (!shookBurst && t >= hu::ACTIVATE_FLASH)
+				{
+					shookBurst = true;
+					mainCamera.StartShake(0.4f, 7.0f);
+				}
+
+				if (!shookClose && t >= hu::ACTIVATE_BURST_END)
+				{
+					shookClose = true;
+					mainCamera.StartShake(0.7f, 3.0f);
+				}
+			}
+			else if (wasActivating)
+			{
+				mainCamera.EndCinematic();
+			}
+
+			wasActivating = activating;
+		}
+
 		bool updateEnemy = true;
 
 		if (justSlowTimer > 0.0f)
@@ -1071,6 +1134,12 @@ void GameScene::Update(void)
 			justSlowFrame++;
 
 			updateEnemy = (justSlowFrame % PlayerConfig::JustDodge::SLOW_DIV) == 0;
+		}
+
+		// ヒートアップ発動の演出中は、敵も止まる
+		if (player_->IsHeatActivating())
+		{
+			updateEnemy = false;
 		}
 
 		// Enemy更新
@@ -1782,6 +1851,7 @@ void GameScene::Update(void)
 
 void GameScene::Draw(void)
 {
+
 
 	// 背景
 	skyDome_->Draw();

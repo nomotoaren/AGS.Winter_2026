@@ -161,10 +161,10 @@ namespace PlayerConfig
 	// 回避ステップ(×ボタン / LSHIFT。連打で続けて出せる。カカロットの高速ステップ風)
 	namespace Step
 	{
-		constexpr float SPEED_START = 30.0f;		// 出だしの速さ(1フレームの移動量)。大きいほど遠くまで飛ぶ(1回の移動距離 = 約 速さ x 時間 x 30)
-		constexpr float SPEED_END = 6.0f; 			// 終わり際の速さ(ここへ向かって減速する)
+		constexpr float SPEED_START = 18.0f;		// 出だしの速さ(1フレームの移動量)。大きいほど遠くまで飛ぶ(1回の移動距離 = 約 速さ x 時間 x 30)
+		constexpr float SPEED_END = 4.0f; 			// 終わり際の速さ(ここへ向かって減速する)
 		constexpr float DURATION = 0.22f;			// 1回のステップの時間(秒)。この間は攻撃を受けない
-		constexpr float CHAIN_TIME = 0.12f;			// ステップ開始からこの時間たてば、次のステップを重ねて出せる(連打用)
+		constexpr float CHAIN_TIME = 0.18f;			// ステップ開始からこの時間たてば、次のステップを重ねて出せる(連打用)
 		constexpr float LEAN = 0.5f;				// ステップ中に、進む向きへ体を倒す角度(rad)。0.5で約29度
 		constexpr float LEAN_SMOOTH = 22.0f;		// 倒れる速さ(大きいほどキビキビ)
 		constexpr float AFTER_IMAGE_INTERVAL = 0.014f;	// 残像を残す間隔(秒)。小さいほど途切れず帯のようになる
@@ -253,6 +253,13 @@ namespace PlayerConfig
 	// ヒートアップ(各ステータス上昇・気力消費なし・追撃が自動・フィニッシュ気弾が出やすい)
 	namespace HeatUp
 	{
+		// 発動の演出(カカロット風): 光の柱 → 光がはじける → 拳と顔のアップ → 引いて金色をまとう
+		// この間、プレイヤーは動けず攻撃も受けず、敵も止まる
+		constexpr float ACTIVATE_YAW_DEG = -75.0f;	// 発動の演出中、見た目だけ体の向きを回す角度(度)
+		constexpr float ACTIVATE_FLASH = 0.8f;		// 青白い光の柱が立つ時間(秒)
+		constexpr float ACTIVATE_BURST_END = 1.3f;	// 光がはじけ終わる時刻(秒)
+		constexpr float ACTIVATE_CLOSE_END = 2.0f;	// アップが終わる時刻(秒)
+		constexpr float ACTIVATE_TIME = 2.4f;		// 演出の長さ(秒)
 		constexpr float HOLD_TIME = 0.8f;			// △(T)をこの時間押し続けると発動
 		constexpr float DURATION = 25.0f;			// 持続時間(秒)。テンションゲージがこの間に空になる
 		constexpr float ATTACK_RATE = 1.5f;			// 攻撃力の倍率
@@ -284,7 +291,7 @@ namespace PlayerConfig
 	namespace Break
 	{
 		constexpr float KNOCK = 70.0f;				// 吹っ飛ばす強さ
-		constexpr float SLOW_TIME = 0.7f;			// 敵がスローになる時間(秒)
+		constexpr float SLOW_TIME = 1.5f;			// 敵がスローになる時間(秒)
 	}
 
 	// フィニッシュ気弾(気弾を連続で撃つと、強力なものを撃つ)

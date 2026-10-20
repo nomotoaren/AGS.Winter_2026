@@ -86,7 +86,22 @@ void Camera::SetBeforeDraw(void)
         SetBeforeDrawKamehameShot();
         break;
 
+    case Camera::MODE::CINEMATIC:
+        SetBeforeDrawCinematic();
+        break;
+
     }
+
+    // 画角: 演出が終わったら通常へ滑らかに戻す
+    if (!cineActive_)
+    {
+        const float rate =
+            1.0f - expf(-6.0f * SceneManager::GetInstance().GetDeltaTime());
+
+        fovDeg_ += (DEFAULT_FOV_DEG - fovDeg_) * rate;
+    }
+
+    SetupCamera_Perspective(AsoUtility::Deg2RadF(fovDeg_));
 
     VECTOR drawPos =
         pos_;
@@ -199,16 +214,23 @@ VECTOR Camera::GetForward(void) const
 void Camera::ChangeMode(MODE mode)
 {
 
-	// カメラの初期設定
+    // 演出中は切り替えず、演出が終わったときの戻り先だけ覚えておく
+    if (cineActive_ && mode != MODE::CINEMATIC)
+    {
+        cinePrevMode_ = mode;
+        return;
+    }
+
+    // カメラの初期設定
     if (mode_ == MODE::NONE)
     {
         SetDefault();
     }
 
-	// カメラモードの変更
-	mode_ = mode;
+    // カメラモードの変更
+    mode_ = mode;
 
-	// 変更時の初期化処理
+    // 変更時の初期化処理
     switch (mode_)
     {
     case Camera::MODE::FIXED_POINT:
@@ -228,96 +250,96 @@ void Camera::ChangeMode(MODE mode)
 void Camera::SetDefault(void)
 {
 
-	// カメラの初期設定
-	pos_ = DEFAULT_CAMERA_POS;
+    // カメラの初期位置
+    pos_ = DEFAULT_CAMERA_POS;
 
-	// 注視点
-	targetPos_ = AsoUtility::VECTOR_ZERO;
+    // 注視点
+    targetPos_ = AsoUtility::VECTOR_ZERO;
 
-	// カメラの上方向
-	cameraUp_ = AsoUtility::DIR_U;
+    // カメラの上方向
+    cameraUp_ = AsoUtility::DIR_U;
 
-	angles_.x = AsoUtility::Deg2RadF(30.0f);
-	angles_.y = 0.0f;
-	angles_.z = 0.0f;
+    angles_.x = AsoUtility::Deg2RadF(30.0f);
+    angles_.y = 0.0f;
+    angles_.z = 0.0f;
 
-	rot_ = Quaternion();
+    rot_ = Quaternion();
 
 }
 
 void Camera::SyncFollow(void)
 {
 
-	// 同期先の位置
-	VECTOR pos = followTransform_->pos;
+    // 追従対象の位置
+    VECTOR pos = followTransform_->pos;
 
-	// 重力の方向制御に従う
-	// 正面から設定されたY軸分、回転させる
-	rotOutX_ = Quaternion::AngleAxis(angles_.y, AsoUtility::AXIS_Y);
+    // 重力の方向に従い
+    // 正面から設定されたY軸を回転させる
+    rotOutX_ = Quaternion::AngleAxis(angles_.y, AsoUtility::AXIS_Y);
 
-	// 正面から設定されたX軸分、回転させる
-	rot_ = rotOutX_.Mult(Quaternion::AngleAxis(angles_.x, AsoUtility::AXIS_X));
+    // 正面から設定されたX軸を回転させる
+    rot_ = rotOutX_.Mult(Quaternion::AngleAxis(angles_.x, AsoUtility::AXIS_X));
 
-	VECTOR localPos;
+    VECTOR localPos;
 
-	// 注視点(通常重力でいうところのY値を追従対象と同じにする)
-    localPos = rotOutX_.PosAxis(LOCAL_F2T_POS );
-    followTargetLook_ = VAdd(pos,localPos);
+    // 注視点(通常重力であれば追従対象と同じY値にする)
+    localPos = rotOutX_.PosAxis(LOCAL_F2T_POS);
+    followTargetLook_ = VAdd(pos, localPos);
 
-	// カメラ位置
+    // カメラ位置
     localPos = rot_.PosAxis(LOCAL_F2C_POS);
 
-    followTargetPos_ = VAdd(pos,localPos);
+    followTargetPos_ = VAdd(pos, localPos);
 
-	// カメラの上方向
-	cameraUp_ = AsoUtility::DIR_U;
+    // カメラの上方向
+    cameraUp_ = AsoUtility::DIR_U;
 
 }
 
 void Camera::ProcessRot(void)
 {
 
-	auto& ins = InputManager::GetInstance();
+    auto& ins = InputManager::GetInstance();
 
-	float movePow = 5.0f;
+    float movePow = 5.0f;
 
-	// カメラ回転
-	if (ins.IsNew(KEY_INPUT_RIGHT))
-	{
-		// 右回転
-		angles_.y += AsoUtility::Deg2RadF(1.0f);
-	}
-	if (ins.IsNew(KEY_INPUT_LEFT))
-	{
-		// 左回転
-		angles_.y += AsoUtility::Deg2RadF(-1.0f);
-	}
+    // カメラ回転
+    if (ins.IsNew(KEY_INPUT_RIGHT))
+    {
+        // 右回転
+        angles_.y += AsoUtility::Deg2RadF(1.0f);
+    }
+    if (ins.IsNew(KEY_INPUT_LEFT))
+    {
+        // 左回転
+        angles_.y += AsoUtility::Deg2RadF(-1.0f);
+    }
 
-	// 上回転
-	if (ins.IsNew(KEY_INPUT_UP))
-	{
-		angles_.x += AsoUtility::Deg2RadF(1.0f);
-		if (angles_.x > LIMIT_X_UP_RAD)
-		{
-			angles_.x = LIMIT_X_UP_RAD;
-		}
-	}
+    // 上回転
+    if (ins.IsNew(KEY_INPUT_UP))
+    {
+        angles_.x += AsoUtility::Deg2RadF(1.0f);
+        if (angles_.x > LIMIT_X_UP_RAD)
+        {
+            angles_.x = LIMIT_X_UP_RAD;
+        }
+    }
 
-	// 下回転
-	if (ins.IsNew(KEY_INPUT_DOWN))
-	{
-		angles_.x += AsoUtility::Deg2RadF(-1.0f);
-		if (angles_.x < -LIMIT_X_DW_RAD)
-		{
-			angles_.x = -LIMIT_X_DW_RAD;
-		}
-	}
+    // 下回転
+    if (ins.IsNew(KEY_INPUT_DOWN))
+    {
+        angles_.x += AsoUtility::Deg2RadF(-1.0f);
+        if (angles_.x < -LIMIT_X_DW_RAD)
+        {
+            angles_.x = -LIMIT_X_DW_RAD;
+        }
+    }
 
 }
 
 void Camera::SetBeforeDrawFixedPoint(void)
 {
-	// 何もしない
+    // 何もしない
 }
 
 void Camera::SetBeforeDrawFollow(void)
@@ -345,7 +367,7 @@ void Camera::SetBeforeDrawFollow(void)
             )
         );
 
-    // 注視点も滑らかにする
+    // 注視点を滑らかにする
     targetPos_ =
         VAdd(
             targetPos_,
@@ -377,9 +399,9 @@ void Camera::SetBeforeDrawLockOn(void)
     const float DISTANCE_RATE = 0.25f;    // 敵が遠いほど引く割合
     const float MAX_DISTANCE = 650.0f;
     const float BASE_HEIGHT = 110.0f;     // カメラの基本の高さ
-    const float HEIGHT_RATE = 0.25f;      // 高低差でカメラを上下させる割合
-    const float SHOULDER_OFFSET = 60.0f;  // 肩越しのずれ(右が+)
-    const float LOOK_RATE = 0.55f;        // 注視点を敵側へ寄せる割合
+    const float HEIGHT_RATE = 0.25f;      // 敵との高低差でカメラを上下させる割合
+    const float SHOULDER_OFFSET = 60.0f;  // 肩越しのずらし(右が+)
+    const float LOOK_RATE = 0.55f;        // 注視点を敵へ寄せる割合
     const float LOOK_HEIGHT = 70.0f;
     const float DIR_FOLLOW_SPEED = 6.0f;  // 向きの追従速度
     const float POS_FOLLOW_SPEED = 9.0f;  // 位置の追従速度
@@ -418,7 +440,7 @@ void Camera::SetBeforeDrawLockOn(void)
 
     VECTOR right = { horizontalDir.z, 0.0f, -horizontalDir.x };
 
-    // 目標のカメラ方向(敵→カメラ側、真後ろ)
+    // 目標のカメラ方向(敵をカメラから見て真後ろ)
     VECTOR goalCameraDir = VScale(horizontalDir, -1.0f);
 
     // 向きの追従(フレームレート非依存)
@@ -482,6 +504,126 @@ void Camera::SetBeforeDrawSelfShot(void)
 {
 }
 
+// 演出カメラの開始
+void Camera::StartCinematic(const std::vector<CineKey>& keys)
+{
+    if (keys.empty())
+    {
+        return;
+    }
+
+    if (!cineActive_)
+    {
+        cinePrevMode_ = mode_;
+    }
+
+    cineActive_ = true;
+    cineKeys_ = keys;
+    cineTime_ = 0.0f;
+
+    // 今のカメラから滑らかにつなぐ
+    cineStartPos_ = pos_;
+    cineStartTarget_ = targetPos_;
+
+    mode_ = MODE::CINEMATIC;
+}
+
+void Camera::UpdateCinematicPivot(const VECTOR& pos, const VECTOR& forward)
+{
+    cinePivotPos_ = pos;
+
+    VECTOR f = forward;
+    f.y = 0.0f;
+
+    if (VSize(f) > 0.001f)
+    {
+        cinePivotFwd_ = VNorm(f);
+    }
+}
+
+// 演出カメラの終了(通常のカメラの追従が、今の位置から滑らかに戻していく)
+void Camera::EndCinematic(void)
+{
+    if (!cineActive_)
+    {
+        return;
+    }
+
+    cineActive_ = false;
+    mode_ = cinePrevMode_;
+
+    if (mode_ == MODE::NONE || mode_ == MODE::CINEMATIC)
+    {
+        mode_ = MODE::FOLLOW;
+    }
+}
+
+void Camera::SetBeforeDrawCinematic(void)
+{
+    if (!cineActive_ || cineKeys_.empty())
+    {
+        return;
+    }
+
+    cineTime_ += SceneManager::GetInstance().GetDeltaTime();
+
+    // 時刻が属する区間を探す
+    const int last = static_cast<int>(cineKeys_.size()) - 1;
+    int i = 0;
+
+    while (i < last && cineKeys_[i + 1].time <= cineTime_)
+    {
+        i++;
+    }
+
+    VECTOR localPos = cineKeys_[i].pos;
+    VECTOR localLook = cineKeys_[i].look;
+    float fov = cineKeys_[i].fovDeg;
+
+    // 次のキーへ補間する(次がカットなら、その時刻まで今のまま)
+    if (i < last && !cineKeys_[i + 1].cut)
+    {
+        const CineKey& a = cineKeys_[i];
+        const CineKey& b = cineKeys_[i + 1];
+
+        float u = (cineTime_ - a.time) / (b.time - a.time);
+        u = u < 0.0f ? 0.0f : (u > 1.0f ? 1.0f : u);
+        u = u * u * (3.0f - 2.0f * u);	// ゆっくり始まり、ゆっくり止まる
+
+        localPos = VAdd(a.pos, VScale(VSub(b.pos, a.pos), u));
+        localLook = VAdd(a.look, VScale(VSub(b.look, a.look), u));
+        fov = a.fovDeg + (b.fovDeg - a.fovDeg) * u;
+    }
+
+    // 基準点からの相対座標 → ワールド座標(右 = {z, 0, -x})
+    const VECTOR fwd = cinePivotFwd_;
+    const VECTOR right = { fwd.z, 0.0f, -fwd.x };
+
+    auto toWorld = [&](const VECTOR& l) -> VECTOR
+        {
+            VECTOR w = cinePivotPos_;
+            w = VAdd(w, VScale(right, l.x));
+            w = VAdd(w, VGet(0.0f, l.y, 0.0f));
+            w = VAdd(w, VScale(fwd, l.z));
+            return w;
+        };
+
+    const VECTOR goalPos = toWorld(localPos);
+    const VECTOR goalLook = toWorld(localLook);
+
+    // 始まりは、今のカメラから滑らかにつなぐ(0.25秒)
+    float w = cineTime_ / 0.25f;
+    w = w > 1.0f ? 1.0f : w;
+    w = w * w * (3.0f - 2.0f * w);
+
+    pos_ = VAdd(cineStartPos_, VScale(VSub(goalPos, cineStartPos_), w));
+    targetPos_ = VAdd(cineStartTarget_, VScale(VSub(goalLook, cineStartTarget_), w));
+
+    fovDeg_ = DEFAULT_FOV_DEG + (fov - DEFAULT_FOV_DEG) * w;
+
+    cameraUp_ = AsoUtility::DIR_U;
+}
+
 void Camera::SetBeforeDrawKamehame(void)
 {
     if (followTransform_ == nullptr)
@@ -532,13 +674,13 @@ void Camera::SetBeforeDrawKamehame(void)
             VScale(right, 150.0f)
         );
 
-    // 上
+    // 高さ
     pos_.y += 100.0f;
 
     // 注視点
     targetPos_ = playerPos;
 
-    // 胸～手のあたりを見る
+    // 胸のあたりを見る
     targetPos_.y += 80.0f;
 
     // 少し前を見る
@@ -593,7 +735,7 @@ void Camera::SetBeforeDrawKamehameShot(void)
             )
         );
 
-    // 少し上
+    // 少し上に
     pos_.y += 120.0f;
 
     // 少し横にずらして
@@ -615,7 +757,7 @@ void Camera::SetBeforeDrawKamehameShot(void)
         );
 
     // 注視点
-    // プレイヤーより前を見る
+    // プレイヤーの前方遠く
     targetPos_ =
         VAdd(
             playerPos,

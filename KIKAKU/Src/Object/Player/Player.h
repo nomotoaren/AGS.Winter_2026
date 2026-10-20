@@ -135,7 +135,11 @@ public:
 	void Init(void) override;
 	void Update(void) override;
 	void Draw(void) override;
-	void DrawHud(void);		// HUD(2D)。3Dやエフェクトより手前に出すため、Draw とは別に呼ぶ
+	void DrawHud(void);
+
+	// ヒートアップ発動の演出中か / 演出が始まってからの経過時間(演出中でなければ -1)
+	bool IsHeatActivating(void) const { return heatActivate_ > 0.0f; }
+	float GetHeatActivateElapsed(void) const;		// HUD(2D)。3Dやエフェクトより手前に出すため、Draw とは別に呼ぶ
 
 	void StopRecord(void);
 
@@ -575,7 +579,8 @@ private:
 	bool heatUp_ = false;
 	float heatUpTimer_ = 0.0f;
 	float heatHold_ = 0.0f;
-	float heatBurst_ = 0.0f;		// ヒートアップ発動の閃光の残り時間
+	float heatBurst_ = 0.0f;		// (未使用)
+	float heatActivate_ = 0.0f;		// ヒートアップ発動の演出の残り時間
 
 	// 追撃
 	float pursuitWindow_ = 0.0f;	// 追撃できる残り時間

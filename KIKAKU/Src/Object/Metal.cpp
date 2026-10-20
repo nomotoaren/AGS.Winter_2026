@@ -1,6 +1,6 @@
 #include "../Manager/ResourceManager.h"
 #include "Common/Transform.h"
-#include "Player.h"
+#include "../Object/Player/Player.h"
 #include "Metal.h"
 #include "../Renderer/ModelMaterial.h"
 #include "../Renderer/ModelRenderer.h"

@@ -46,7 +46,7 @@ namespace
 	//   要素ごとに補間したあと、回転部分を直交化して形が崩れないようにする
 	MATRIX BlendMatrix(const MATRIX& a, const MATRIX& b, float t)
 	{
-		MATRIX r;
+		MATRIX r{};
 		for (int i = 0; i < 4; i++)
 		{
 			for (int j = 0; j < 4; j++)
@@ -178,7 +178,6 @@ Player::Player(void)
 	rightHandFrame_(-1),
 
 	capsule_(nullptr),
-
 
 	// 変身
 	form_(FORM::BASE),
@@ -903,6 +902,12 @@ void Player::ApplyVisualTransform(const Quaternion& logicRot)
 		baseRot = logicRot.Mult(Quaternion::Euler(
 			{ 0.0f, AsoUtility::Deg2RadF(cfg::Charge::VISUAL_YAW_DEG), 0.0f }));
 	}
+	else if (heatActivate_ > 0.0f)
+	{
+		// ヒートアップ発動の演出(気溜めのポーズ)は、見た目の向きだけ回す
+		baseRot = logicRot.Mult(Quaternion::Euler(
+			{ 0.0f, AsoUtility::Deg2RadF(cfg::HeatUp::ACTIVATE_YAW_DEG), 0.0f }));
+	}
 
 	const Quaternion visualRot =
 		baseRot.Mult(Quaternion::Euler({ floatPitch_, 0.0f, floatRoll_ }));
@@ -970,6 +975,14 @@ void Player::UpdatePlay(void)
 	// ヒートアップ(気力MAX + テンション満タンで長押し)
 	UpdateHeatUp();
 
+	// 発動の演出中は動けない
+	if (heatActivate_ > 0.0f)
+	{
+		movePow_ = AsoUtility::VECTOR_ZERO;
+		Collision();
+		return;
+	}
+
 	// 気溜め
 	UpdateChase();
 
@@ -1026,6 +1039,16 @@ void Player::Draw(void)
 	DrawKamehame();
 
 	DrawLegTune();
+}
+
+float Player::GetHeatActivateElapsed(void) const
+{
+	if (heatActivate_ <= 0.0f)
+	{
+		return -1.0f;
+	}
+
+	return cfg::HeatUp::ACTIVATE_TIME - heatActivate_;
 }
 
 void Player::DrawHud(void)
@@ -1818,12 +1841,16 @@ void Player::UpdateChase(void)
 
 		ki_ += KI_CHARGE_SPEED * scnMng_.GetDeltaTime();
 
-		// 満タンで終了モーションへ
+		// 満タンで終了モーションへ(ヒートアップできるときは、長押しの間そのまま溜め続ける)
 		if (ki_ >= MAX_KI)
 		{
 			ki_ = MAX_KI;
-			BeginChargeEnding();
-			return;
+
+			if (!CanHeatUp())
+			{
+				BeginChargeEnding();
+				return;
+			}
 		}
 
 		// 移動・攻撃などでキャンセル
@@ -2394,22 +2421,46 @@ void Player::UpdateHeatUp(void)
 		tension_ = MAX_TENSION;
 		ki_ = MAX_KI;
 
-		// 気溜めのエフェクトが残らないように止め、閃光は自前で短く出す
-		EffekseerEffect::GetInstance()->StopChargeEffect();
-		heatBurst_ = 0.6f;
+		// 発動の演出(光の柱 → 光がはじける)。この間は気溜めのポーズで動けない
+		//   溜めている最中だったなら、モーションは最初からやり直さず、そのまま続ける
+		const bool wasCharging = isCharging_;
+
+		heatActivate_ = cfg::HeatUp::ACTIVATE_TIME;
+		movePow_ = AsoUtility::VECTOR_ZERO;
+
+		if (wasCharging)
+		{
+			isCharging_ = false;
+			isChargeEnding_ = false;
+			EffekseerEffect::GetInstance()->StopChargeEffect();
+		}
+		else
+		{
+			StopCharge();
+			animationController_->Play((int)ANIM_TYPE::CHARGE, true, 0.0f, 45.0f);
+			animationController_->SetEndLoop(40.0f, 45.0f, 5.0f);
+		}
 	}
 }
 
 // 毎フレーム進めるもの(ダメージ中・気溜め中でも止めない)
 void Player::UpdateTensionTimers(float deltaTime)
 {
-	if (heatBurst_ > 0.0f)
+	// 発動の演出が終わったら、ふつうのポーズに戻す
+	if (heatActivate_ > 0.0f)
 	{
-		heatBurst_ -= deltaTime;
+		heatActivate_ -= deltaTime;
+
+		if (heatActivate_ <= 0.0f)
+		{
+			heatActivate_ = 0.0f;
+			animationController_->ClearEndLoop();
+			animationController_->Play((int)ANIM_TYPE::IDLE);
+		}
 	}
 
-	// ヒートアップ: ゲージが持続時間として減っていく。気力は減らない
-	if (heatUp_)
+	// ヒートアップ: ゲージが持続時間として減っていく。気力は減らない(演出中は減らさない)
+	if (heatUp_ && heatActivate_ <= 0.0f)
 	{
 		heatUpTimer_ -= deltaTime;
 		ki_ = MAX_KI;
@@ -2525,7 +2576,7 @@ void Player::SetClash(bool active, float rate)
 // ヒートアップ中のオーラ
 void Player::DrawHeatAura(void) const
 {
-	if (!heatUp_ && heatBurst_ <= 0.0f)
+	if (!heatUp_ && heatActivate_ <= 0.0f)
 	{
 		return;
 	}
@@ -2539,17 +2590,57 @@ void Player::DrawHeatAura(void) const
 	// 半透明の光が奥の敵を隠さないように、深度は書き込まない
 	SetWriteZBuffer3D(FALSE);
 
-	// 発動の瞬間の閃光(広がりながら消える。短時間だけ)
-	if (heatBurst_ > 0.0f)
+	// 発動の演出: 青白い光の柱が立ちのぼり → 光がはじける
+	if (heatActivate_ > 0.0f)
 	{
-		const float rate = 1.0f - heatBurst_ / 0.6f;
+		const float t = cfg::HeatUp::ACTIVATE_TIME - heatActivate_;
 
-		SetDrawBlendMode(DX_BLENDMODE_ADD, (int)(110.0f * (1.0f - rate)));
-		DrawSphere3D(VAdd(base, VGet(0.0f, 80.0f, 0.0f)), 40.0f + 220.0f * rate, 20,
-			GetColor(255, 220, 90), GetColor(255, 220, 90), TRUE);
+		if (t < cfg::HeatUp::ACTIVATE_FLASH)
+		{
+			const float rate = t / cfg::HeatUp::ACTIVATE_FLASH;
+			const VECTOR top = VAdd(base, VGet(0.0f, 120.0f + 380.0f * rate, 0.0f));
+
+			SetDrawBlendMode(DX_BLENDMODE_ADD, 70 + (int)(60.0f * pulse));
+			DrawCapsule3D(VAdd(base, VGet(0.0f, -20.0f, 0.0f)), top, 34.0f + 10.0f * rate, 12,
+				GetColor(110, 170, 255), GetColor(110, 170, 255), TRUE);
+
+			SetDrawBlendMode(DX_BLENDMODE_ADD, 120);
+			DrawCapsule3D(VAdd(base, VGet(0.0f, -20.0f, 0.0f)), top, 14.0f, 8,
+				GetColor(230, 245, 255), GetColor(230, 245, 255), TRUE);
+
+			// 昇っていく青い光の粒
+			SetDrawBlendMode(DX_BLENDMODE_ADD, 200);
+
+			for (int i = 0; i < 14; i++)
+			{
+				const float up = fmodf(t * 2.2f + i * 0.31f, 1.0f);
+				const float ang = i * 0.9f + t * 3.0f;
+				const VECTOR p = VAdd(base, VGet(cosf(ang) * 40.0f, up * 300.0f, sinf(ang) * 40.0f));
+
+				DrawSphere3D(p, 1.5f + 4.0f * (1.0f - up), 6, GetColor(170, 215, 255), GetColor(170, 215, 255), TRUE);
+			}
+		}
+		else if (t < cfg::HeatUp::ACTIVATE_BURST_END)
+		{
+			const float u = (t - cfg::HeatUp::ACTIVATE_FLASH) / (cfg::HeatUp::ACTIVATE_BURST_END - cfg::HeatUp::ACTIVATE_FLASH);
+			const float fade = 1.0f - 0.85f * u;
+
+			SetDrawBlendMode(DX_BLENDMODE_ADD, (int)(170.0f * fade));
+			DrawSphere3D(VAdd(base, VGet(0.0f, 80.0f, 0.0f)), 50.0f + 300.0f * u, 24,
+				GetColor(190, 225, 255), GetColor(190, 225, 255), TRUE);
+
+			SetDrawBlendMode(DX_BLENDMODE_ADD, (int)(200.0f * fade));
+			DrawSphere3D(VAdd(base, VGet(0.0f, 80.0f, 0.0f)), 30.0f + 120.0f * u, 20,
+				GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+		}
 	}
 
-	if (!heatUp_)
+	// 金色の光は、光がはじけたあとから
+	const bool beforeGold =
+		(heatActivate_ > 0.0f) &&
+		(cfg::HeatUp::ACTIVATE_TIME - heatActivate_ < cfg::HeatUp::ACTIVATE_BURST_END);
+
+	if (!heatUp_ || beforeGold)
 	{
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 		SetWriteZBuffer3D(TRUE);
@@ -2557,18 +2648,19 @@ void Player::DrawHeatAura(void) const
 		return;
 	}
 
-	SetDrawBlendMode(DX_BLENDMODE_ADD, 55 + (int)(40.0f * pulse));
+	// 体のまわりに薄く金色の光をまとう(濃くすると敵が見えなくなる)
+	SetDrawBlendMode(DX_BLENDMODE_ADD, 22 + (int)(14.0f * pulse));
 	DrawCapsule3D(VAdd(base, VGet(0.0f, 30.0f, 0.0f)), VAdd(base, VGet(0.0f, 130.0f, 0.0f)),
 		46.0f + 6.0f * pulse, 12, GetColor(255, 200, 60), GetColor(255, 200, 60), TRUE);
 
-	SetDrawBlendMode(DX_BLENDMODE_ADD, 30);
+	SetDrawBlendMode(DX_BLENDMODE_ADD, 10);
 	DrawCapsule3D(VAdd(base, VGet(0.0f, 20.0f, 0.0f)), VAdd(base, VGet(0.0f, 150.0f, 0.0f)),
 		70.0f + 10.0f * pulse, 12, GetColor(255, 235, 140), GetColor(255, 235, 140), TRUE);
 
 	// 昇っていく火花
 	SetDrawBlendMode(DX_BLENDMODE_ADD, 200);
 
-	for (int i = 0; i < 8; i++)
+	for (int i = 0; i < 16; i++)
 	{
 		const float up = fmodf(t * 1.8f + i * 0.37f, 1.0f);
 		const float ang = i * 0.8f + t * 2.0f;
@@ -2745,7 +2837,7 @@ bool Player::IsGuardBurstTrigger(void) const { return guard_.IsBurstTrigger(); }
 void Player::Damage(int damage)
 {
 	// 死亡中・変身中は無敵
-	if (isDead_ || formChange_.IsActive())
+	if (isDead_ || formChange_.IsActive() || heatActivate_ > 0.0f)
 	{
 		return;
 	}

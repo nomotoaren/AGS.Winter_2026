@@ -1,5 +1,6 @@
 #pragma once
 #include <DxLib.h>
+#include <vector>
 #include "../Common/Quaternion.h"
 class Transform;
 
@@ -43,7 +44,23 @@ public:
 		SELF_SHOT,
 		KAMEHAME,
 		KAMEHAME_SHOT,
-		KAMEHAME_RETURN
+		KAMEHAME_RETURN,
+		CINEMATIC		// 演出カメラ(ヒートアップ発動など。StartCinematic で始める)
+	};
+
+	// 通常の画角(度)
+	static constexpr float DEFAULT_FOV_DEG = 60.0f;
+
+	// 演出カメラのキー(時間ごとの位置・注視点・画角)
+	//   pos / look は、基準点(プレイヤー)からの相対座標: x=右 y=上 z=前(基準の向き)
+	//   cut が true なら、前のキーからは補間せず、この時刻になった瞬間に切り替える(カット)
+	struct CineKey
+	{
+		float time;
+		VECTOR pos;
+		VECTOR look;
+		float fovDeg;
+		bool cut;
 	};
 
 	Camera(void);
@@ -86,6 +103,12 @@ public:
 
 	// 高速移動中か(ロックオンカメラを落ち着かせる)
 	void SetBoostChase(bool active) { isBoostChase_ = active; }
+
+	// 演出カメラ: 始める(今のカメラから滑らかにつなぐ) / 基準点を毎フレーム渡す / 終える(通常のカメラへ滑らかに戻る)
+	void StartCinematic(const std::vector<CineKey>& keys);
+	void UpdateCinematicPivot(const VECTOR& pos, const VECTOR& forward);
+	void EndCinematic(void);
+	bool IsCinematic(void) const { return cineActive_; }
 
 private:
 
@@ -137,6 +160,7 @@ private:
 	void SetBeforeDrawKamehame(void);
 	void SetBeforeDrawKamehameShot(void);
 	void SetBeforeDrawLockOn(void);
+	void SetBeforeDrawCinematic(void);
 
 	// カメラ揺れ
 	bool isShake_;
@@ -146,4 +170,17 @@ private:
 	VECTOR lockOnCameraDir_;
 
 	bool isBoostChase_ = false;
+
+	// 演出カメラ
+	bool cineActive_ = false;
+	std::vector<CineKey> cineKeys_;
+	float cineTime_ = 0.0f;
+	VECTOR cinePivotPos_ = { 0.0f, 0.0f, 0.0f };
+	VECTOR cinePivotFwd_ = { 0.0f, 0.0f, 1.0f };
+	VECTOR cineStartPos_ = { 0.0f, 0.0f, 0.0f };
+	VECTOR cineStartTarget_ = { 0.0f, 0.0f, 0.0f };
+	MODE cinePrevMode_ = MODE::FOLLOW;
+
+	// 今の画角(度)。演出が終わると通常へ戻る
+	float fovDeg_ = DEFAULT_FOV_DEG;
 };
