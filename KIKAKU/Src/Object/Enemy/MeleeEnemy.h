@@ -356,7 +356,7 @@ private:
 	float barrageCoolTimer_ = 0.0f;
 	int barrageShotsLeft_ = 0;
 	float barrageShotTimer_ = 0.0f;
-	bool barrageBigPhase_ = false;	// 連射のあと、大きな気弾を溜めている
+	bool barrageBigPhase_ = false;		// 連射のあと、大きな気弾を溜めている
 	float barrageBigTimer_ = 0.0f;
 	std::vector<KiMarker> kiMarkers_;
 

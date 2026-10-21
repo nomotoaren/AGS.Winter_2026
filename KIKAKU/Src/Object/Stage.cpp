@@ -37,40 +37,15 @@ void Stage::Init(void)
 
 void Stage::Update(void)
 {
-
-	//// ワープスター
-	//for (const auto& s : warpStars_)
-	//{
-	//	s->Update();
-	//}
-
 	// 惑星
 	for (const auto& s : planets_)
 	{
 		s.second->Update();
 	}
-
-	//// マテル
-	//for (const auto& m : matels_)
-	//{
-	//	m->Update();
-	//}
-
-	//// ウォーター
-	//for (const auto& w : waters_)
-	//{
-	//	w->Update();
-	//}
 }
 
 void Stage::Draw(void)
 {
-
-	//// ワープスター
-	//for (const auto& s : warpStars_)
-	//{
-	//	s->Draw();
-	//}
 
 	// 惑星
 	for (const auto& s : planets_)
@@ -78,17 +53,6 @@ void Stage::Draw(void)
 		s.second->Draw();
 	}
 
-	//// マテル
-	//for (const auto& m : matels_)
-	//{
-	//	m->Draw();
-	//}
-
-	//// ウォーター
-	//for (const auto& w : waters_)
-	//{
-	//	w->Draw();
-	//}
 }
 
 void Stage::ChangeStage(NAME type)
