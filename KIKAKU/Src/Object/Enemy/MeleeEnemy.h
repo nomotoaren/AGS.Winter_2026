@@ -90,6 +90,7 @@ public:
 	bool GetBigBlast(VECTOR& pos, float& radius, int& damage) const;	// あれば true
 	void SetBigBlastFrozen(bool frozen);	// 止める/再開
 	void KillBigBlast(void);
+	void CancelAttacksForHeatUp(void);
 
 	// ビーム(相殺勝負用)
 	bool GetBeam(VECTOR& origin, VECTOR& dir, float& radius, int& damage) const;	// 発射中なら true

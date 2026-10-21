@@ -1081,9 +1081,25 @@ void GameScene::Update(void)
 					shookBurst = false;
 					shookClose = false;
 
+					// 発動の瞬間に、敵の弾と技をリセットする
+					for (auto& enemy : enemies_)
+					{
+						if(!enemy || enemy->IsDead())
+						{
+							continue;
+						}
+
+						MeleeEnemy* me = dynamic_cast<MeleeEnemy*>(enemy.get());
+
+						if (me)
+						{
+							me->CancelAttacksForHeatUp();
+						}
+					}
+
 					using Key = Camera::CineKey;
 
-					// 座標は プレイヤーからの相対: x=右 y=上 z=前(プレイヤーの向き)
+					// 座    標は プレイヤーからの相対: x=右 y=上 z=前(プレイヤーの向き)
 					const std::vector<Key> keys =
 					{
 						// 正面の少し低い位置から、昇っていく光を見上げる

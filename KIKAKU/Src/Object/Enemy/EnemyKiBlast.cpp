@@ -1,6 +1,17 @@
 #include <cmath>
 #include "EnemyKiBlast.h"
 
+namespace
+{
+	// å©ÇΩñ⁄ÇÃëÂÇ´Ç≥
+	constexpr float kOuterScale = 1.0f;
+	constexpr float kMidScale = 0.7f;
+	constexpr float kCoreScale = 0.45f;
+	constexpr float kTailOuterScale = 0.45f;
+	constexpr float kTailInnerScale = 0.2f;
+	constexpr float kTailLength = 7.0f;
+}
+
 EnemyKiBlast::EnemyKiBlast(void)
 	:
 	pos_(VGet(0.0f, 0.0f, 0.0f)),
@@ -103,27 +114,31 @@ void EnemyKiBlast::Draw(void) const
 	const float wobble = 1.0f + 0.12f * sinf(time_ * 30.0f);
 
 	SetUseLighting(FALSE);
+	SetWriteZBuffer3D(FALSE);
 
 	// îˆ(êiÇÒÇ≈Ç´ÇΩï˚å¸Ç÷êLÇ—ÇÈåıÇÃãÿ)ÅBë¨Ç¢íeÇŸÇ«í∑Ç≠å©Ç¶ÇÈ
 	{
-		const VECTOR tail = VSub(pos_, VScale(dir_, speed_ * 9.0f));
+		{
+			const VECTOR tail = VSub(pos_, VScale(dir_, speed_ * kTailLength));
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 150);
-		DrawCapsule3D(pos_, tail, radius_ * 0.9f, 8, GetColor(230, 60, 255), GetColor(230, 60, 255), TRUE);
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 200);
-		DrawCapsule3D(pos_, tail, radius_ * 0.4f, 8, GetColor(255, 220, 255), GetColor(255, 220, 255), TRUE);
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 120);
+			DrawCapsule3D(pos_, tail, radius_ * kTailOuterScale, 8, GetColor(230, 60, 255), GetColor(230, 60, 255), TRUE);
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 200);
+			DrawCapsule3D(pos_, tail, radius_ * kTailInnerScale, 8, GetColor(255, 220, 255), GetColor(255, 220, 255), TRUE);
+		}
 	}
 
 	// äOë§ÇÃåı(îºìßñæ)
-	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
-	DrawSphere3D(pos_, radius_ * 1.8f * wobble, 16, GetColor(150, 30, 255), GetColor(150, 30, 255), TRUE);
+	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 150);
+	DrawSphere3D(pos_, radius_ * kOuterScale * wobble, 16, GetColor(150, 30, 255), GetColor(150, 30, 255), TRUE);
 
 	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 230);
-	DrawSphere3D(pos_, radius_ * 1.3f * wobble, 16, GetColor(210, 90, 255), GetColor(210, 90, 255), TRUE);
+	DrawSphere3D(pos_, radius_ * kMidScale * wobble, 16, GetColor(210, 90, 255), GetColor(210, 90, 255), TRUE);
 
 	// êc
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-	DrawSphere3D(pos_, radius_ * 0.8f, 16, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+	DrawSphere3D(pos_, radius_ * kCoreScale, 16, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
 
+	SetUseLighting(TRUE);
 	SetUseLighting(TRUE);
 }

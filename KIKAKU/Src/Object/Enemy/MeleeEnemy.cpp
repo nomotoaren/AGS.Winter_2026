@@ -196,9 +196,9 @@ namespace
 	// ‹C’e‚Ì˜AË
 	constexpr float kBarrageChargeTime = 1.0f;		// Ô‚¢ƒI[ƒ‰‚ğ‚Ü‚Æ‚Á‚Ä‹C‚ğ—­‚ß‚éŠÔ(‚±‚ÌŠÔAã‚Ö¸‚é)
 	constexpr float kBarrageInterval = 0.035f;		// 1•b‚É–ñ28”­		// 1”­‚²‚Æ‚ÌŠÔŠu
-	constexpr int   kBarrageCount = 80;				// ’Ç”ö‚·‚é‹C’e‚Ì”
-	constexpr int   kBarrageCountEnraged = 110;		// HP‚ª”¼•ªˆÈ‰º‚Ì‚Æ‚«
-	constexpr float kBarrageSpeed = 18.0f;			// 1/60•b‚ ‚½‚è(’P”­‚Ì‹C’e‚æ‚è­‚µ’x‚¢)
+	constexpr int   kBarrageCount = 50;				// ’Ç”ö‚·‚é‹C’e‚Ì”
+	constexpr int   kBarrageCountEnraged = 70;		// HP‚ª”¼•ªˆÈ‰º‚Ì‚Æ‚«
+	constexpr float kBarrageSpeed = 24.0f;			// 1/60•b‚ ‚½‚è(’P”­‚Ì‹C’e‚æ‚è­‚µ’x‚¢)
 	constexpr float kBarrageSpread = 280.0f;			// ‘_‚¢‚Ì‚Î‚ç‚Â‚«(L‚­U‚ç‚·)
 	constexpr int   kBarrageDirectChance = 25;		// ƒvƒŒƒCƒ„[‚ğ’Ç‚¢‘±‚¯‚é’e‚ÌŠ„‡(%)
 	constexpr float kBarrageDirectSpread = 40.0f;	// ’¼Ú‘_‚¤’e‚Ì‚Î‚ç‚Â‚«
@@ -1298,6 +1298,16 @@ void MeleeEnemy::KillBigBlast(void)
 			blast.Kill();
 		}
 	}
+}
+
+void MeleeEnemy::CancelAttacksForHeatUp(void)
+{
+	// ‚·‚Å‚ÉŒ‚‚Á‚Ä‚ ‚é‹C’e‚ÆA”ÍˆÍUŒ‚‚ğ‘S‚ÄÁ‚·(’â~‚³‚¹‚é)
+	blasts_.clear();
+	areaBlasts_.clear();
+
+	// ‹Z‚Ì“r’†‚¾‚Á‚½ê‡‚É”õ‚¦‚ÄAó‘Ô‚ğ‘Ò‹@ó‘Ô‚É–ß‚µ‚Ä‚¨‚­
+	EndBeam();
 }
 
 //----------------------------------------------------------------------
