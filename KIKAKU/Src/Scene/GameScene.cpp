@@ -6,6 +6,8 @@
 #include "../Manager/InputManager.h"
 #include "../Manager/PadInput.h"
 #include "../Manager/EffekseerEffect.h"
+#include "../Manager/AppFlow.h"
+#include "../Common/MenuUI.h"
 #include "../Object/Common/Capsule.h"
 #include "../Object/Common/Collider.h"
 #include "../Object/SkyDome.h"
@@ -13,6 +15,7 @@
 #include "../Object/Player/Player.h"
 #include "../Object/Enemy/EnemyBase.h"
 #include "../Object/Enemy/MeleeEnemy.h"
+#include "../Object/Enemy/BreakEffect.h"
 #include "../Object/Planet.h"
 #include "../Renderer/PixelMaterial.h"
 #include "../Renderer/PixelRenderer.h"
@@ -54,6 +57,10 @@ namespace
 	};
 
 	ClashState g_clash;
+
+	// ブレイクした瞬間の「全体停止」の残り時間
+	// (isHitStop_ は同じフレームの別のヒットで上書きされるので、専用の変数を使う)
+	float g_breakFreeze = 0.0f;
 
 	float Clamp01(float v)
 	{
@@ -139,13 +146,20 @@ GameScene::GameScene(void)
 	isLockOn_(false),
 	mode_(MODE::MAIN),
 	postEffectScreen_(-1),
-	stageStartTimer_(0.0f)
+	stageStartTimer_(0.0f),
+	menu_(nullptr),
+	confirmAction_(MENU_ACTION::NONE),
+	isMenuDecided_(false),
+	gameOverTimer_(0.0f)
 {
 }
 
 GameScene::~GameScene(void)
 {
 	DeleteGraph(postEffectScreen_);
+
+	// シーンを抜けるときは、エフェクト停止を必ず解除しておく
+	AppFlow::SetEffectFreeze(false);
 }
 
 void GameScene::Init(void)
@@ -166,9 +180,26 @@ void GameScene::Init(void)
 			{
 				player_->DrawHud();
 			}
+
+			// ブレイク演出(自前の時計で動く)
+			BreakEffect::Draw();
+
+			// ポーズ / ゲームオーバーのメニュー(一番手前)
+			DrawMenuOverlay();
 		});
 	g_clash = ClashState();
+	g_breakFreeze = 0.0f;
 	g_kamehameHit = false;
+
+	// 前のプレイで残ったブレイク演出を終わらせる(リトライ対策)
+	BreakEffect::Update(100.0f);
+
+	// ポーズ / ゲームオーバー用
+	menu_ = std::make_unique<MenuUI>();
+	confirmAction_ = MENU_ACTION::NONE;
+	isMenuDecided_ = false;
+	gameOverTimer_ = 0.0f;
+	AppFlow::SetEffectFreeze(false);
 
 	// プレイヤー
 	player_ = std::make_unique<Player>();
@@ -260,6 +291,53 @@ void GameScene::Init(void)
 void GameScene::Update(void)
 {
 	InputManager& ins = InputManager::GetInstance();
+
+	// ポーズ中・ゲームオーバー中は、ゲーム本体を止めてメニューだけ動かす
+	if (gameState_ == GAME_STATE::PAUSE)
+	{
+		UpdatePause();
+		return;
+	}
+	if (gameState_ == GAME_STATE::GAME_OVER)
+	{
+		UpdateGameOver();
+		return;
+	}
+
+	if (gameState_ == GAME_STATE::PLAY)
+	{
+		// HPが0になったらゲームオーバー
+		if (player_->IsDead())
+		{
+			StartGameOver();
+			return;
+		}
+
+		// ポーズボタン(ESC / P / パッドのOPTIONS)
+		// ヒートアップ発動中はカメラ演出が進むので、ポーズできないようにする
+		const bool pauseTrg =
+			ins.IsTrgDown(KEY_INPUT_ESCAPE) ||
+			ins.IsTrgDown(KEY_INPUT_P) ||
+			PadInput::IsTrg(PadInput::BTN::OPTIONS);
+
+		if (pauseTrg && !player_->IsHeatActivating())
+		{
+			StartPause();
+			return;
+		}
+	}
+
+	const float dt = SceneManager::GetInstance().GetDeltaTime();
+
+	// ブレイク演出は専用の時計で進める(下の全体停止の影響を受けない)
+	BreakEffect::Update(dt);
+
+	// ブレイクした瞬間の全体停止
+	if (g_breakFreeze > 0.0f)
+	{
+		g_breakFreeze -= dt;
+		return;
+	}
 
 	if (isHitStop_)
 	{
@@ -840,9 +918,29 @@ void GameScene::Update(void)
 				}
 				else
 				{
-					// ぶつかっている光は、優劣に応じて自分と敵の間を動く
 					// ぶつかっている光の位置は動かさない(連打で押し引きされるのはゲージだけ)
 					c.enemySide = c.isBeam ? bo : VAdd(c.enemy->GetTransform().pos, VGet(0.0f, 100.0f, 0.0f));
+
+					// 0(負け)、1(勝ち)
+					const VECTOR bs = player_->GetKamehameStartPos();
+					const float place = PlayerConfig::Clash::POINT_MIN +
+						(PlayerConfig::Clash::POINT_MAX - PlayerConfig::Clash::POINT_MIN) * c.rate;
+					const VECTOR target = VAdd(bs, VScale(VSub(c.enemySide, bs), place));
+
+					// いきなり飛ばず、行き先へなめらかに近づく
+					c.pos = VAdd(c.pos, VScale(VSub(target, c.pos), Clamp01(PlayerConfig::Clash::POINT_FOLLOW * dt)));
+
+					// 自分のビームのエフェクトを、光の位置まで伸び縮みさせる
+					EffekseerEffect::GetInstance()->SetKamehameEffectScale(
+						PlayerConfig::Kamehame::BEAM_SCALE_XY,
+						PlayerConfig::Kamehame::BEAM_SCALE_XY,
+						VSize(VSub(c.pos, bs)) / 30.0f);
+
+					// 大きな気弾は、光と一緒に動かす
+					if (!c.isBeam)
+					{
+						c.enemy->SetBigBlastPos(c.pos);
+					}
 
 					player_->SetClash(true, c.rate);
 
@@ -1028,7 +1126,7 @@ void GameScene::Update(void)
 			justSlowFrame = 0;
 		}
 
-		// ブレイク(スタン)した瞬間: 敵をスローで吹っ飛ばし、追撃のチャンスを作る
+		// ブレイク(スタン)した瞬間: カカロットのように全体を止めて演出を見せる
 		{
 			static std::unordered_map<EnemyBase*, bool> prevStun;
 
@@ -1044,20 +1142,12 @@ void GameScene::Update(void)
 
 				if (now && !prev)
 				{
-					VECTOR away = VSub(enemy->GetTransform().pos, player_->GetTransform().pos);
-					away.y = 0.0f;
-					away = (VSize(away) > 0.001f) ? VNorm(away) : VGet(0.0f, 0.0f, 1.0f);
+					// 全体を止めて、ブレイク演出(自前の時計)を再生する
+					g_breakFreeze = PlayerConfig::Break::FREEZE_TIME;
 
-					enemy->AddKnockBack(VNorm(VGet(away.x, 0.3f, away.z)), PlayerConfig::Break::KNOCK);
-
-					justSlowTimer = PlayerConfig::Break::SLOW_TIME;
-					justSlowFrame = 0;
-
-					EffekseerEffect::GetInstance()->
-						PlayHitEffect(VAdd(enemy->GetTransform().pos, VGet(0.0f, 80.0f, 0.0f)), 0.0f);
-					mainCamera.StartShake(0.25f, 8.0f);
-
-					player_->OpenPursuit(false);
+					const VECTOR hitPos = VAdd(enemy->GetTransform().pos, VGet(0.0f, 80.0f, 0.0f));
+					BreakEffect::Play(hitPos, PlayerConfig::Break::FREEZE_TIME);
+					EffekseerEffect::GetInstance()->PlayHitEffect(hitPos, 0.0f);
 				}
 
 				prev = now;
@@ -1081,17 +1171,16 @@ void GameScene::Update(void)
 					shookBurst = false;
 					shookClose = false;
 
-					// 発動の瞬間に、敵の弾と技をリセットする
-					for (auto& enemy : enemies_)
+					// 発動の瞬間に、敵の飛び道具・技を消す(止まった弾が残らないように)
+					for (auto& e : enemies_)
 					{
-						if(!enemy || enemy->IsDead())
+						if (!e || e->IsDead())
 						{
 							continue;
 						}
 
-						MeleeEnemy* me = dynamic_cast<MeleeEnemy*>(enemy.get());
-
-						if (me)
+						MeleeEnemy* me = dynamic_cast<MeleeEnemy*>(e.get());
+						if (me != nullptr)
 						{
 							me->CancelAttacksForHeatUp();
 						}
@@ -1099,7 +1188,7 @@ void GameScene::Update(void)
 
 					using Key = Camera::CineKey;
 
-					// 座    標は プレイヤーからの相対: x=右 y=上 z=前(プレイヤーの向き)
+					// 座標は プレイヤーからの相対: x=右 y=上 z=前(プレイヤーの向き)
 					const std::vector<Key> keys =
 					{
 						// 正面の少し低い位置から、昇っていく光を見上げる
@@ -2507,4 +2596,208 @@ void GameScene::MakeStage3(void)
 
 void GameScene::MakeStage4(void)
 {
+}
+
+//-----------------------------------------------------------------------------
+// ポーズ / ゲームオーバー
+//-----------------------------------------------------------------------------
+
+void GameScene::StartPause(void)
+{
+	gameState_ = GAME_STATE::PAUSE;
+	isMenuDecided_ = false;
+
+	// Effekseerの再生も止める(SceneManager::Draw 側で IsEffectFrozen を見る)
+	AppFlow::SetEffectFreeze(true);
+
+	OpenPauseMenu(0);
+}
+
+void GameScene::EndPause(void)
+{
+	gameState_ = GAME_STATE::PLAY;
+	confirmAction_ = MENU_ACTION::NONE;
+	menu_->Close();
+
+	AppFlow::SetEffectFreeze(false);
+
+	// ボタンを押したままだと、再開した最初のフレームで「押した瞬間」と
+	// 判定されてしまうので、ここで1回更新して「押している状態」にしておく
+	PadInput::Update();
+}
+
+void GameScene::OpenPauseMenu(int cursor)
+{
+	confirmAction_ = MENU_ACTION::NONE;
+	menu_->Open({ "再開", "リトライ", "タイトルへ戻る", "ゲーム終了" }, cursor);
+}
+
+void GameScene::UpdatePause(void)
+{
+	InputManager& ins = InputManager::GetInstance();
+
+	// プレイヤーが更新されない間は、パッド入力を自分で更新する
+	PadInput::Update();
+
+	if (isMenuDecided_)
+	{
+		return;
+	}
+
+	const int result = menu_->Update(SceneManager::GetInstance().GetDeltaTime());
+
+	// 「はい / いいえ」の確認中
+	if (confirmAction_ != MENU_ACTION::NONE)
+	{
+		if (result == 0)
+		{
+			ExecuteAction(confirmAction_);
+		}
+		else if (result == 1 || result == MenuUI::RESULT_CANCEL)
+		{
+			// 元のメニューへ戻る(さっき選んでいた項目にカーソルを置く)
+			OpenPauseMenu(static_cast<int>(confirmAction_));
+		}
+		return;
+	}
+
+	// ポーズボタンをもう一度押しても再開できる
+	const bool resumeKey =
+		ins.IsTrgDown(KEY_INPUT_P) ||
+		PadInput::IsTrg(PadInput::BTN::OPTIONS);
+
+	if (resumeKey || result == MenuUI::RESULT_CANCEL || result == 0)
+	{
+		EndPause();
+		return;
+	}
+
+	// リトライ / タイトル / 終了は、間違えて押しても大丈夫なように確認を挟む
+	MENU_ACTION action = MENU_ACTION::NONE;
+	const char* caption = "";
+
+	if (result == 1)
+	{
+		action = MENU_ACTION::RETRY;
+		caption = "最初からやり直しますか?";
+	}
+	else if (result == 2)
+	{
+		action = MENU_ACTION::TITLE;
+		caption = "タイトルに戻りますか?";
+	}
+	else if (result == 3)
+	{
+		action = MENU_ACTION::QUIT;
+		caption = "ゲームを終了しますか?";
+	}
+
+	if (action != MENU_ACTION::NONE)
+	{
+		confirmAction_ = action;
+		menu_->Open({ "はい", "いいえ" }, 1);
+		menu_->SetCaption(caption);
+	}
+}
+
+void GameScene::StartGameOver(void)
+{
+	gameState_ = GAME_STATE::GAME_OVER;
+	gameOverTimer_ = 0.0f;
+	isMenuDecided_ = false;
+	confirmAction_ = MENU_ACTION::NONE;
+	menu_->Close();
+
+	AppFlow::SetEffectFreeze(true);
+}
+
+void GameScene::UpdateGameOver(void)
+{
+	PadInput::Update();
+
+	const float dt = SceneManager::GetInstance().GetDeltaTime();
+	gameOverTimer_ += dt;
+
+	if (isMenuDecided_)
+	{
+		return;
+	}
+
+	// 暗転と文字が出きってからメニューを出す
+	if (!menu_->IsOpen())
+	{
+		if (gameOverTimer_ >= GAME_OVER_MENU_TIME)
+		{
+			menu_->Open({ "リトライ", "タイトルへ戻る", "ゲーム終了" }, 0);
+		}
+		return;
+	}
+
+	const int result = menu_->Update(dt);
+
+	if (result == 0) { ExecuteAction(MENU_ACTION::RETRY); }
+	else if (result == 1) { ExecuteAction(MENU_ACTION::TITLE); }
+	else if (result == 2) { ExecuteAction(MENU_ACTION::QUIT); }
+}
+
+void GameScene::ExecuteAction(MENU_ACTION action)
+{
+	confirmAction_ = MENU_ACTION::NONE;
+
+	switch (action)
+	{
+	case MENU_ACTION::RETRY:
+		// シーンを作り直す = 最初からやり直し
+		isMenuDecided_ = true;
+		SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::GAME);
+		break;
+
+	case MENU_ACTION::TITLE:
+		isMenuDecided_ = true;
+		SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::TITLE);
+		break;
+
+	case MENU_ACTION::QUIT:
+		// メインループが AppFlow::IsQuitRequested() を見て終わる
+		AppFlow::RequestQuit();
+		break;
+
+	default:
+		break;
+	}
+}
+
+void GameScene::DrawMenuOverlay(void)
+{
+	if (!menu_)
+	{
+		return;
+	}
+
+	if (gameState_ == GAME_STATE::PAUSE)
+	{
+		MenuUI::DrawDim(150, GetColor(0, 0, 20));
+
+		// 確認中は見出しを出さず、質問だけにする
+		if (confirmAction_ == MENU_ACTION::NONE)
+		{
+			menu_->DrawHeading("PAUSE", 150, GetColor(255, 255, 255), 255);
+		}
+		menu_->Draw(300);
+	}
+	else if (gameState_ == GAME_STATE::GAME_OVER)
+	{
+		// 暗転(1.2秒かけて濃くする)
+		float dimRate = gameOverTimer_ / 1.2f;
+		if (dimRate > 1.0f) { dimRate = 1.0f; }
+		MenuUI::DrawDim(static_cast<int>(210.0f * dimRate), GetColor(25, 0, 0));
+
+		// GAME OVER の文字(少し遅れてゆっくり出る)
+		float textRate = (gameOverTimer_ - 0.4f) / 1.0f;
+		if (textRate < 0.0f) { textRate = 0.0f; }
+		if (textRate > 1.0f) { textRate = 1.0f; }
+		menu_->DrawHeading("GAME OVER", 230, GetColor(230, 40, 40), static_cast<int>(255.0f * textRate));
+
+		menu_->Draw(400);
+	}
 }

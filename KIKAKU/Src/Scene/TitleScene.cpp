@@ -5,17 +5,21 @@
 #include "../Manager/SceneManager.h"
 #include "../Manager/ResourceManager.h"
 #include "../Manager/InputManager.h"
+#include "../Manager/PadInput.h"
+#include "../Manager/AppFlow.h"
 #include "../Manager/Camera.h"
+#include "../Common/MenuUI.h"
 #include "../Object/Common/AnimationController.h"
 #include "../Object/SkyDome.h"
 #include "TitleScene.h"
 
 TitleScene::TitleScene(void)
 {
-	imgPush_ = -1;
 	imgTitle_ = -1;
 	skyDome_ = nullptr;
 	animationController_ = nullptr;
+	menu_ = nullptr;
+	isDecided_ = false;
 }
 
 TitleScene::~TitleScene(void)
@@ -27,7 +31,6 @@ void TitleScene::Init(void)
 
 	// 画像読み込み
 	imgTitle_ = resMng_.Load(ResourceManager::SRC::TITLE).handleId_;
-	imgPush_ = resMng_.Load(ResourceManager::SRC::PUSH_SPACE).handleId_;
 
 	// 背景
 	spaceDomeTran_.pos = AsoUtility::VECTOR_ZERO;
@@ -69,16 +72,36 @@ void TitleScene::Init(void)
 	// 定点カメラ
 	mainCamera.ChangeMode(Camera::MODE::FIXED_POINT);
 
+	// タイトルメニュー
+	menu_ = std::make_unique<MenuUI>();
+	menu_->Open({ "ゲームスタート", "ゲーム終了" }, 0);
+
+	isDecided_ = false;
+
 }
 
 void TitleScene::Update(void)
 {
 
-	// シーン遷移
-	InputManager& ins = InputManager::GetInstance();
-	if (ins.IsTrgDown(KEY_INPUT_SPACE))
+	// パッド入力はプレイヤーが居ないこのシーンでは自分で更新する
+	PadInput::Update();
+
+	// メニュー操作
+	if (!isDecided_)
 	{
-		SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::GAME);
+		const int result = menu_->Update(SceneManager::GetInstance().GetDeltaTime());
+
+		if (result == 0)
+		{
+			// ゲームスタート(SPACE / ENTER / ○ でも始まる)
+			isDecided_ = true;
+			SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::GAME);
+		}
+		else if (result == 1)
+		{
+			// ゲーム終了(メインループが AppFlow::IsQuitRequested() を見て終わる)
+			AppFlow::RequestQuit();
+		}
 	}
 
 	// 惑星の回転
@@ -103,6 +126,8 @@ void TitleScene::Draw(void)
 	MV1DrawModel(charactor_.modelId);
 
 	DrawRotaGraph(Application::SCREEN_SIZE_X / 2, 250, 1.0, 0.0, imgTitle_, true);
-	DrawRotaGraph(Application::SCREEN_SIZE_X / 2, 500, 1.0, 0.0, imgPush_, true);
+
+	// メニュー(旧「PUSH SPACE」画像の位置)
+	menu_->Draw(440);
 
 }

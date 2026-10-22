@@ -1029,6 +1029,25 @@ void Player::Draw(void)
 		DrawAfterImage(image.matrix, image.timer / Constants::BoostAfterImageDuration * 0.5f, true);
 	}
 
+	// ヒートアップ中の体の色を染める
+	{
+		const bool beforeGold =
+			(heatActivate_ > 0.0f) &&
+			(cfg::HeatUp::ACTIVATE_TIME - heatActivate_ < cfg::HeatUp::ACTIVATE_BURST_END);
+
+		float g = 1.0f;
+		float b = 1.0f;
+
+		if (heatUp_ && !beforeGold)
+		{
+			const float pulse = 0.5f + 0.5f * sinf((float)GetNowCount() * 0.001f * 8.0f);
+			g = 0.88f + 0.06f * pulse;
+			b = 0.55f + 0.15f * pulse;
+		}
+
+		MV1SetDifColorScale(transform_.modelId, GetColorF(1.0f, g, b, 1.0f));
+	}
+
 	// プレイヤー本体
 	SetUseLighting(false);
 	MV1DrawModel(transform_.modelId);
@@ -2656,6 +2675,27 @@ void Player::DrawHeatAura(void) const
 	SetDrawBlendMode(DX_BLENDMODE_ADD, 10);
 	DrawCapsule3D(VAdd(base, VGet(0.0f, 20.0f, 0.0f)), VAdd(base, VGet(0.0f, 150.0f, 0.0f)),
 		70.0f + 10.0f * pulse, 12, GetColor(255, 235, 140), GetColor(255, 235, 140), TRUE);
+
+	// 炎のように揺れる光の筋(細い円錐)。薄く細くして、敵を隠さない
+	constexpr int   kFlameCount = 8;
+	constexpr float kFlameRadius = 52.0f;	// 体からの距離
+	constexpr float kFlameWidth = 14.0f;	// 根元の太さ
+	constexpr int   kFlameAlpha = 70;
+
+	for (int i = 0; i < kFlameCount; i++)
+	{
+		const float ang = (float)i / (float)kFlameCount * DX_TWO_PI_F + t * 1.5f;
+		const float flicker = 0.5f + 0.5f * sinf(t * 11.0f + (float)i * 1.7f);
+		const float height = 110.0f + 90.0f * flicker;
+
+		const VECTOR root = VAdd(base, VGet(cosf(ang) * kFlameRadius, 10.0f, sinf(ang) * kFlameRadius));
+		const VECTOR tip = VAdd(root, VGet(-cosf(ang) * 14.0f, height, -sinf(ang) * 14.0f));
+
+		const unsigned int color = (i % 2 == 0) ? GetColor(255, 200, 60) : GetColor(255, 235, 140);
+
+		SetDrawBlendMode(DX_BLENDMODE_ADD, kFlameAlpha);
+		DrawCone3D(tip, root, kFlameWidth, 8, color, color, TRUE);
+	}
 
 	// 昇っていく火花
 	SetDrawBlendMode(DX_BLENDMODE_ADD, 200);

@@ -4,6 +4,7 @@
 #include "Manager/ResourceManager.h"
 #include "Manager/SceneManager.h"
 #include "Manager/EffekseerEffect.h"
+#include "Manager/AppFlow.h"
 #include "Application.h"
 
 Application* Application::instance_ = nullptr;
@@ -71,7 +72,7 @@ void Application::Run(void)
 	auto& sceneManager = SceneManager::GetInstance();
 
 	// ÉQÅ[ÉÄÉãÅ[Év
-	while (ProcessMessage() == 0 && CheckHitKey(KEY_INPUT_ESCAPE) == 0)
+	while (ProcessMessage() == 0 && !AppFlow::IsQuitRequested())
 	{
 		inputManager.Update();
 		sceneManager.Update();

@@ -109,10 +109,10 @@ void EnemyStunBar::DrawBreak(float elapsed) const
 
 	// ÅŒã‚Ì 0.4 •b‚Å”–‚­‚È‚é
 	float fade = 1.0f;
-	const float fadeStart = BREAK_TIME - 0.4f;
+	const float fadeStart = BREAK_TIME - 0.25f;
 	if (elapsed > fadeStart)
 	{
-		fade = 1.0f - (elapsed - fadeStart) / 0.4f;
+		fade = 1.0f - (elapsed - fadeStart) / 0.25f;
 	}
 
 	// •úËó‚ÌŒõ: Å‰‚Ì 0.2 •b‚Åˆê‹C‚ÉL‚Ñ‚é

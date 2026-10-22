@@ -1,8 +1,8 @@
-#pragma once
+ï»¿#pragma once
 #include <DxLib.h>
 
-// “G‚ªŒ‚‚Â‹C’e
-//   ‚Ü‚Á‚·‚®”ò‚ÑAˆê’èŠÔ‚ÅÁ‚¦‚éBƒvƒŒƒCƒ„[‚É“–‚½‚Á‚½‚©‚Ì”»’è‚Æƒ_ƒ[ƒW‚ÍAŒ‚‚Á‚½“G(MeleeEnemy)‚ªs‚¤
+// æ•µãŒæ’ƒã¤æ°—å¼¾
+//   ã¾ã£ã™ãé£›ã³ã€ä¸€å®šæ™‚é–“ã§æ¶ˆãˆã‚‹ã€‚ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«å½“ãŸã£ãŸã‹ã®åˆ¤å®šã¨ãƒ€ãƒ¡ãƒ¼ã‚¸ã¯ã€æ’ƒã£ãŸæ•µ(MeleeEnemy)ãŒè¡Œã†
 class EnemyKiBlast
 {
 public:
@@ -10,43 +10,45 @@ public:
 	EnemyKiBlast(void);
 	~EnemyKiBlast(void) = default;
 
-	// pos: o‚·ˆÊ’u / dir: ”ò‚ÔŒü‚« / speed: 1/60•b‚ ‚½‚è‚ÌˆÚ“®—Ê / radius: ‘å‚«‚³ / life: Á‚¦‚é‚Ü‚Å‚ÌŠÔ(•b)
+	// pos: å‡ºã™ä½ç½® / dir: é£›ã¶å‘ã / speed: 1/60ç§’ã‚ãŸã‚Šã®ç§»å‹•é‡ / radius: å¤§ãã• / life: æ¶ˆãˆã‚‹ã¾ã§ã®æ™‚é–“(ç§’)
 	void Init(const VECTOR& pos, const VECTOR& dir, float speed, float radius, float life);
 
-	// ’Ç”ö‚³‚¹‚é(target: ’Ç‚¤ˆÊ’u‚Ö‚Ìƒ|ƒCƒ“ƒ^ / offsetY: ‚»‚ÌˆÊ’u‚É‘«‚·‚‚³ / turnRate: ‹È‚ª‚é‹­‚³(1•b‚ ‚½‚è) / homingTime: ’Ç”ö‚·‚éŠÔ(•b))
-	//   ’Ç”öŠÔ‚ª‰ß‚¬‚½‚çA‚»‚Ì‚ÌŒü‚«‚Ì‚Ü‚Ü’¼i‚·‚é(”ğ‚¯‚ç‚ê‚é)
+	// è¿½å°¾ã•ã›ã‚‹(target: è¿½ã†ä½ç½®ã¸ã®ãƒã‚¤ãƒ³ã‚¿ / offsetY: ãã®ä½ç½®ã«è¶³ã™é«˜ã• / turnRate: æ›²ãŒã‚‹å¼·ã•(1ç§’ã‚ãŸã‚Š) / homingTime: è¿½å°¾ã™ã‚‹æ™‚é–“(ç§’))
+	//   è¿½å°¾æ™‚é–“ãŒéããŸã‚‰ã€ãã®æ™‚ã®å‘ãã®ã¾ã¾ç›´é€²ã™ã‚‹(é¿ã‘ã‚‰ã‚Œã‚‹)
 	void SetHoming(const VECTOR* target, float offsetY, float turnRate, float homingTime);
 
-	// ŒÅ’è‚µ‚½ˆÊ’u‚Ö‹È‚ª‚é(point: ‘_‚¤ˆÊ’u / startDelay: ‹È‚ª‚èn‚ß‚é‚Ü‚Å‚Ì•b / turnRate / endTime: ‹È‚ª‚é‚Ì‚ğ‚â‚ß‚é(•b))
-	//   ƒvƒŒƒCƒ„[‚ğ’Ç‚í‚È‚¢‚Ì‚ÅA“®‚¢‚Ä‚¢‚ê‚Î“–‚½‚ç‚È‚¢
+	// å›ºå®šã—ãŸä½ç½®ã¸æ›²ãŒã‚‹(point: ç‹™ã†ä½ç½® / startDelay: æ›²ãŒã‚Šå§‹ã‚ã‚‹ã¾ã§ã®ç§’ / turnRate / endTime: æ›²ãŒã‚‹ã®ã‚’ã‚„ã‚ã‚‹æ™‚åˆ»(ç§’))
+	//   ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’è¿½ã‚ãªã„ã®ã§ã€å‹•ã„ã¦ã„ã‚Œã°å½“ãŸã‚‰ãªã„
 	void SetFixedGoal(const VECTOR& point, float startDelay, float turnRate, float endTime);
-	// ’Ç”ö‚ÌŠJn‚ğ’x‚ç‚¹‚é(•b)
+	// è¿½å°¾ã®é–‹å§‹ã‚’é…ã‚‰ã›ã‚‹(ç§’)
 	void SetHomingDelay(float delay) { homingDelay_ = delay; }
 
 	void Update(float deltaTime);
 	void Draw(void) const;
 
-	// ‘ŠEŸ•‰‚Ì‘ÎÛ‚É‚È‚é‘å‚«‚È‹C’e‚©
+	// ç›¸æ®ºå‹è² ã®å¯¾è±¡ã«ãªã‚‹å¤§ããªæ°—å¼¾ã‹
 	void SetBig(bool big) { isBig_ = big; }
 	bool IsBig(void) const { return isBig_; }
 
-	// ~‚ß‚é(‘ŠEŸ•‰’†B“®‚©‚¸AÁ‚¦‚¸A•`‚©‚ê‚¸A“–‚½‚è‚à‚µ‚È‚¢)
+	// æ­¢ã‚ã‚‹(ç›¸æ®ºå‹è² ä¸­ã€‚å‹•ã‹ãšã€æ¶ˆãˆãšã€æã‹ã‚Œãšã€å½“ãŸã‚Šã‚‚ã—ãªã„)
 	void SetFrozen(bool frozen) { isFrozen_ = frozen; }
 	bool IsFrozen(void) const { return isFrozen_; }
 
-	// “–‚½‚Á‚½‚Æ‚«‚È‚Ç‚ÉÁ‚·
+	// å½“ãŸã£ãŸã¨ããªã©ã«æ¶ˆã™
 	void Kill(void) { isDead_ = true; }
 
-	// “–‚½‚Á‚½‚Æ‚«‚Ìƒ_ƒ[ƒW(È—ª‚·‚é‚Æ3)
+	// å½“ãŸã£ãŸã¨ãã®ãƒ€ãƒ¡ãƒ¼ã‚¸(çœç•¥ã™ã‚‹ã¨3)
 	void SetDamage(int damage) { damage_ = damage; }
 	int GetDamage(void) const { return damage_; }
 
-	// “–‚½‚Á‚½‚Æ‚«‚ÉƒvƒŒƒCƒ„[‚ğ‰Ÿ‚·‹­‚³(È—ª‚·‚é‚Æ12B˜AË‚Ì’e‚Í0‚É‚µ‚ÄA‰Ÿ‚µo‚³‚È‚¢)
+	// å½“ãŸã£ãŸã¨ãã«ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’æŠ¼ã™å¼·ã•(çœç•¥ã™ã‚‹ã¨12ã€‚é€£å°„ã®å¼¾ã¯0ã«ã—ã¦ã€æŠ¼ã—å‡ºã•ãªã„)
 	void SetKnock(float knock) { knock_ = knock; }
 	float GetKnock(void) const { return knock_; }
 
 	bool IsDead(void) const { return isDead_; }
 	const VECTOR& GetPos(void) const { return pos_; }
+	void SetPos(const VECTOR& pos) { pos_ = pos; }	// ç›¸æ®ºå‹è² ã§æŠ¼ã—å¼•ãã™ã‚‹ã¨ãç”¨	const VECTOR& GetPos(void) const { return pos_; }
+
 	float GetRadius(void) const { return radius_; }
 
 private:
@@ -63,7 +65,7 @@ private:
 	bool isBig_ = false;
 	bool isFrozen_ = false;
 
-	// ’Ç”ö
+	// è¿½å°¾
 	const VECTOR* homingTarget_ = nullptr;
 	float homingOffsetY_ = 0.0f;
 	float homingTurnRate_ = 0.0f;

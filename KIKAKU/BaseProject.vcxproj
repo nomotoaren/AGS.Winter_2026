@@ -19,6 +19,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Src\Manager\AppFlow.cpp" />
+    <ClCompile Include="Src\Common\MenuUI.cpp" />
+    <ClCompile Include="Src\Object\Enemy\BreakEffect.cpp" />
     <ClCompile Include="Src\Object\Player\PlayerFinishBlast.cpp" />
     <ClCompile Include="Src\Object\Enemy\EnemyAreaBlast.cpp" />
     <ClCompile Include="Src\Object\Enemy\EnemyKiBlast.cpp" />
@@ -68,6 +71,9 @@
     <ClCompile Include="Src\Controller\TimeStopController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Src\Manager\AppFlow.h" />
+    <ClInclude Include="Src\Common\MenuUI.h" />
+    <ClInclude Include="Src\Object\Enemy\BreakEffect.h" />
     <ClInclude Include="Src\Object\Player\PlayerFinishBlast.h" />
     <ClInclude Include="Src\Object\Enemy\EnemyAreaBlast.h" />
     <ClInclude Include="Src\Object\Enemy\EnemyKiBlast.h" />

@@ -43,6 +43,8 @@ public:
 		DOOR,
 		CHARGE,
 		KAMEHAMEHA,
+		BREAK,
+		BREAKBR,
 	};
 
 	// 明示的にインステンスを生成する

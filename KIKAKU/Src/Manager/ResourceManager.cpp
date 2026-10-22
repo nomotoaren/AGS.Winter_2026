@@ -148,6 +148,12 @@ void ResourceManager::Init(void)
 
 	res = std::make_unique<RES>(RES_T::MODEL,PATH_MDL + "WAZA/kamehameha.mv1");
 	resourcesMap_.emplace(SRC::KAMEHAMEHA,std::move(res));
+
+	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "BREAK.png");
+	resourcesMap_.emplace(SRC::BREAK, std::move(res));
+
+	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "BREAKBR.png");
+	resourcesMap_.emplace(SRC::BREAKBR, std::move(res));
 }
 
 void ResourceManager::Release(void)

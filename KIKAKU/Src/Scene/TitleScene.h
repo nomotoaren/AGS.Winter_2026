@@ -5,6 +5,7 @@
 class SceneManager;
 class SkyDome;
 class AnimationController;
+class MenuUI;
 
 class TitleScene : public SceneBase
 {
@@ -25,7 +26,6 @@ private:
 
 	// 画像
 	int imgTitle_;
-	int imgPush_;
 
 	// スカイドーム用
 	Transform spaceDomeTran_;
@@ -42,5 +42,11 @@ private:
 
 	// アニメーション
 	std::unique_ptr<AnimationController> animationController_;
+
+	// タイトルメニュー(ゲームスタート / ゲーム終了)
+	std::unique_ptr<MenuUI> menu_;
+
+	// 決定済みか(フェード中に何度も決定しないため)
+	bool isDecided_;
 
 };

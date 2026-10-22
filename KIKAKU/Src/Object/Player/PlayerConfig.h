@@ -291,7 +291,9 @@ namespace PlayerConfig
 	namespace Break
 	{
 		constexpr float KNOCK = 70.0f;				// 吹っ飛ばす強さ
+		constexpr float KNOCK_UP = 0.1f;			// 吹っ飛ばす向きの成分(0で真横)
 		constexpr float SLOW_TIME = 1.5f;			// 敵がスローになる時間(秒)
+		constexpr float FREEZE_TIME = 1.8f;
 	}
 
 	// フィニッシュ気弾(気弾を連続で撃つと、強力なものを撃つ)
@@ -323,5 +325,8 @@ namespace PlayerConfig
 		constexpr float WIN_KNOCK = 100.0f;
 		constexpr int LOSE_DAMAGE_RATE = 3;			// 負けたときに受ける、気弾のダメージの倍率
 		constexpr float LOSE_KNOCK = 40.0f;
+		constexpr float POINT_MIN = 0.15f;		// ぶつかる光の、一番自分寄りの位置(0=自分の手元 1=敵)
+		constexpr float POINT_MAX = 0.85f;		// ぶつかる光の、一番敵寄りの位置
+		constexpr float POINT_FOLLOW = 8.0f;	// 光が行き先へ近づく速さ(大きいほどキビキビ動く)
 	}
 }

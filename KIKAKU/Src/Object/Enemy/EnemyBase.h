@@ -16,7 +16,7 @@ public:
 	static constexpr float STUN_MAX = 100.0f;			// ゲージの最大
 	static constexpr float STUN_TIME = 5.0f;			// スタンしている時間(秒)
 	static constexpr float STUN_DECAY_DELAY = 3.0f;		// 攻撃されなくなってから、ゲージが減り始めるまでの時間(秒)
-	static constexpr float STUN_DECAY_SPEED = 15.0f;	// ゲージが減る速さ(1秒あたり)
+	static constexpr float STUN_DECAY_SPEED = 0.0f;	// ゲージが減る速さ(1秒あたり)
 	static constexpr float STUN_RESIST_TIME = 6.0f;		// スタンが終わったあと、ゲージがたまらない時間(秒)
 	static constexpr int FLINCH_CHANCE = 100;			// 弱い攻撃でひるむ確率(%)。普段は怯まず、殴られても行動を続ける
 	static constexpr float HEAVY_KNOCK = 20.0f;		// これ以上の吹き飛ばしは必ずひるむ(フィニッシュ・かめはめ波など)

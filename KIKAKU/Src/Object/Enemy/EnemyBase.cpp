@@ -234,7 +234,6 @@ void EnemyBase::DrawHud(void)
 
 	// スタンゲージはHPバーの下に出す
 	stunBar_.Draw(GetStunRate(), isStunned_, stunBarTime_);
-	stunBar_.DrawBreak(breakTime_);
 
 	// 技の名前の帯
 	if (hasSkillName_)

@@ -421,7 +421,7 @@ void MeleeEnemy::Init(void)
 	InitAnimation();
 
 	// èâä˙à íu
-	transform_.pos = { 300.0f, 1000.0f, 0.0f };
+	transform_.pos = { 0.0f, 1000.0f, 300.0f };
 	transform_.scl = { 0.8f, 0.8f, 0.8f };
 
 	transform_.quaRotLocal =
@@ -1296,6 +1296,17 @@ void MeleeEnemy::KillBigBlast(void)
 		{
 			blast.SetFrozen(false);
 			blast.Kill();
+		}
+	}
+}
+
+void MeleeEnemy::SetBigBlastPos(const VECTOR& pos)
+{
+	for (auto& blast : blasts_)
+	{
+		if (!blast.IsDead() && blast.IsBig())
+		{
+			blast.SetPos(pos);
 		}
 	}
 }

@@ -10,6 +10,7 @@ class PixelMaterial;
 class PixelRenderer;
 class ModelMaterial;
 class ModelRenderer;
+class MenuUI;
 
 class GameScene : public SceneBase
 {
@@ -18,11 +19,16 @@ public:
 
 	static constexpr float STAGE_START_UI_TIME = 2.0f;
 
+	// ゲームオーバー画面で、メニューを出し始めるまでの時間
+	static constexpr float GAME_OVER_MENU_TIME = 1.8f;
+
 	enum class GAME_STATE
 	{
 		PLAY,
 		CLEAR,
-		GAME_CLEAR
+		GAME_CLEAR,
+		PAUSE,		// ポーズ中
+		GAME_OVER	// プレイヤーのHPが0になった
 	};
 
 	enum class STAGE_NO
@@ -62,6 +68,15 @@ public:
 
 private:
 
+	// メニューで決定した内容
+	enum class MENU_ACTION
+	{
+		NONE,
+		RETRY,		// 最初からやり直す
+		TITLE,		// タイトルへ戻る
+		QUIT		// ゲーム終了
+	};
+
 	int attackUIHandle_;
 
 	// ステージ
@@ -81,8 +96,8 @@ private:
 
 	// ポストエフェクト用スクリーン
 	int postEffectScreen_;
-	
-	// ポストエフェクト用(モノクロ)
+
+	// ポストエフェクト用(モノトーン)
 	std::unique_ptr<PixelMaterial> monoMaterial_;
 	std::unique_ptr<PixelRenderer> monoRenderer_;
 
@@ -123,6 +138,18 @@ private:
 	EnemyBase* lockOnTarget_;
 	bool isLockOn_;
 
+	// ポーズ / ゲームオーバー用メニュー
+	std::unique_ptr<MenuUI> menu_;
+
+	// 「はい / いいえ」の確認中の内容(NONE なら通常のメニュー)
+	MENU_ACTION confirmAction_;
+
+	// 決定済みか(フェード中に何度も決定しないため)
+	bool isMenuDecided_;
+
+	// ゲームオーバーになってからの経過時間
+	float gameOverTimer_;
+
 	// ステージ作成
 	void MakeStage1(void);
 	void MakeStage2(void);
@@ -131,4 +158,15 @@ private:
 	void ChangeGameStage(STAGE_NO stageNo);
 
 	void DrawStageStartUI(void);
+
+	// ポーズ / ゲームオーバー
+	void StartPause(void);
+	void EndPause(void);
+	void StartGameOver(void);
+	void UpdatePause(void);
+	void UpdateGameOver(void);
+	void OpenPauseMenu(int cursor);
+	void ExecuteAction(MENU_ACTION action);
+	void DrawMenuOverlay(void);
+
 };
