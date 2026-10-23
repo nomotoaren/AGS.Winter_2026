@@ -1,47 +1,55 @@
-#pragma once
+ï»¿#pragma once
 
+// ç”»é¢ã®æš—è»¢(ãƒ•ã‚§ãƒ¼ãƒ‰ã‚¢ã‚¦ãƒˆ)ãƒ»æ˜è»¢(ãƒ•ã‚§ãƒ¼ãƒ‰ã‚¤ãƒ³)
+// ä½¿ã„æ–¹: SetFade ã§é–‹å§‹ â†’ æ¯ãƒ•ãƒ¬ãƒ¼ãƒ  Update / Draw â†’ IsEnd ã§çµ‚ã‚ã‚Šã‚’èª¿ã¹ã‚‹
 class Fader
 {
 
 public:
 
-	// ƒtƒF[ƒh‚ªi‚Ş‘¬‚³
+	// ãƒ•ã‚§ãƒ¼ãƒ‰ãŒé€²ã‚€é€Ÿã•(1ãƒ•ãƒ¬ãƒ¼ãƒ ã‚ãŸã‚Šã®é€æ˜åº¦ã®å¤‰åŒ–é‡)
 	static constexpr float SPEED_ALPHA = 5.0f;
 
-	// ó‘Ô
+	// çŠ¶æ…‹
 	enum class STATE
 	{
-		NONE, 
-		FADE_OUT,	// ™X‚ÉˆÃ“]
-		FADE_IN		// ™X‚É–¾“]
+		NONE,		// ãƒ•ã‚§ãƒ¼ãƒ‰ã—ã¦ã„ãªã„
+		FADE_OUT,	// ã ã‚“ã ã‚“æš—ããªã‚‹
+		FADE_IN		// ã ã‚“ã ã‚“æ˜ã‚‹ããªã‚‹
 	};
 
-	// ó‘Ô‚Ìæ“¾
+	// çŠ¶æ…‹ã®å–å¾—
 	STATE GetState(void) const;
 
-	// ƒtƒF[ƒhˆ—‚ªI—¹‚µ‚Ä‚¢‚é‚©
+	// ãƒ•ã‚§ãƒ¼ãƒ‰ãŒå®Œå…¨ã«çµ‚äº†ã—ã¦ã„ã‚‹ã‹
 	bool IsEnd(void) const;
 
-	// w’èƒtƒF[ƒh‚ğŠJn‚·‚é
+	// æŒ‡å®šã®ãƒ•ã‚§ãƒ¼ãƒ‰ã‚’é–‹å§‹ã™ã‚‹
 	void SetFade(STATE state);
 
 	void Init(void);
 	void Update(void);
-	void Draw(void);
+	void Draw(void) const;
 
 private:
 
-	// ó‘Ô
-	STATE state_;
+	// é€æ˜åº¦ã®æœ€å¤§å€¤(çœŸã£æš—)
+	static constexpr float ALPHA_MAX = 255.0f;
 
-	// “§–¾“x
-	float alpha_;
+	// çŠ¶æ…‹
+	STATE state_ = STATE::NONE;
 
-	// ó‘Ô(STATE)‚ğ•Û‚Á‚½‚Ü‚ÜI—¹”»’è‚ğs‚¤‚½‚ßA
-	// Update->Draw->Update‚Ì1ƒtƒŒ[ƒ€”»’è—p
-	bool isPreEnd_;
+	// é€æ˜åº¦(0:é€æ˜ ã€œ 255:çœŸã£é»’)
+	float alpha_ = 0.0f;
 
-	// ƒtƒF[ƒhˆ—‚ÌI—¹”»’è
-	bool isEnd_;
+	// çŠ¶æ…‹(STATE)ã‚’ä¿ã£ãŸã¾ã¾çµ‚äº†åˆ¤å®šã‚’è¡Œã†ãŸã‚ã€
+	// Update->Draw->Update ã®1ãƒ•ãƒ¬ãƒ¼ãƒ åˆ†ã‚’ä½œã‚‹ç”¨
+	bool isPreEnd_ = true;
+
+	// ãƒ•ã‚§ãƒ¼ãƒ‰å‡¦ç†ã®çµ‚äº†åˆ¤å®š
+	bool isEnd_ = true;
+
+	// é€æ˜åº¦ãŒç«¯ã¾ã§é€²ã‚“ã ã¨ãã®å‡¦ç†
+	void OnReachEnd(void);
 
 };

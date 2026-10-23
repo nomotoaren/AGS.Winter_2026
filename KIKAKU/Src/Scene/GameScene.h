@@ -11,31 +11,34 @@ class PixelRenderer;
 class ModelMaterial;
 class ModelRenderer;
 class MenuUI;
+class ClashSystem;
 
 class GameScene : public SceneBase
 {
 
 public:
 
-	static constexpr float STAGE_START_UI_TIME = 2.0f;
+	// 敵を全部倒してから、クリアになるまでの間(秒)
+	static constexpr float CLEAR_DELAY_TIME = 1.0f;
 
-	// ゲームオーバー画面で、メニューを出し始めるまでの時間
-	static constexpr float GAME_OVER_MENU_TIME = 1.8f;
+	// クリアになってから、タイトルへ戻るまでの時間(秒)
+	static constexpr float CLEAR_WAIT_TIME = 3.0f;
+
+	// クリアになってから、ボタンで先へ進めるようになるまでの時間(秒)
+	static constexpr float CLEAR_SKIP_TIME = 1.0f;
+
+	// タイトルへ戻る前に、画面が白くなっていく時間(秒)
+	static constexpr float CLEAR_FADE_TIME = 1.0f;
+
+	// HPが0になってから、ゲームオーバー画面へ移るまでの時間(秒)
+	static constexpr float GAME_OVER_WAIT_TIME = 1.5f;
 
 	enum class GAME_STATE
 	{
 		PLAY,
-		CLEAR,
-		GAME_CLEAR,
+		CLEAR,		// 敵を全部倒した(少し待ってタイトルへ)
 		PAUSE,		// ポーズ中
 		GAME_OVER	// プレイヤーのHPが0になった
-	};
-
-	enum class STAGE_NO
-	{
-		STAGE_1,
-		STAGE_2,
-		STAGE_3
 	};
 
 	// ポストエフェクトモード
@@ -121,11 +124,6 @@ private:
 	GAME_STATE gameState_;
 	float clearTimer_;
 
-	// 現在のステージ番号
-	STAGE_NO stageNo_;
-
-	float stageStartTimer_;
-
 	float kamehameDamageTimer_;
 	bool wasKamehame_;
 	bool wasKamehameBeam_;
@@ -137,6 +135,9 @@ private:
 	// ロックオン
 	EnemyBase* lockOnTarget_;
 	bool isLockOn_;
+
+	// 相殺勝負(かめはめ波と敵の気弾・ビームの押し合い)
+	std::unique_ptr<ClashSystem> clash_;
 
 	// ポーズ / ゲームオーバー用メニュー
 	std::unique_ptr<MenuUI> menu_;
@@ -150,19 +151,26 @@ private:
 	// ゲームオーバーになってからの経過時間
 	float gameOverTimer_;
 
-	// ステージ作成
-	void MakeStage1(void);
-	void MakeStage2(void);
-	void MakeStage3(void);
-	void MakeStage4(void);
-	void ChangeGameStage(STAGE_NO stageNo);
+	// 敵を全部倒してからの経過時間
+	float clearDelayTimer_;
 
-	void DrawStageStartUI(void);
+	// プレイ時間(クリア画面に表示する)
+	float playTime_;
+
+	// ゲームオーバー / ゲームクリア画面への切り替えを始めたか
+	bool isResultRequested_;
+
+	// 敵を作る
+	void MakeEnemies(void);
 
 	// ポーズ / ゲームオーバー
 	void StartPause(void);
 	void EndPause(void);
 	void StartGameOver(void);
+	void StartClear(void);
+	void UpdateClear(float dt);
+	void DrawClear(void);
+	bool IsAllEnemiesDead(void) const;
 	void UpdatePause(void);
 	void UpdateGameOver(void);
 	void OpenPauseMenu(int cursor);

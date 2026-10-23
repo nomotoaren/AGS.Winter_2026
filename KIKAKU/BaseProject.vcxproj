@@ -19,6 +19,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Src\Manager\Playrecord.cpp" />
+    <ClCompile Include="Src\Scene\ClashSystem.cpp" />
+    <ClCompile Include="Src\Manager\GameResult.cpp" />
+    <ClCompile Include="Src\Scene\Gameclearscene.cpp" />
+    <ClCompile Include="Src\Scene\GameOverScene.cpp" />
+    <ClCompile Include="Src\Scene\Resultscenebase.cpp" />
     <ClCompile Include="Src\Manager\AppFlow.cpp" />
     <ClCompile Include="Src\Common\MenuUI.cpp" />
     <ClCompile Include="Src\Object\Enemy\BreakEffect.cpp" />
@@ -71,6 +77,12 @@
     <ClCompile Include="Src\Controller\TimeStopController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Src\Manager\Playrecord.h" />
+    <ClInclude Include="Src\Scene\ClashSystem.h" />
+    <ClInclude Include="Src\Manager\GameResult.h" />
+    <ClInclude Include="Src\Scene\Gameclearscene.h" />
+    <ClInclude Include="Src\Scene\GameOverScene.h" />
+    <ClInclude Include="Src\Scene\Resultscenebase.h" />
     <ClInclude Include="Src\Manager\AppFlow.h" />
     <ClInclude Include="Src\Common\MenuUI.h" />
     <ClInclude Include="Src\Object\Enemy\BreakEffect.h" />

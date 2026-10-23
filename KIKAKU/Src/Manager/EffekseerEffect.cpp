@@ -1,6 +1,7 @@
 #include "EffekseerEffect.h"
 #include <cmath>
 #include "../Application.h"
+#include "AppFlow.h"
 
 EffekseerEffect* EffekseerEffect::instance_ = nullptr;
 
@@ -20,7 +21,7 @@ namespace
 
     // 爆発に色をかけるか(出ないときは false にして試す)
     constexpr bool TRANSFORM_BURST_TINT = true;
-    constexpr float TRANSFORM_CHARGE_SCALE = 10.0f;		
+    constexpr float TRANSFORM_CHARGE_SCALE = 10.0f;
     constexpr bool TRANSFORM_CHARGE_TINT = false;
 
     // 再生中のエフェクトに変身の色をかける
@@ -157,7 +158,7 @@ void EffekseerEffect::Init(void)
         );
     }
 
-    // 変身中の気溜めエフェクト
+    // 変身中の気溜めエフェクト(読めなければ、普通の気溜めで代用する)
     transformChargeEffectId_ = LoadEffekseerEffect(
         (Application::PATH_EFFECT + "MagicTornade2.efkefc").c_str()
     );
@@ -166,7 +167,7 @@ void EffekseerEffect::Init(void)
     {
         MessageBoxA(
             NULL,
-            "MagicTornade.efkefcの読み込みに失敗しました。",
+            "MagicTornade2.efkefcの読み込みに失敗しました。\nEffectフォルダにあるか、ファイル名が合っているか確認してください。\n(今は代わりに普通の気溜めを使います)",
             "エラー",
             MB_OK
         );
@@ -205,12 +206,40 @@ void EffekseerEffect::Init(void)
 
 void EffekseerEffect::Update(void)
 {
+    // ポーズ中・ゲームオーバー中は、エフェクトの時間を止める
+    if (AppFlow::IsEffectFrozen())
+    {
+        return;
+    }
+
     UpdateEffekseer3D();
 }
 
 void EffekseerEffect::Draw(void)
 {
     DrawEffekseer3D();
+}
+
+void EffekseerEffect::StopAll(void)
+{
+    // いま再生中のエフェクトを、すべて止める
+    GetEffekseer3DManager()->StopAllEffects();
+
+    // 自分が覚えている再生ハンドルも、無効にしておく
+    PlayshalshuEffectHandle = -1;
+    slashHandle_ = -1;
+    isSlashing_ = false;
+    playTutorialHandle = -1;
+    playFinisyuHandle = -1;
+    playFinisyu2Handle = -1;
+    playFinisyu3Handle = -1;
+    playFinisyu4Handle = -1;
+    playFinisyu5Handle = -1;
+    playFinisyu6Handle = -1;
+    playHitEffectHandle_ = -1;
+    playChargeEffectHandle_ = -1;
+    playTransformEffectHandle_ = -1;
+    playKamehameEffectHandle_ = -1;
 }
 
 void EffekseerEffect::Release(void)
@@ -553,7 +582,7 @@ void EffekseerEffect::StopChargeEffect(void)
     playChargeEffectHandle_ = -1;
 }
 
-// 変身の瞬間の爆発エフェクト(気溜めと同じ色)
+
 void EffekseerEffect::PlayTransformEffect(const VECTOR& pos)
 {
     if (transformEffectId_ == -1)

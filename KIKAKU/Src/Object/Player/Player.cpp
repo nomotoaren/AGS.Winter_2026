@@ -508,14 +508,14 @@ void Player::Update(void)
 	// 状態ごとの更新
 	stateUpdate_();
 
-	// 当たり判定用の向き(ロックオン中は上下の傾きも付ける)
+	// 当たり判定用の向き
 	Quaternion logicRot = playerRotY_;
 	if (isLockOn_ && hasAttackTarget_ && !attack_.IsAttack())
 	{
 		logicRot = playerRotY_.Mult(Quaternion::Euler({ lockOnPitch_, 0.0f, 0.0f }));
 	}
 
-	// 浮遊の傾き(movePow_ が決まったあとに計算する)
+	// 浮遊の傾き
 	UpdateFloatLean();
 	ApplyVisualTransform(logicRot);
 

@@ -53,8 +53,29 @@ private:
 	// 項目の縦間隔
 	static constexpr int ITEM_INTERVAL = 64;
 
+	// スティックの前フレームの状態を「まだ読んでいない」とする値
+	static constexpr int STICK_UNREAD = 2;
+
+	// --- 更新の部品 ---
+	// 上下の入力を調べる(-1:上へ / 0:なし / 1:下へ)
+	int ReadMoveInput(void);
+
+	// カーソルを動かす(端から先へ行くと、反対の端へ回り込む)
+	void MoveCursor(int move);
+
+	// 決定・戻るが押されたか
+	static bool IsDecidePressed(void);
+	static bool IsCancelPressed(void);
+
+	// --- 描画の部品 ---
 	// フォントを必要になった時に1回だけ作る
 	void CreateFonts(void) const;
+
+	// 文字の幅
+	int GetTextWidth(const std::string& text, int font) const;
+
+	void DrawCaption(int topY) const;
+	void DrawItem(int index, int y, int brightness) const;
 
 	bool isOpen_;
 	std::vector<std::string> items_;

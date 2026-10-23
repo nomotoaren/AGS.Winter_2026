@@ -7,6 +7,7 @@
 #include "../Manager/PadInput.h"
 #include "../Manager/EffekseerEffect.h"
 #include "../Manager/AppFlow.h"
+#include "../Manager/PlayRecord.h"
 #include "../Common/MenuUI.h"
 #include "../Object/Common/Capsule.h"
 #include "../Object/Common/Collider.h"
@@ -22,6 +23,7 @@
 #include "../Renderer/ModelMaterial.h"
 #include "../Renderer/ModelRenderer.h"
 #include "GameScene.h"
+#include "ClashSystem.h"
 #include <cmath>
 #include <cfloat>
 #include <vector>
@@ -44,85 +46,9 @@ namespace
 	// 水平距離がこれ以下のときは向き判定をしない(真上・真下の敵用)
 	constexpr float ATTACK_DOT_MIN_DISTANCE = 20.0f;
 
-	// 相殺勝負(かめはめ波と敵の大きな気弾のぶつかり合い)の状態
-	struct ClashState
-	{
-		bool active = false;
-		MeleeEnemy* enemy = nullptr;
-		VECTOR pos = { 0.0f, 0.0f, 0.0f };	// ぶつかっている光の位置
-		float rate = 0.5f;					// 優劣(0=負け 1=勝ち)
-		float timer = 0.0f;
-		bool isBeam = false;				// 相手は大きな気弾ではなく、ビーム
-		VECTOR enemySide = { 0.0f, 0.0f, 0.0f };	// 敵側の光線の出どころ
-	};
-
-	ClashState g_clash;
-
 	// ブレイクした瞬間の「全体停止」の残り時間
 	// (isHitStop_ は同じフレームの別のヒットで上書きされるので、専用の変数を使う)
 	float g_breakFreeze = 0.0f;
-
-	float Clamp01(float v)
-	{
-		return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
-	}
-
-	// 2本の線分の最短距離(c1, c2 は、それぞれの線分上の最も近い点)
-	float SegmentDistance(const VECTOR& p1, const VECTOR& q1, const VECTOR& p2, const VECTOR& q2,
-		VECTOR& c1, VECTOR& c2)
-	{
-		const VECTOR d1 = VSub(q1, p1);
-		const VECTOR d2 = VSub(q2, p2);
-		const VECTOR r = VSub(p1, p2);
-		const float a = VDot(d1, d1);
-		const float e = VDot(d2, d2);
-		const float f = VDot(d2, r);
-		float s = 0.0f;
-		float t = 0.0f;
-
-		if (a <= 1.0e-6f && e <= 1.0e-6f)
-		{
-			s = 0.0f;
-			t = 0.0f;
-		}
-		else if (a <= 1.0e-6f)
-		{
-			t = Clamp01(f / e);
-		}
-		else
-		{
-			const float c = VDot(d1, r);
-
-			if (e <= 1.0e-6f)
-			{
-				s = Clamp01(-c / a);
-			}
-			else
-			{
-				const float bb = VDot(d1, d2);
-				const float denom = a * e - bb * bb;
-
-				s = (denom > 1.0e-6f) ? Clamp01((bb * f - c * e) / denom) : 0.0f;
-				t = (bb * s + f) / e;
-
-				if (t < 0.0f)
-				{
-					t = 0.0f;
-					s = Clamp01(-c / a);
-				}
-				else if (t > 1.0f)
-				{
-					t = 1.0f;
-					s = Clamp01((bb - c) / a);
-				}
-			}
-		}
-
-		c1 = VAdd(p1, VScale(d1, s));
-		c2 = VAdd(p2, VScale(d2, t));
-
-		return VSize(VSub(c1, c2));
-	}
 
 	// かめはめ波が敵に当たったか(ビームが終わったら追撃のチャンスを出す)
 	bool g_kamehameHit = false;
@@ -138,7 +64,6 @@ GameScene::GameScene(void)
 	wasKamehameBeam_(false),
 	gameState_(GAME_STATE::PLAY),
 	clearTimer_(0.0f),
-	stageNo_(STAGE_NO::STAGE_1),
 	attackUIHandle_(-1),
 	isHitStop_(false),
 	hitStopTimer_(0.0f),
@@ -146,11 +71,14 @@ GameScene::GameScene(void)
 	isLockOn_(false),
 	mode_(MODE::MAIN),
 	postEffectScreen_(-1),
-	stageStartTimer_(0.0f),
 	menu_(nullptr),
 	confirmAction_(MENU_ACTION::NONE),
 	isMenuDecided_(false),
-	gameOverTimer_(0.0f)
+	gameOverTimer_(0.0f),
+	clash_(nullptr),
+	clearDelayTimer_(0.0f),
+	playTime_(0.0f),
+	isResultRequested_(false)
 {
 }
 
@@ -187,7 +115,7 @@ void GameScene::Init(void)
 			// ポーズ / ゲームオーバーのメニュー(一番手前)
 			DrawMenuOverlay();
 		});
-	g_clash = ClashState();
+	clash_ = std::make_unique<ClashSystem>();
 	g_breakFreeze = 0.0f;
 	g_kamehameHit = false;
 
@@ -199,6 +127,9 @@ void GameScene::Init(void)
 	confirmAction_ = MENU_ACTION::NONE;
 	isMenuDecided_ = false;
 	gameOverTimer_ = 0.0f;
+	clearDelayTimer_ = 0.0f;
+	playTime_ = 0.0f;
+	isResultRequested_ = false;
 	AppFlow::SetEffectFreeze(false);
 
 	// プレイヤー
@@ -267,11 +198,10 @@ void GameScene::Init(void)
 	// 初期モード
 	mode_ = MODE::MAIN;
 
-	MakeStage3();
+	MakeEnemies();
 
 	gameState_ = GAME_STATE::PLAY;
 	clearTimer_ = 0.0f;
-	stageStartTimer_ = 0.0f;
 
 	SetGlobalAmbientLight(
 		GetColorF(
@@ -292,7 +222,9 @@ void GameScene::Update(void)
 {
 	InputManager& ins = InputManager::GetInstance();
 
-	// ポーズ中・ゲームオーバー中は、ゲーム本体を止めてメニューだけ動かす
+	const float dt = SceneManager::GetInstance().GetDeltaTime();
+
+	// ポーズ中・ゲームオーバー中は、ゲーム本体を止める
 	if (gameState_ == GAME_STATE::PAUSE)
 	{
 		UpdatePause();
@@ -313,6 +245,25 @@ void GameScene::Update(void)
 			return;
 		}
 
+		// 敵を全部倒したら、少し間をおいてクリア
+		if (IsAllEnemiesDead())
+		{
+			clearDelayTimer_ += dt;
+
+			if (clearDelayTimer_ >= CLEAR_DELAY_TIME)
+			{
+				StartClear();
+				return;
+			}
+		}
+		else
+		{
+			clearDelayTimer_ = 0.0f;
+		}
+
+		// プレイ時間(クリア画面に表示する)
+		playTime_ += dt;
+
 		// ポーズボタン(ESC / P / パッドのOPTIONS)
 		// ヒートアップ発動中はカメラ演出が進むので、ポーズできないようにする
 		const bool pauseTrg =
@@ -326,8 +277,6 @@ void GameScene::Update(void)
 			return;
 		}
 	}
-
-	const float dt = SceneManager::GetInstance().GetDeltaTime();
 
 	// ブレイク演出は専用の時計で進める(下の全体停止の影響を受けない)
 	BreakEffect::Update(dt);
@@ -359,12 +308,6 @@ void GameScene::Update(void)
 	{
 	case GAME_STATE::PLAY:
 	{
-
-		if (stageStartTimer_ < STAGE_START_UI_TIME)
-		{
-			stageStartTimer_ +=
-				SceneManager::GetInstance().GetDeltaTime();
-		}
 
 		// ゲーム更新
 		skyDome_->Update();
@@ -766,237 +709,12 @@ void GameScene::Update(void)
 			}
 		}
 
-		// 相殺勝負: かめはめ波が敵の大きな気弾にぶつかったら、連打で押し合う
+		// 相殺勝負: かめはめ波が敵の大きな気弾・ビームにぶつかったら、連打で押し合う
+		if (clash_->Update(dt, *player_, enemies_) == ClashSystem::RESULT::WIN)
 		{
-			ClashState& c = g_clash;
-			const float dt = SceneManager::GetInstance().GetDeltaTime();
-
-			if (!c.active)
-			{
-				if (player_->IsKamehameBeam())
-				{
-					const VECTOR bs = player_->GetKamehameStartPos();
-					const VECTOR be = player_->GetKamehameEndPos();
-					const VECTOR bv = VSub(be, bs);
-					const float len2 = VDot(bv, bv);
-
-					for (auto& enemy : enemies_)
-					{
-						if (!enemy || enemy->IsDead())
-						{
-							continue;
-						}
-
-						MeleeEnemy* me = dynamic_cast<MeleeEnemy*>(enemy.get());
-
-						if (me == nullptr)
-						{
-							continue;
-						}
-
-						bool found = false;
-						bool isBeam = false;
-						VECTOR hitPos = { 0.0f, 0.0f, 0.0f };
-						VECTOR enemySide = { 0.0f, 0.0f, 0.0f };
-
-						// 大きな気弾にぶつかった
-						VECTOR bp = { 0.0f, 0.0f, 0.0f };
-						float br = 0.0f;
-						int bd = 0;
-
-						if (me->GetBigBlast(bp, br, bd))
-						{
-							float t = (len2 > 0.001f) ? VDot(VSub(bp, bs), bv) / len2 : 0.0f;
-							t = Clamp01(t);
-
-							const VECTOR closest = VAdd(bs, VScale(bv, t));
-
-							if (VSize(VSub(bp, closest)) <= br + player_->GetKamehameRadius())
-							{
-								found = true;
-								hitPos = bp;
-								enemySide = VAdd(me->GetTransform().pos, VGet(0.0f, 100.0f, 0.0f));
-							}
-						}
-
-						// 敵のビームにぶつかった
-						if (!found)
-						{
-							VECTOR bo = { 0.0f, 0.0f, 0.0f };
-							VECTOR bdir = { 0.0f, 0.0f, 1.0f };
-							float brad = 0.0f;
-							int bdmg = 0;
-
-							if (me->GetBeam(bo, bdir, brad, bdmg))
-							{
-								VECTOR c1 = { 0.0f, 0.0f, 0.0f };
-								VECTOR c2 = { 0.0f, 0.0f, 0.0f };
-
-								const float d = SegmentDistance(bs, be, bo, VAdd(bo, VScale(bdir, 3000.0f)), c1, c2);
-
-								// 敵のビームは太いので、中心線が少し近づけばぶつかったことにする
-								if (d <= brad * 0.6f + player_->GetKamehameRadius())
-								{
-									found = true;
-									isBeam = true;
-									hitPos = VScale(VAdd(c1, c2), 0.5f);
-									enemySide = bo;
-								}
-							}
-						}
-
-						if (!found)
-						{
-							continue;
-						}
-
-						c.active = true;
-						c.enemy = me;
-						c.isBeam = isBeam;
-						c.pos = hitPos;
-						c.enemySide = enemySide;
-						c.rate = PlayerConfig::Clash::START_RATE;
-						c.timer = 0.0f;
-
-						if (isBeam)
-						{
-							me->SetBeamClash(true);
-						}
-						else
-						{
-							me->SetBigBlastFrozen(true);
-						}
-
-						// ビームのエフェクトは、ぶつかった所までにする(あとは自前で描く)
-						EffekseerEffect::GetInstance()->SetKamehameEffectScale(
-							PlayerConfig::Kamehame::BEAM_SCALE_XY,
-							PlayerConfig::Kamehame::BEAM_SCALE_XY,
-							VSize(VSub(hitPos, bs)) / 30.0f);
-
-						mainCamera.StartShake(0.2f, 6.0f);
-						break;
-					}
-				}
-			}
-			else
-			{
-				c.timer += dt;
-
-				const bool press =
-					ins.IsTrgDown(KEY_INPUT_F) ||
-					ins.IsTrgDown(KEY_INPUT_U) ||
-					PadInput::IsFightTrg() ||
-					PadInput::IsKiBlastTrg();
-
-				if (press) { c.rate += PlayerConfig::Clash::PUSH_PER_PRESS; }
-
-				c.rate -= PlayerConfig::Clash::ENEMY_PUSH_PER_SEC * dt;
-
-				if (player_->IsHeatUp()) { c.rate += PlayerConfig::Clash::HEAT_BONUS_PER_SEC * dt; }
-
-				if (c.rate > 1.0f) { c.rate = 1.0f; }
-
-				VECTOR bp = { 0.0f, 0.0f, 0.0f };
-				float br = 0.0f;
-				int bd = 0;
-				VECTOR bo = { 0.0f, 0.0f, 0.0f };
-				VECTOR bdir = { 0.0f, 0.0f, 1.0f };
-
-				const bool alive = !c.enemy->IsDead() &&
-					(c.isBeam ? c.enemy->GetBeam(bo, bdir, br, bd) : c.enemy->GetBigBlast(bp, br, bd));
-
-				// かめはめ波が途切れた(被弾など) / 敵や気弾がなくなった → 勝負を終える
-				if (!alive || !player_->IsKamehame())
-				{
-					// 相手のビーム・気弾を動かし直す
-					if (c.isBeam) { c.enemy->SetBeamClash(false); }
-					else if (alive) { c.enemy->SetBigBlastFrozen(false); }
-
-					c.active = false;
-					c.enemy = nullptr;
-					player_->SetClash(false, 0.5f);
-				}
-				else
-				{
-					// ぶつかっている光の位置は動かさない(連打で押し引きされるのはゲージだけ)
-					c.enemySide = c.isBeam ? bo : VAdd(c.enemy->GetTransform().pos, VGet(0.0f, 100.0f, 0.0f));
-
-					// 0(負け)、1(勝ち)
-					const VECTOR bs = player_->GetKamehameStartPos();
-					const float place = PlayerConfig::Clash::POINT_MIN +
-						(PlayerConfig::Clash::POINT_MAX - PlayerConfig::Clash::POINT_MIN) * c.rate;
-					const VECTOR target = VAdd(bs, VScale(VSub(c.enemySide, bs), place));
-
-					// いきなり飛ばず、行き先へなめらかに近づく
-					c.pos = VAdd(c.pos, VScale(VSub(target, c.pos), Clamp01(PlayerConfig::Clash::POINT_FOLLOW * dt)));
-
-					// 自分のビームのエフェクトを、光の位置まで伸び縮みさせる
-					EffekseerEffect::GetInstance()->SetKamehameEffectScale(
-						PlayerConfig::Kamehame::BEAM_SCALE_XY,
-						PlayerConfig::Kamehame::BEAM_SCALE_XY,
-						VSize(VSub(c.pos, bs)) / 30.0f);
-
-					// 大きな気弾は、光と一緒に動かす
-					if (!c.isBeam)
-					{
-						c.enemy->SetBigBlastPos(c.pos);
-					}
-
-					player_->SetClash(true, c.rate);
-
-					const bool win = (c.rate >= 1.0f);
-					const bool lose = (c.rate <= 0.0f) || (c.timer >= PlayerConfig::Clash::MAX_TIME);
-
-					if (win || lose)
-					{
-						const VECTOR hitPos = c.pos;
-						MeleeEnemy* me = c.enemy;
-
-						if (c.isBeam) { me->EndBeam(); }
-						else { me->KillBigBlast(); }
-
-						VECTOR dir = VSub(me->GetTransform().pos, player_->GetTransform().pos);
-						dir.y = 0.0f;
-						dir = (VSize(dir) > 0.001f) ? VNorm(dir) : VGet(0.0f, 0.0f, 1.0f);
-
-						EffekseerEffect::GetInstance()->PlayHitEffect(hitPos, 0.0f);
-
-						if (win)
-						{
-							// 押し勝った: 大きな気弾を押し返して、敵に大ダメージ
-							const VECTOR enemyPos = me->GetTransform().pos;
-							const int dmg = player_->GetAttackDamage(PlayerConfig::Clash::WIN_DAMAGE);
-
-							me->Damage(dmg);
-							me->AddStun(PlayerConfig::Clash::WIN_STUN);
-							player_->AddDamagePopup(VAdd(enemyPos, VGet(0.0f, 130.0f, 0.0f)), dmg);
-
-							me->AddKnockBack(VNorm(VGet(dir.x, 0.2f, dir.z)), PlayerConfig::Clash::WIN_KNOCK);
-
-							EffekseerEffect::GetInstance()->
-								PlayHitEffect(VAdd(enemyPos, VGet(0.0f, 80.0f, 0.0f)), 0.0f);
-
-							isHitStop_ = true;
-							hitStopTimer_ = 0.15f;
-							mainCamera.StartShake(0.3f, 14.0f);
-
-							// (追撃はブレイクしたときだけ)
-						}
-						else
-						{
-							// 押し負けた: 大きな気弾を受ける
-							player_->Damage(bd * PlayerConfig::Clash::LOSE_DAMAGE_RATE);
-							player_->AddKnockBack(dir, PlayerConfig::Clash::LOSE_KNOCK);
-
-							mainCamera.StartShake(0.3f, 12.0f);
-						}
-
-						c.active = false;
-						c.enemy = nullptr;
-						player_->SetClash(false, 0.5f);
-					}
-				}
-			}
+			// 押し勝った瞬間に、少し止める
+			isHitStop_ = true;
+			hitStopTimer_ = ClashSystem::WIN_HIT_STOP;
 		}
 
 		// ガードバースト
@@ -1763,7 +1481,7 @@ void GameScene::Update(void)
 		}
 
 		// かめはめ波の攻撃判定
-		if (player_->IsKamehameBeam() && !g_clash.active)
+		if (player_->IsKamehameBeam() && !clash_->IsActive())
 		{
 			VECTOR beamStart =
 				player_->GetKamehameStartPos();
@@ -1906,50 +1624,11 @@ void GameScene::Update(void)
 	}
 	case GAME_STATE::CLEAR:
 
-		clearTimer_ +=
-			SceneManager::GetInstance().GetDeltaTime();
+		UpdateClear(dt);
 
-		// 1秒後から入力受付
-		if (clearTimer_ >= 1.0f)
-		{
-			if (ins.IsTrgDown(KEY_INPUT_SPACE))
-			{
-				// STAGE1 → STAGE2
-				if (stageNo_ == STAGE_NO::STAGE_1)
-				{
-					ChangeGameStage(
-						STAGE_NO::STAGE_2
-					);
-				}
-
-				// STAGE2 → STAGE3
-				else if (stageNo_ == STAGE_NO::STAGE_2)
-				{
-					ChangeGameStage(
-						STAGE_NO::STAGE_3
-					);
-				}
-			}
-		}
 		break;
 
-	case GAME_STATE::GAME_CLEAR:
-
-		// GAME CLEAR演出用に同じタイマーを使う
-		clearTimer_ +=
-			SceneManager::GetInstance().GetDeltaTime();
-
-		// 2秒後からSPACE受付
-		if (clearTimer_ >= 2.0f)
-		{
-			if (ins.IsTrgDown(KEY_INPUT_SPACE))
-			{
-				SceneManager::GetInstance().ChangeScene(
-					SceneManager::SCENE_ID::TITLE
-				);
-			}
-		}
-
+	default:
 		break;
 	}
 }
@@ -1980,293 +1659,12 @@ void GameScene::Draw(void)
 	}
 
 	// 相殺勝負: ぶつかっている光
-	if (g_clash.active && g_clash.enemy != nullptr)
-	{
-		const VECTOR bs = player_->GetKamehameStartPos();
-		const VECTOR es = g_clash.enemySide;
-		const VECTOR bp = g_clash.pos;
+	clash_->Draw(*player_);
 
-		const float tt = (float)GetNowCount() * 0.001f;
-		const float pulse = 0.5f + 0.5f * sinf(tt * 40.0f);
-
-		SetUseLighting(FALSE);
-
-		// 自分側のビーム(青)
-		SetDrawBlendMode(DX_BLENDMODE_ADD, 170);
-		DrawCapsule3D(bs, bp, 24.0f + 5.0f * pulse, 10, GetColor(60, 140, 255), GetColor(60, 140, 255), TRUE);
-		SetDrawBlendMode(DX_BLENDMODE_ADD, 230);
-		DrawCapsule3D(bs, bp, 11.0f, 8, GetColor(230, 245, 255), GetColor(230, 245, 255), TRUE);
-
-		// 敵側(紫)
-		SetDrawBlendMode(DX_BLENDMODE_ADD, 170);
-		DrawCapsule3D(es, bp, 24.0f + 5.0f * pulse, 10, GetColor(190, 70, 255), GetColor(190, 70, 255), TRUE);
-		SetDrawBlendMode(DX_BLENDMODE_ADD, 230);
-		DrawCapsule3D(es, bp, 11.0f, 8, GetColor(255, 225, 255), GetColor(255, 225, 255), TRUE);
-
-		// ぶつかっている光の球
-		SetDrawBlendMode(DX_BLENDMODE_ADD, 120);
-		DrawSphere3D(bp, 80.0f + 30.0f * pulse, 20, GetColor(255, 220, 120), GetColor(255, 220, 120), TRUE);
-		SetDrawBlendMode(DX_BLENDMODE_ADD, 200);
-		DrawSphere3D(bp, 48.0f + 14.0f * pulse, 20, GetColor(255, 250, 200), GetColor(255, 250, 200), TRUE);
-		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-		DrawSphere3D(bp, 28.0f, 16, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
-
-		SetUseLighting(TRUE);
-	}
-
-	// STAGE CLEAR演出
+	// ステージクリア演出
 	if (gameState_ == GAME_STATE::CLEAR)
 	{
-		// 0.0 ～ 1.0
-		float rate = clearTimer_ / 0.5f;
-
-		if (rate > 1.0f)
-		{
-			rate = 1.0f;
-		}
-
-		// 背景を暗くする
-		int bgAlpha =
-			static_cast<int>(150.0f * rate);
-
-		SetDrawBlendMode(
-			DX_BLENDMODE_ALPHA,
-			bgAlpha
-		);
-
-		DrawBox(
-			0,
-			0,
-			Application::SCREEN_SIZE_X,
-			Application::SCREEN_SIZE_Y,
-			GetColor(0, 0, 0),
-			TRUE
-		);
-
-		SetDrawBlendMode(
-			DX_BLENDMODE_NOBLEND,
-			255
-		);
-
-
-		// STAGE CLEAR 拡大演出
-		// 0.5倍 → 1.0倍
-		float scale =
-			0.5f + 0.5f * rate;
-
-		int fontSize =
-			static_cast<int>(48.0f * scale);
-
-		int fontHandle =
-			CreateFontToHandle(
-				nullptr,
-				fontSize,
-				3
-			);
-
-		const char* text = "STAGE CLEAR!";
-
-		int textWidth =
-			GetDrawStringWidthToHandle(
-				text,
-				-1,
-				fontHandle
-			);
-
-		int drawX =
-			Application::SCREEN_SIZE_X / 2
-			- textWidth / 2;
-
-		int drawY =
-			Application::SCREEN_SIZE_Y / 2
-			- fontSize / 2;
-
-		// 文字もフェードイン
-		int textAlpha =
-			static_cast<int>(255.0f * rate);
-
-		SetDrawBlendMode(
-			DX_BLENDMODE_ALPHA,
-			textAlpha
-		);
-
-		DrawStringToHandle(
-			drawX,
-			drawY,
-			text,
-			GetColor(255, 230, 80),
-			fontHandle
-		);
-
-		SetDrawBlendMode(
-			DX_BLENDMODE_NOBLEND,
-			255
-		);
-
-		DeleteFontToHandle(fontHandle);
-
-		// NEXT STAGE
-		// 1秒経過してから表示
-		if (clearTimer_ >= 1.0f)
-		{
-			const char* nextText =
-				"SPACE : NEXT STAGE";
-
-			int nextWidth =
-				GetDrawStringWidth(
-					nextText,
-					-1
-				);
-
-			DrawString(
-				Application::SCREEN_SIZE_X / 2
-				- nextWidth / 2,
-
-				Application::SCREEN_SIZE_Y / 2
-				+ 70,
-
-				nextText,
-
-				GetColor(255, 255, 255)
-			);
-		}
-	}
-
-	if (gameState_ == GAME_STATE::GAME_CLEAR)
-	{
-		float rate =
-			clearTimer_ / 1.0f;
-
-		if (rate > 1.0f)
-		{
-			rate = 1.0f;
-		}
-
-		// 背景暗転
-		int bgAlpha =
-			static_cast<int>(
-				180.0f * rate
-				);
-
-		SetDrawBlendMode(
-			DX_BLENDMODE_ALPHA,
-			bgAlpha
-		);
-
-		DrawBox(
-			0,
-			0,
-			Application::SCREEN_SIZE_X,
-			Application::SCREEN_SIZE_Y,
-			GetColor(0, 0, 0),
-			TRUE
-		);
-
-		SetDrawBlendMode(
-			DX_BLENDMODE_NOBLEND,
-			255
-		);
-
-		// GAME CLEAR
-		float scale =
-			0.5f + 0.5f * rate;
-
-		int fontSize =
-			static_cast<int>(
-				64.0f * scale
-				);
-
-		int fontHandle =
-			CreateFontToHandle(
-				nullptr,
-				fontSize,
-				3
-			);
-
-		const char* text =
-			"GAME CLEAR";
-
-		int width =
-			GetDrawStringWidthToHandle(
-				text,
-				-1,
-				fontHandle
-			);
-
-		SetDrawBlendMode(
-			DX_BLENDMODE_ALPHA,
-			static_cast<int>(255.0f * rate)
-		);
-
-		DrawStringToHandle(
-			Application::SCREEN_SIZE_X / 2
-			- width / 2,
-
-			Application::SCREEN_SIZE_Y / 2
-			- 80,
-
-			text,
-
-			GetColor(100, 220, 255),
-
-			fontHandle
-		);
-
-		SetDrawBlendMode(
-			DX_BLENDMODE_NOBLEND,
-			255
-		);
-
-		DeleteFontToHandle(
-			fontHandle
-		);
-
-		// サブタイトル
-		const char* subText =
-			"ALL STAGES COMPLETED";
-
-		int subWidth =
-			GetDrawStringWidth(
-				subText,
-				-1
-			);
-
-		DrawString(
-			Application::SCREEN_SIZE_X / 2
-			- subWidth / 2,
-
-			Application::SCREEN_SIZE_Y / 2
-			+ 10,
-
-			subText,
-
-			GetColor(255, 255, 255)
-		);
-
-		// タイトルへ戻る
-		if (clearTimer_ >= 2.0f)
-		{
-			const char* backText =
-				"SPACE : TITLE";
-
-			int backWidth =
-				GetDrawStringWidth(
-					backText,
-					-1
-				);
-
-			DrawString(
-				Application::SCREEN_SIZE_X / 2
-				- backWidth / 2,
-
-				Application::SCREEN_SIZE_Y / 2
-				+ 90,
-
-				backText,
-
-				GetColor(180, 180, 180)
-			);
-		}
+		DrawClear();
 	}
 
 	int mainScreen = SceneManager::GetInstance().GetMainScreen();
@@ -2342,245 +1740,7 @@ void GameScene::Draw(void)
 	//-----------------------------------------
 }
 
-void GameScene::ChangeGameStage(STAGE_NO stageNo)
-{
-	stageNo_ = stageNo;
-
-	// 敵を作り直すので、相殺勝負の相手は忘れる
-	g_clash = ClashState();
-	g_kamehameHit = false;
-	player_->SetClash(false, 0.5f);
-
-	enemies_.clear();
-
-	// Playerに登録しているColliderを一旦削除
-	player_->ClearCollider();
-
-	// ステージ本体のColliderを戻す
-	auto planet =
-		stage_->GetPlanet(
-			Stage::NAME::MAIN_PLANET
-		).lock();
-
-	if (planet)
-	{
-		player_->AddCollider(
-			planet->GetTransform().collider
-		);
-	}
-
-	// 新しいステージ作成
-	switch (stageNo_)
-	{
-	case STAGE_NO::STAGE_1:
-
-		MakeStage1();
-
-		break;
-
-
-	case STAGE_NO::STAGE_2:
-
-		MakeStage2();
-
-		break;
-
-	case STAGE_NO::STAGE_3:
-
-		MakeStage3();
-		break;
-	}
-
-	// 状態リセット
-	gameState_ = GAME_STATE::PLAY;
-
-	clearTimer_ = 0.0f;
-
-	// ステージ開始時のタイマーリセット
-	stageStartTimer_ = 0.0f;
-}
-
-void GameScene::DrawStageStartUI(void)
-{
-	// タイマーが経過したら描画終了
-	if (stageStartTimer_ >= STAGE_START_UI_TIME)
-	{
-		return;
-	}
-
-	// 表示する文字
-	const char* stageText = "";
-	const char* subText = "";
-
-	switch (stageNo_)
-	{
-	case STAGE_NO::STAGE_1:
-		stageText = "STAGE 1";
-		subText = "FIRST SHIFT";
-		break;
-	case STAGE_NO::STAGE_2:
-		stageText = "STAGE 2";
-		subText = "DOUBLE SWITCH";
-		break;
-	case STAGE_NO::STAGE_3:
-		stageText = "STAGE 3";
-		subText = "GHOST PUZZLE";
-		break;
-	default:
-		break;
-	}
-
-	// フェード
-	int alpha = 255;
-
-	// 最初の0.5秒の領域展開
-	if (stageStartTimer_ < 0.5f)
-	{
-		float rate =
-			stageStartTimer_ / 0.5f;
-
-		alpha =
-			static_cast<int>(
-				255.0f * rate
-				);
-	}
-
-	// 最後の0.5秒の領域収縮
-	else if (stageStartTimer_ > STAGE_START_UI_TIME - 0.5f)
-	{
-		float rate =
-			(STAGE_START_UI_TIME - stageStartTimer_)
-			/ 0.5f;
-
-		alpha =
-			static_cast<int>(
-				255.0f * rate
-				);
-	}
-
-	// 拡大率
-	float scale = 1.0f;
-
-	// 最初の0.5秒だけ
-	if (stageStartTimer_ < 0.5f)
-	{
-		float rate =
-			stageStartTimer_ / 0.5f;
-
-		scale =
-			0.7f + 0.3f * rate;
-	}
-
-	// 画面中央
-	const int centerX =
-		Application::SCREEN_SIZE_X / 2;
-
-	const int centerY =
-		Application::SCREEN_SIZE_Y / 2 - 100;
-
-	// 半透明描画
-	SetDrawBlendMode(
-		DX_BLENDMODE_ALPHA,
-		alpha
-	);
-
-	// 上のライン
-	DrawLine(
-		centerX - 180,
-		centerY - 65,
-
-		centerX + 180,
-		centerY - 65,
-
-		GetColor(100, 220, 255),
-
-		2
-	);
-
-	// 下のライン
-	DrawLine(
-		centerX - 180,
-		centerY + 65,
-
-		centerX + 180,
-		centerY + 65,
-
-		GetColor(100, 220, 255),
-
-		2
-	);
-
-	// STAGE文字
-	int fontSize =
-		static_cast<int>(
-			48.0f * scale
-			);
-
-	// フォント作成
-	int fontHandle =
-		CreateFontToHandle(
-			nullptr,
-			fontSize,
-			3
-		);
-
-	// 文字の横幅を取得
-	int stageWidth =
-		GetDrawStringWidthToHandle(
-			stageText,
-			-1,
-			fontHandle
-		);
-
-	// 中央に描画
-	DrawStringToHandle(
-		centerX - stageWidth / 2,
-		centerY - 35,
-
-		stageText,
-
-		GetColor(255, 255, 255),
-
-		fontHandle
-	);
-
-	// フォント解放
-	DeleteFontToHandle(
-		fontHandle
-	);
-
-	// サブタイトル
-	int subWidth =
-		GetDrawStringWidth(
-			subText,
-			-1
-		);
-
-	DrawString(
-		centerX - subWidth / 2,
-		centerY + 30,
-
-		subText,
-
-		GetColor(100, 220, 255)
-	);
-
-	// ブレンドモードを元に戻す
-	SetDrawBlendMode(
-		DX_BLENDMODE_NOBLEND,
-		255
-	);
-}
-
-void GameScene::MakeStage1(void)
-{
-}
-
-void GameScene::MakeStage2(void)
-{
-}
-
-void GameScene::MakeStage3(void)
+void GameScene::MakeEnemies(void)
 {
 	std::unique_ptr<MeleeEnemy> enemy =
 		std::make_unique<MeleeEnemy>(
@@ -2594,8 +1754,101 @@ void GameScene::MakeStage3(void)
 	);
 }
 
-void GameScene::MakeStage4(void)
+void GameScene::UpdateClear(float dt)
 {
+	// クリア中はプレイヤーが更新されないので、パッド入力を自分で更新する
+	PadInput::Update();
+
+	clearTimer_ += dt;
+
+	if (isResultRequested_)
+	{
+		return;
+	}
+
+	// 少し待ってからは、ボタンを押せば先へ進める
+	InputManager& ins = InputManager::GetInstance();
+
+	const bool skip =
+		clearTimer_ >= CLEAR_SKIP_TIME &&
+		(ins.IsTrgDown(KEY_INPUT_SPACE) ||
+			ins.IsTrgDown(KEY_INPUT_RETURN) ||
+			PadInput::IsTrg(PadInput::BTN::CIRCLE));
+
+	// 何も押さなくても、時間がたてばタイトルへ戻る
+	if (clearTimer_ >= CLEAR_WAIT_TIME || skip)
+	{
+		isResultRequested_ = true;
+		SceneManager::GetInstance().ChangeScene(
+			SceneManager::SCENE_ID::TITLE
+		);
+	}
+}
+
+void GameScene::DrawClear(void)
+{
+	// 0.0 ～ 1.0 (最初の0.5秒で出てくる)
+	float rate = clearTimer_ / 0.5f;
+
+	if (rate > 1.0f)
+	{
+		rate = 1.0f;
+	}
+
+	// 背景を暗くする
+	MenuUI::DrawDim(static_cast<int>(150.0f * rate), GetColor(0, 0, 0));
+
+	// STAGE CLEAR 拡大演出 (0.5倍 → 1.0倍)
+	const float scale = 0.5f + 0.5f * rate;
+	const int fontSize = static_cast<int>(48.0f * scale);
+
+	const int fontHandle = CreateFontToHandle(nullptr, fontSize, 3);
+
+	const char* text = "STAGE CLEAR!";
+
+	const int textWidth = GetDrawStringWidthToHandle(text, -1, fontHandle);
+
+	const int drawX = Application::SCREEN_SIZE_X / 2 - textWidth / 2;
+	const int drawY = Application::SCREEN_SIZE_Y / 2 - fontSize / 2;
+
+	// 文字もフェードイン
+	SetDrawBlendMode(DX_BLENDMODE_ALPHA, static_cast<int>(255.0f * rate));
+
+	DrawStringToHandle(drawX, drawY, text, GetColor(255, 230, 80), fontHandle);
+
+	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 255);
+
+	DeleteFontToHandle(fontHandle);
+
+	// ボタンで進めるようになったら案内を出す
+	if (clearTimer_ >= CLEAR_SKIP_TIME)
+	{
+		const char* hint = "SPACE / A : TITLE";
+
+		const int hintWidth = GetDrawStringWidth(hint, -1);
+
+		DrawString(
+			Application::SCREEN_SIZE_X / 2 - hintWidth / 2,
+			Application::SCREEN_SIZE_Y / 2 + 70,
+			hint,
+			GetColor(255, 255, 255)
+		);
+	}
+
+	// 終わりが近づいたら、画面が白くなっていく
+	const float fadeStart = CLEAR_WAIT_TIME - CLEAR_FADE_TIME;
+
+	if (clearTimer_ > fadeStart)
+	{
+		float fade = (clearTimer_ - fadeStart) / CLEAR_FADE_TIME;
+
+		if (fade > 1.0f)
+		{
+			fade = 1.0f;
+		}
+
+		MenuUI::DrawDim(static_cast<int>(255.0f * fade * fade), GetColor(255, 255, 255));
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -2704,40 +1957,53 @@ void GameScene::StartGameOver(void)
 {
 	gameState_ = GAME_STATE::GAME_OVER;
 	gameOverTimer_ = 0.0f;
-	isMenuDecided_ = false;
-	confirmAction_ = MENU_ACTION::NONE;
+	isResultRequested_ = false;
 	menu_->Close();
 
+	// エフェクトも止めて、暗くなっていく間は静止させる
 	AppFlow::SetEffectFreeze(true);
 }
 
 void GameScene::UpdateGameOver(void)
 {
-	PadInput::Update();
+	gameOverTimer_ += SceneManager::GetInstance().GetDeltaTime();
 
-	const float dt = SceneManager::GetInstance().GetDeltaTime();
-	gameOverTimer_ += dt;
-
-	if (isMenuDecided_)
+	// 暗くなりきったら、ゲームオーバー画面へ移る
+	if (gameOverTimer_ >= GAME_OVER_WAIT_TIME && !isResultRequested_)
 	{
-		return;
+		isResultRequested_ = true;
+		SceneManager::GetInstance().ChangeScene(
+			SceneManager::SCENE_ID::GAME_OVER
+		);
+	}
+}
+
+void GameScene::StartClear(void)
+{
+	gameState_ = GAME_STATE::CLEAR;
+	PlayRecord::ClearTime() = playTime_;
+
+	clearTimer_ = 0.0f;
+	isResultRequested_ = false;
+}
+
+bool GameScene::IsAllEnemiesDead(void) const
+{
+	// 敵が1体もいないステージ(作りかけのステージ)は、クリアにしない
+	if (enemies_.empty())
+	{
+		return false;
 	}
 
-	// 暗転と文字が出きってからメニューを出す
-	if (!menu_->IsOpen())
+	for (const auto& enemy : enemies_)
 	{
-		if (gameOverTimer_ >= GAME_OVER_MENU_TIME)
+		if (enemy && !enemy->IsDead())
 		{
-			menu_->Open({ "リトライ", "タイトルへ戻る", "ゲーム終了" }, 0);
+			return false;
 		}
-		return;
 	}
 
-	const int result = menu_->Update(dt);
-
-	if (result == 0) { ExecuteAction(MENU_ACTION::RETRY); }
-	else if (result == 1) { ExecuteAction(MENU_ACTION::TITLE); }
-	else if (result == 2) { ExecuteAction(MENU_ACTION::QUIT); }
+	return true;
 }
 
 void GameScene::ExecuteAction(MENU_ACTION action)
@@ -2787,17 +2053,13 @@ void GameScene::DrawMenuOverlay(void)
 	}
 	else if (gameState_ == GAME_STATE::GAME_OVER)
 	{
-		// 暗転(1.2秒かけて濃くする)
-		float dimRate = gameOverTimer_ / 1.2f;
-		if (dimRate > 1.0f) { dimRate = 1.0f; }
-		MenuUI::DrawDim(static_cast<int>(210.0f * dimRate), GetColor(25, 0, 0));
+		// 画面がだんだん暗い赤になる(文字はゲームオーバー画面で出す)
+		float dimRate = gameOverTimer_ / GAME_OVER_WAIT_TIME;
+		if (dimRate > 1.0f)
+		{
+			dimRate = 1.0f;
+		}
 
-		// GAME OVER の文字(少し遅れてゆっくり出る)
-		float textRate = (gameOverTimer_ - 0.4f) / 1.0f;
-		if (textRate < 0.0f) { textRate = 0.0f; }
-		if (textRate > 1.0f) { textRate = 1.0f; }
-		menu_->DrawHeading("GAME OVER", 230, GetColor(230, 40, 40), static_cast<int>(255.0f * textRate));
-
-		menu_->Draw(400);
+		MenuUI::DrawDim(static_cast<int>(230.0f * dimRate), GetColor(25, 0, 0));
 	}
 }

@@ -7,6 +7,8 @@
 #include "../Scene/GameScene.h"
 #include "Camera.h"
 #include "ResourceManager.h"
+#include "EffekseerEffect.h"
+#include "AppFlow.h"
 #include "SceneManager.h"
 
 SceneManager* SceneManager::instance_ = nullptr;
@@ -131,7 +133,11 @@ void SceneManager::Draw(void)
 	camera_->SetBeforeDraw();
 
 	// Effekseerにより再生中のエフェクトを更新する。
-	UpdateEffekseer3D();
+	// (ポーズ中・ゲームオーバー中は、エフェクトの時間を止める)
+	if (!AppFlow::IsEffectFrozen())
+	{
+		UpdateEffekseer3D();
+	}
 
 	// 描画
 	scene_->Draw();
@@ -234,6 +240,12 @@ void SceneManager::ResetDeltaTime(void)
 void SceneManager::DoChangeScene(SCENE_ID sceneId)
 {
 
+	// 前のシーンで再生中のエフェクトを止める(次のシーンに残らないように)
+	if (EffekseerEffect::GetInstance() != nullptr)
+	{
+		EffekseerEffect::GetInstance()->StopAll();
+	}
+
 	// リソースの解放
 	ResourceManager::GetInstance().Release();
 
@@ -294,3 +306,5 @@ void SceneManager::Fade(void)
 	}
 
 }
+
+

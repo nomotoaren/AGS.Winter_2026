@@ -88,6 +88,9 @@ public:
     void SetKamehameEffectSpeed(float speed);
     void StopKamehameEffect(void);
 
+    // 再生中のエフェクトをすべて止める(シーンを切り替えるときに使う)
+    void StopAll(void);
+
 private:
     int shalshutEffectId_;
 

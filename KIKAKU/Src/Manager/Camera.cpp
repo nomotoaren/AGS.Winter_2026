@@ -3,9 +3,21 @@
 #include <EffekseerForDXLib.h>
 #include "../Utility/AsoUtility.h"
 #include "../Manager/InputManager.h"
+#include "../Manager/AppFlow.h"
 #include "../Manager/SceneManager.h"
 #include "../Object/Common/Transform.h"
 #include "Camera.h"
+
+namespace
+{
+    // 止まっている間は 0 秒として扱う(カメラの時間が進まなくなる)
+    float CameraDeltaTime(void)
+    {
+        return AppFlow::IsEffectFrozen()
+            ? 0.0f
+            : SceneManager::GetInstance().GetDeltaTime();
+    }
+}
 
 Camera::Camera(void)
 {
@@ -96,7 +108,7 @@ void Camera::SetBeforeDraw(void)
     if (!cineActive_)
     {
         const float rate =
-            1.0f - expf(-6.0f * SceneManager::GetInstance().GetDeltaTime());
+            1.0f - expf(-6.0f * CameraDeltaTime());
 
         fovDeg_ += (DEFAULT_FOV_DEG - fovDeg_) * rate;
     }
@@ -107,10 +119,10 @@ void Camera::SetBeforeDraw(void)
         pos_;
 
     // カメラ揺れ
-    if (isShake_)
+    if (isShake_ && !AppFlow::IsEffectFrozen())
     {
         shakeTimer_ -=
-            SceneManager::GetInstance().GetDeltaTime();
+            CameraDeltaTime();
 
         if (shakeTimer_ <= 0.0f)
         {
@@ -392,7 +404,7 @@ void Camera::SetBeforeDrawLockOn(void)
         return;
     }
 
-    const float deltaTime = SceneManager::GetInstance().GetDeltaTime();
+    const float deltaTime = CameraDeltaTime();
 
     // 調整用パラメータ
     const float BASE_DISTANCE = 260.0f;   // 基本の後ろ距離
@@ -565,7 +577,7 @@ void Camera::SetBeforeDrawCinematic(void)
         return;
     }
 
-    cineTime_ += SceneManager::GetInstance().GetDeltaTime();
+    cineTime_ += CameraDeltaTime();
 
     // 時刻が属する区間を探す
     const int last = static_cast<int>(cineKeys_.size()) - 1;
