@@ -5,6 +5,7 @@
 #include <filesystem>
 #include "../../Application.h"
 #include "../../Utility/AsoUtility.h"
+#include "../../Utility/DamageCalc.h"
 #include "../../Manager/InputManager.h"
 #include "../../Manager/PadInput.h"
 #include "../../Manager/SceneManager.h"
@@ -479,8 +480,12 @@ int Player::GetAttackDamage(int baseDamage) const
 	// ジャスト回避の直後は、ダメージが上がる
 	const float justRate = (justBuffTimer_ > 0.0f) ? cfg::JustDodge::DAMAGE_RATE : 1.0f;
 
-	const int damage = static_cast<int>(std::lround(baseDamage * GetAttackRate() * justRate));
-	return damage < 1 ? 1 : damage;
+	// 倍率をかけたあとに、ぶれとクリティカルをかける
+	const DamageCalc::Result result =
+		DamageCalc::Roll(baseDamage * GetAttackRate() * justRate);
+
+	lastCritical_ = result.critical;
+	return result.damage;
 }
 
 void Player::Update(void)
@@ -508,14 +513,14 @@ void Player::Update(void)
 	// 状態ごとの更新
 	stateUpdate_();
 
-	// 当たり判定用の向き
+	// 当たり判定用の向き(ロックオン中は上下の傾きも付ける)
 	Quaternion logicRot = playerRotY_;
 	if (isLockOn_ && hasAttackTarget_ && !attack_.IsAttack())
 	{
 		logicRot = playerRotY_.Mult(Quaternion::Euler({ lockOnPitch_, 0.0f, 0.0f }));
 	}
 
-	// 浮遊の傾き
+	// 浮遊の傾き(movePow_ が決まったあとに計算する)
 	UpdateFloatLean();
 	ApplyVisualTransform(logicRot);
 
@@ -1029,7 +1034,7 @@ void Player::Draw(void)
 		DrawAfterImage(image.matrix, image.timer / Constants::BoostAfterImageDuration * 0.5f, true);
 	}
 
-	// ヒートアップ中の体の色を染める
+	// ヒートアップ中の体の色を決める
 	{
 		const bool beforeGold =
 			(heatActivate_ > 0.0f) &&
@@ -2676,10 +2681,10 @@ void Player::DrawHeatAura(void) const
 	DrawCapsule3D(VAdd(base, VGet(0.0f, 20.0f, 0.0f)), VAdd(base, VGet(0.0f, 150.0f, 0.0f)),
 		70.0f + 10.0f * pulse, 12, GetColor(255, 235, 140), GetColor(255, 235, 140), TRUE);
 
-	// 炎のように揺れる光の筋(細い円錐)。薄く細くして、敵を隠さない
+	// 昇っていく火花
 	constexpr int   kFlameCount = 8;
 	constexpr float kFlameRadius = 52.0f;	// 体からの距離
-	constexpr float kFlameWidth = 14.0f;	// 根元の太さ
+	constexpr float kFlameWidth = 14.0f;	// 炎の太さ
 	constexpr int   kFlameAlpha = 70;
 
 	for (int i = 0; i < kFlameCount; i++)
@@ -2697,7 +2702,7 @@ void Player::DrawHeatAura(void) const
 		DrawCone3D(tip, root, kFlameWidth, 8, color, color, TRUE);
 	}
 
-	// 昇っていく火花
+	// 昇っていく火の粉
 	SetDrawBlendMode(DX_BLENDMODE_ADD, 200);
 
 	for (int i = 0; i < 16; i++)

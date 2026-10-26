@@ -456,12 +456,13 @@ void PlayerHud::SetName(const std::string& name) { name_ = name; }
 void PlayerHud::SetIconText(const std::string& text) { iconText_ = text; }
 void PlayerHud::SetObjective(const std::string& text) { objective_ = text; }
 
-void PlayerHud::AddDamagePopup(const VECTOR& worldPos, int damage)
+void PlayerHud::AddDamagePopup(const VECTOR& worldPos, int damage, bool critical)
 {
 	DamagePopup popup;
 	popup.pos = worldPos;
 	popup.value = damage;
 	popup.timer = POPUP_TIME;
+	popup.critical = critical;
 
 	popups_.push_back(popup);
 }
@@ -1216,8 +1217,27 @@ void PlayerHud::DrawDamagePopups(void) const
 		const int w = GetDrawStringWidthToHandle(buf, (int)std::strlen(buf), fontDamage_);
 
 		SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(255.0f * alpha));
-		DrawStringToHandle((int)(screen.x - w * 0.5f), (int)screen.y,
-			buf, GetColor(255, 255, 255), fontDamage_);
+
+		if (popup.critical)
+		{
+			// クリティカルは、金色で大きく、黒い縁をつける
+			const float ex = 1.6f;
+			const int x = (int)(screen.x - w * ex * 0.5f);
+			const int y = (int)(screen.y - 10);
+
+			// 黒い縁(上下左右にずらして先に描く)
+			DrawExtendStringToHandle(x + 2, y, ex, ex, buf, GetColor(0, 0, 0), fontDamage_);
+			DrawExtendStringToHandle(x - 2, y, ex, ex, buf, GetColor(0, 0, 0), fontDamage_);
+			DrawExtendStringToHandle(x, y + 2, ex, ex, buf, GetColor(0, 0, 0), fontDamage_);
+			DrawExtendStringToHandle(x, y - 2, ex, ex, buf, GetColor(0, 0, 0), fontDamage_);
+			DrawExtendStringToHandle(x, y, ex, ex, buf, GetColor(255, 220, 60), fontDamage_);
+		}
+		else
+		{
+			DrawStringToHandle((int)(screen.x - w * 0.5f), (int)screen.y,
+				buf, GetColor(255, 255, 255), fontDamage_);
+		}
+
 		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 	}
 }

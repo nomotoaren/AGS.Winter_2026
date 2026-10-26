@@ -32,15 +32,16 @@ public:
 	void SetObjective(const std::string& text);
 
 	// ダメージ数字を出す(worldPos = 3D空間の位置)
-	void AddDamagePopup(const VECTOR& worldPos, int damage);
+	void AddDamagePopup(const VECTOR& worldPos, int damage, bool critical = false);
 
 private:
 
-	struct DamagePopup
+	struct DamagePopup 
 	{
 		VECTOR pos;
 		int value;
 		float timer;
+		bool critical;
 	};
 
 	void DrawObjective(void) const;

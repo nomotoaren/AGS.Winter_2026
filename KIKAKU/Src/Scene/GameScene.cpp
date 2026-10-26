@@ -1,6 +1,7 @@
 #include <DxLib.h>
 #include "../Application.h"
 #include "../Utility/AsoUtility.h"
+#include "../Utility/DamageCalc.h"
 #include "../Manager/SceneManager.h"
 #include "../Manager/Camera.h"
 #include "../Manager/InputManager.h"
@@ -1338,6 +1339,13 @@ void GameScene::Update(void)
 					mainCamera.StartShake(0.08f, 3.0f);
 				}
 
+				// クリティカルは、少し長く止めて画面を揺らす
+				if (player_->IsLastCritical())
+				{
+					hitStopTimer_ += DamageCalc::CRITICAL_HIT_STOP;
+					mainCamera.StartShake(0.10f, 5.0f);
+				}
+
 				player_->SetAttackHit();
 
 				// 1攻撃で1体だけ
@@ -1458,7 +1466,6 @@ void GameScene::Update(void)
 			if (g_kamehameHit)
 			{
 				g_kamehameHit = false;
-				// (追撃はブレイクしたときだけ)
 			}
 
 			for (auto& enemy : enemies_)

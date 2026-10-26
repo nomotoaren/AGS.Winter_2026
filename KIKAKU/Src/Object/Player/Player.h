@@ -261,12 +261,15 @@ public:
 	// 敵に当てたときのダメージ数字(worldPos = 3D位置)
 	void AddDamagePopup(const VECTOR& worldPos, int damage)
 	{
-		hud_.AddDamagePopup(worldPos, damage);
-		AddTension(PlayerConfig::Tension::GAIN_DEAL);	// 攻撃を当てるとテンションが溜まる
+		hud_.AddDamagePopup(worldPos, damage, lastCritical_);
+		AddTension(PlayerConfig::Tension::GAIN_DEAL);
 	}
 
 	FORM GetForm(void) const { return form_; }	// HUD表示用
 	int GetAttackDamage(int baseDamage) const;	// 基本ダメージに倍率をかけた値(最低1)
+
+	// 直前の GetAttackDamage がクリティカルだったか
+	bool IsLastCritical(void) const { return lastCritical_; }
 
 private:
 
@@ -602,6 +605,9 @@ private:
 
 	// HUD(HP・気ゲージ)
 	PlayerHud hud_;
+
+	// 直前のダメージ計算がクリティカルだったか
+	mutable bool lastCritical_ = false;
 
 	// 変身
 	FORM form_;

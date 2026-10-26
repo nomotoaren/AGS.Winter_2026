@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Src\Utility\DamageCalc.cpp" />
     <ClCompile Include="Src\Manager\Playrecord.cpp" />
     <ClCompile Include="Src\Scene\ClashSystem.cpp" />
     <ClCompile Include="Src\Manager\GameResult.cpp" />
@@ -77,6 +78,7 @@
     <ClCompile Include="Src\Controller\TimeStopController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Src\Utility\DamageCalc.h" />
     <ClInclude Include="Src\Manager\Playrecord.h" />
     <ClInclude Include="Src\Scene\ClashSystem.h" />
     <ClInclude Include="Src\Manager\GameResult.h" />
