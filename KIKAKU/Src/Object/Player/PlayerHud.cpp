@@ -872,7 +872,7 @@ void PlayerHud::DrawCommandPanel(const Player& player) const
 		{ "F",      { PadIcon::SQUARE },   1, false, "攻撃",     true, player.IsAttack() },
 		{ "U",      { PadIcon::CIRCLE },   1, false, "気弾",     true, false },
 		{ "SPACE",  { PadIcon::L3 },       1, false, "高速接近", true, false },
-		{ "LSHIFT", { PadIcon::CROSS },    1, false, "回避",     true, player.IsDodging() },
+		{ "J", { PadIcon::CROSS },    1, false, "回避",     true, player.IsDodging() },
 		{ "T",      { PadIcon::TRIANGLE }, 1, true,  "気溜め",   true, false },
 		{ "L",      { PadIcon::L2 },       1, true,  "ガード",   true, player.IsGuard() },
 		{ "TAB",    { PadIcon::L1 },       1, true,  "必殺技",   true, false },
@@ -884,6 +884,8 @@ void PlayerHud::DrawCommandPanel(const Player& player) const
 	{
 		{ "R", { PadIcon::SQUARE }, 1, false, "かめはめ波",
 			ki >= Player::KAMEHAME_KI_COST, player.IsKamehame() },
+		{ "U", { PadIcon::CIRCLE }, 1, false, "連続気弾",
+			ki >= PlayerConfig::Barrage::KI_COST, player.IsBarrageActive() },
 	};
 
 	// フォームチェンジパレット

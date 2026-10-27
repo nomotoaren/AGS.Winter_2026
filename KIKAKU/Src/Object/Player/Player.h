@@ -15,7 +15,7 @@
 #include "PlayerGuard.h"
 #include "PlayerAttack.h"
 #include "PlayerFinishBlast.h"
-  #include "PlayerBarrage.h"
+#include "PlayerBarrage.h"
 #include "../../Manager/ResourceManager.h"
 
 class AnimationController;
@@ -119,6 +119,7 @@ public:
 		GUARD,
 		GUARD_BREAK,
 		GUARD_BURST,
+		BARRAGE,
 	};
 
 	struct BoostAfterImage
@@ -208,13 +209,11 @@ public:
 	const std::vector<std::unique_ptr<KiBlast>>&
 		GetKiBlasts(void) const;
 
-	std::vector<PlayerBarrage::Shot>& GetBarrageShots(void) { return barrage_.GetShots(); }
-
-	// 連続エネルギー弾の狙いの枠
-	bool IsBarrageActive(void) const { return isBarrage_; }
-	float GetBarrageAimYaw(void) const { return aimYaw_; }
-	float GetBarrageAimPitch(void) const { return aimPitch_; }
-	VECTOR GetBarrageAimCenter(void) const;
+	// 連続エネルギー弾(弾も枠も PlayerBarrage が持つ)
+	PlayerBarrage& GetBarrage(void) { return barrage_; }
+	bool IsBarrageActive(void) const { return barrage_.IsActive(); }
+	float GetBarrageAimYaw(void) const { return barrage_.GetAimYaw(); }
+	float GetBarrageAimPitch(void) const { return barrage_.GetAimPitch(); }
 
 	void SetLockOn(bool lockOn);
 	bool IsLockOn(void) const;
@@ -463,8 +462,6 @@ private:
 	bool IsBeforeGold(void) const;		// ヒートアップ発動の演出中で、まだ金色になる前か
 	void UpdateKiBlast(void);
 	void UpdateBarrage(void);
-	void ShotBarrage(void);
-	void UpdateBarrageAim(float dt);
 	void ShotKiBlast(void);
 	void UpdateKamehame(void);
 
@@ -511,12 +508,7 @@ private:
 	float kiBlastTimer_;
 
 	// 連続エネルギー弾
-	bool isBarrage_;
-	float barrageTimer_;
-	int barrageShots_;
 	PlayerBarrage barrage_;
-	float aimYaw_;
-	float aimPitch_;
 
 	// 残像
 	MATRIX afterImageMatrix_;
@@ -556,6 +548,7 @@ private:
 		TUNE_L_THIGH, TUNE_L_KNEE, TUNE_L_OPEN, TUNE_R_THIGH, TUNE_R_KNEE, TUNE_R_OPEN, TUNE_FOOT, TUNE_LEAN,
 		TUNE_MAX
 	};
+
 	float legTune_[TUNE_MAX] = {};
 	int legTuneSel_ = 0;			// 調整中の項目
 	bool isLegTune_ = false;		// 調整モード中か(F1)

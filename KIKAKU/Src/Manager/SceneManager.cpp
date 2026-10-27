@@ -192,8 +192,7 @@ SceneManager::SCENE_ID SceneManager::GetSceneID(void) const
 
 float SceneManager::GetDeltaTime(void) const
 {
-	//return 1.0f / 60.0f;
-	return deltaTime_;
+	return deltaTime_ * timeScale_;
 }
 
 Camera& SceneManager::GetCamera(void)
@@ -271,6 +270,8 @@ void SceneManager::DoChangeScene(SCENE_ID sceneId)
 	}
 
 	scene_->Init();
+
+	timeScale_ = 1.0f;
 
 	ResetDeltaTime();
 

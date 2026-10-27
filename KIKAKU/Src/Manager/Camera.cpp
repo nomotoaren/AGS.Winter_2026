@@ -121,32 +121,31 @@ void Camera::SetBeforeDraw(void)
     // ƒJƒƒ‰—h‚ê
     if (isShake_ && !AppFlow::IsEffectFrozen())
     {
-        shakeTimer_ -=
-            CameraDeltaTime();
+        shakeTimer_ -= CameraDeltaTime();
 
         if (shakeTimer_ <= 0.0f)
         {
             shakeTimer_ = 0.0f;
             shakePower_ = 0.0f;
+            shakeDuration_ = 0.0f;
             isShake_ = false;
         }
         else
         {
-            float shakeX =
-                static_cast<float>(
-                    GetRand(200) - 100
-                    ) / 100.0f;
+            // I‚í‚è‚ÉŒü‚©‚Á‚Äã‚­‚·‚é
+            const float fade = shakeTimer_ / shakeDuration_;
+            const float p = shakePower_ * fade;
 
-            float shakeY =
-                static_cast<float>(
-                    GetRand(200) - 100
-                    ) / 100.0f;
+            const float shakeX = static_cast<float>(GetRand(200) - 100) / 100.0f;
+            const float shakeY = static_cast<float>(GetRand(200) - 100) / 100.0f;
 
-            drawPos.x +=
-                shakeX * shakePower_;
+            // ‰æ–Ê‚©‚çŒ©‚ÄA‰¡‚Æc‚É—h‚ç‚·
+            const VECTOR forward = VNorm(VSub(targetPos_, pos_));
+            const VECTOR right = VNorm(VCross(cameraUp_, forward));
+            const VECTOR up = VCross(forward, right);
 
-            drawPos.y +=
-                shakeY * shakePower_;
+            drawPos = VAdd(drawPos, VScale(right, shakeX * p));
+            drawPos = VAdd(drawPos, VScale(up, shakeY * p));
         }
     }
 
@@ -183,8 +182,22 @@ void Camera::StartShake(
     float power
 )
 {
+    // ¡‚Ì—h‚ê‚Ìc‚è‚Ì‹­‚³
+    float current = 0.0f;
+    if (isShake_ && shakeDuration_ > 0.0f)
+    {
+        current = shakePower_ * (shakeTimer_ / shakeDuration_);
+    }
+
+    // ã‚¢—h‚ê‚ÍA‹­‚¢—h‚ê‚ğ‘Å‚¿Á‚³‚È‚¢
+    if (power < current)
+    {
+        return;
+    }
+
     isShake_ = true;
     shakeTimer_ = time;
+    shakeDuration_ = time;
     shakePower_ = power;
 }
 
@@ -418,6 +431,8 @@ void Camera::SetBeforeDrawLockOn(void)
     const float DIR_FOLLOW_SPEED = 6.0f;  // Œü‚«‚Ì’Ç]‘¬“x
     const float POS_FOLLOW_SPEED = 9.0f;  // ˆÊ’u‚Ì’Ç]‘¬“x
     const float LOOK_FOLLOW_SPEED = 14.0f;// ’‹“_‚Ì’Ç]‘¬“x
+    const float AIM_DISTANCE = 220.0f;    // ‘_‚¢’†‚ÌŒã‚ë‹——£(‹ß‚Ã‚­)
+    const float AIM_BLEND_SPEED = 8.0f;   // ‘_‚¢ƒJƒƒ‰‚Ö‚ÌØ‚è‘Ö‚¦‚Ì‘¬‚³
 
     VECTOR playerPos = followTransform_->pos;
     VECTOR enemyPos = lockOnTransform_->pos;
@@ -482,6 +497,15 @@ void Camera::SetBeforeDrawLockOn(void)
         cameraDistance = MAX_DISTANCE;
     }
 
+    // ‘_‚¢’†‚ÍA’Êí‚ÌƒJƒƒ‰‚©‚ç­‚µ‚¸‚ÂŠñ‚¹‚é
+    const float aimRate = 1.0f - expf(-AIM_BLEND_SPEED * deltaTime);
+    aimBlend_ += ((isAimMode_ ? 1.0f : 0.0f) - aimBlend_) * aimRate;
+
+    if (aimBlend_ > 0.001f)
+    {
+        cameraDistance += (AIM_DISTANCE - cameraDistance) * aimBlend_;
+    }
+
     // ƒJƒƒ‰ˆÊ’u: ƒvƒŒƒCƒ„[‚Ì”wŒã + Œ¨‰z‚µ
     VECTOR cameraPos =
         VAdd(playerPos, VScale(lockOnCameraDir_, cameraDistance));
@@ -501,6 +525,12 @@ void Camera::SetBeforeDrawLockOn(void)
         VAdd(playerPos, VScale(toEnemy, LOOK_RATE));
 
     lookPos.y += LOOK_HEIGHT;
+
+    // ‘_‚¢’†‚ÍA˜g‚Ì’†S‚ğŒ©‚é(˜g‚ª‰æ–Ê‚Ì^‚ñ’†‚É—ˆ‚é)
+    if (aimBlend_ > 0.001f)
+    {
+        lookPos = VAdd(lookPos, VScale(VSub(aimPoint_, lookPos), aimBlend_));
+    }
 
     // ˜A‘±ƒGƒlƒ‹ƒM[’e‚Ì‘_‚¢: ƒJƒƒ‰‚ÌˆÊ’u‚Í‚»‚Ì‚Ü‚Ü‚ÅA‹ü‚¾‚¯‚ğU‚é
     if (aimYaw_ != 0.0f || aimPitch_ != 0.0f)

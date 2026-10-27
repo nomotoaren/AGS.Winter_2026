@@ -48,6 +48,9 @@ public:
 	// デルタタイムの取得
 	float GetDeltaTime(void) const;
 
+	// 時間の流れる速さ
+	void SetTimeScale(float scale) { timeScale_ = scale; }
+
 	// カメラの取得
 	Camera& GetCamera(void);
 
@@ -85,6 +88,8 @@ private:
 	// デルタタイム
 	std::chrono::system_clock::time_point preTime_;
 	float deltaTime_;
+
+	float timeScale_ = 1.0f;
 
 	// ゲーム実行時間
 	float totalTime_;

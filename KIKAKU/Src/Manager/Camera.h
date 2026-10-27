@@ -107,6 +107,9 @@ public:
 	// 連続エネルギー弾の狙い: 視線を左右(yaw)・上下(pitch)に振る(rad)。0 で通常
 	void SetAimOffset(float yaw, float pitch) { aimYaw_ = yaw; aimPitch_ = pitch; }
 
+	// 連続エネルギー弾: 枠の中心(3D)を見る。active の間、カメラは少し寄って枠を画面の真ん中に置く
+	void SetAimTarget(const VECTOR& point, bool active) { aimPoint_ = point; isAimMode_ = active; }
+
 	// 演出カメラ: 始める(今のカメラから滑らかにつなぐ) / 基準点を毎フレーム渡す / 終える(通常のカメラへ滑らかに戻る)
 	void StartCinematic(const std::vector<CineKey>& keys);
 	void UpdateCinematicPivot(const VECTOR& pos, const VECTOR& forward);
@@ -170,12 +173,17 @@ private:
 	float shakeTimer_;
 	float shakePower_;
 
+	float shakeDuration_ = 0.0f;
 	VECTOR lockOnCameraDir_;
 
 	bool isBoostChase_ = false;
 
 	float aimYaw_ = 0.0f;
 	float aimPitch_ = 0.0f;
+
+	VECTOR aimPoint_ = { 0.0f, 0.0f, 0.0f };
+	bool isAimMode_ = false;
+	float aimBlend_ = 0.0f;		// 0:通常 ~ 1:狙い中のカメラ
 
 	// 演出カメラ
 	bool cineActive_ = false;

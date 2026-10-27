@@ -161,33 +161,23 @@ namespace PlayerConfig
 	namespace Barrage
 	{
 		constexpr float KI_COST = 20.0f;
-		constexpr int SHOT_COUNT = 12;			// 撃つ数
-		constexpr float START_DELAY = 0.45f;	// 構えてから撃ち始めるまで(秒)
-		constexpr float INTERVAL = 0.18f;		// 1発ごとの間隔(秒)。大きいほどゆっくり
-		constexpr float END_DELAY = 0.50f;		// 撃ち終わってから動けるまで(秒)
-
-		// 狙いの枠(画面に固定)
-		constexpr float RING_CENTER_X_RATE = 0.50f;	// 画面の横の位置(0.5で真ん中)
-		constexpr float RING_CENTER_Y_RATE = 0.45f;	// 画面の縦の位置
-		constexpr float RING_RADIUS_RATE = 0.22f;	// 枠の半径(画面の高さに対する割合)
-		constexpr float AIM_RATE = 0.85f;			// 枠の半径のうち、どこまで狙うか
-
-		// 視点の操作
-		constexpr float AIM_SPEED = 1.1f;			// 視点を振る速さ(rad/秒)
-		constexpr float AIM_MAX_YAW = 0.55f;		// 左右に振れる最大(rad)
-		constexpr float AIM_MAX_PITCH = 0.40f;		// 上下に振れる最大(rad)
-		constexpr float AIM_RETURN_SPEED = 6.0f;	// 撃ち終わったあと、視点が戻る速さ
-
-		constexpr float FORWARD_AIM_DIST = 800.0f;	// ロックオンしていないとき、どこまで飛ばすか
-		constexpr float TARGET_HEIGHT = 70.0f;		// 敵の足元から体の中心までの高さ
-
-		constexpr float SPEED = 3500.0f;		// 弾の速さ(1秒あたり)。これと距離で飛ぶ時間が決まる
-		constexpr float MIN_FLIGHT = 0.12f;		// 近くても、最低これだけ(秒)かけて飛ぶ
-		constexpr float ARC = 0.10f;			// 軌道の膨らみ(飛ぶ距離に対する割合。0で直進)
-		constexpr float LIFE = 1.5f;			// 弾の寿命(秒)
-		constexpr float RADIUS = 9.0f;			// 弾の見た目の大きさ
-		constexpr float TAIL_STEP = 14.0f;		// 尾の間隔
-		constexpr float STUN = 4.0f;			// 1発あたりのスタン値
+		constexpr int SHOT_COUNT = 16;
+		constexpr float START_DELAY = 0.5f;
+		constexpr float INTERVAL = 0.14f;
+		constexpr float END_DELAY = 0.6f;
+		constexpr float RING_RADIUS = 140.0f;	// 枠の半径(3D)
+		constexpr float AIM_RATE = 0.7f;		// 枠の中のどこまでばらけるか
+		constexpr float AIM_SPEED = 300.0f;		// スティックで枠を動かす速さ
+		constexpr float AIM_MAX = 250.0f;
+		constexpr float TARGET_HEIGHT = 70.0f;
+		constexpr float FORWARD_AIM_DIST = 800.0f;
+		constexpr float SPEED = 2200.0f;
+		constexpr float MIN_FLIGHT = 0.18f;
+		constexpr float ARC = 0.08f;
+		constexpr float LIFE = 1.5f;
+		constexpr float RADIUS = 9.0f;
+		constexpr float TAIL_STEP = 14.0f;
+		constexpr float STUN = 4.0f;
 	}
 
 	// 回避ステップ
@@ -360,5 +350,27 @@ namespace PlayerConfig
 		constexpr float POINT_MIN = 0.15f;		// ぶつかる光の、一番自分寄りの位置(0=自分の手元 1=敵)
 		constexpr float POINT_MAX = 0.85f;		// ぶつかる光の、一番敵寄りの位置
 		constexpr float POINT_FOLLOW = 8.0f;	// 光が行き先へ近づく速さ(大きいほどキビキビ動く)
+	}
+
+	// カメラの揺れ(time = 秒, power = 強さ)
+	namespace HitShake
+	{
+		// 攻撃が当たったとき
+		constexpr float MELEE_TIME = 0.08f;			constexpr float MELEE_POWER = 3.0f;
+		constexpr float FINISH_TIME = 0.15f;		constexpr float FINISH_POWER = 8.0f;
+		constexpr float CRITICAL_TIME = 0.10f;		constexpr float CRITICAL_POWER = 5.0f;
+		constexpr float KI_BLAST_TIME = 0.08f;		constexpr float KI_BLAST_POWER = 2.5f;
+		constexpr float BARRAGE_TIME = 0.05f;		constexpr float BARRAGE_POWER = 1.2f;
+		constexpr float BEAM_TIME = 0.10f;			constexpr float BEAM_POWER = 1.5f;	// ビームのダメージ間隔ごと
+		constexpr float BREAK_TIME = 0.25f;			constexpr float BREAK_POWER = 9.0f;
+
+		// 攻撃を受けたとき: ダメージが大きいほど強く、長く揺れる
+		constexpr float TAKEN_TIME_MIN = 0.10f;		constexpr float TAKEN_TIME_MAX = 0.30f;
+		constexpr float TAKEN_POWER_MIN = 3.0f;		constexpr float TAKEN_POWER_MAX = 12.0f;
+		constexpr float TAKEN_FULL_RATE = 0.05f;	// 最大HPのこの割合を受けたら最大の揺れ
+		constexpr float BARRAGE_TAKEN_RATE = 0.5f;	// 連続気弾中は揺れを弱める
+
+		// ガードで受けたとき
+		constexpr float GUARD_TIME = 0.08f;			constexpr float GUARD_POWER = 2.0f;
 	}
 }

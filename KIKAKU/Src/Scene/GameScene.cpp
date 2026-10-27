@@ -91,6 +91,9 @@ namespace
 	constexpr float KI_BLAST_STUN = 10.0f;
 	constexpr int KI_BLAST_DAMAGE_TYPE = 1;
 
+	// 技パレットを開いている間の時間の速さ
+	constexpr float PALETTE_SLOW_RATE = 0.2f;
+
 	// フィニッシュ気弾
 	constexpr float FINISH_BLAST_HIT_STOP = 0.08f;
 	constexpr float FINISH_BLAST_SHAKE_TIME = 0.12f;
@@ -353,6 +356,11 @@ void GameScene::Update(void)
 {
 	const float dt = SceneManager::GetInstance().GetDeltaTime();
 
+	if (gameState_ != GAME_STATE::PLAY)
+	{
+		SceneManager::GetInstance().SetTimeScale(1.0f);
+	}
+
 	// ポーズ中・ゲームオーバー中は、ゲーム本体を止める
 	if (gameState_ == GAME_STATE::PAUSE)
 	{
@@ -462,14 +470,22 @@ bool GameScene::UpdateHitStop(float dt)
 
 void GameScene::UpdatePlay(float dt)
 {
+	// 技パレットを開いている間(Tab 長押し / パッドのパレット)はスローモーション
+	{
+		const bool palette =
+			InputManager::GetInstance().IsNew(KEY_INPUT_TAB) || PadInput::IsSpecialPalette();
+
+		SceneManager::GetInstance().SetTimeScale(palette ? PALETTE_SLOW_RATE : 1.0f);
+	}
+
 	skyDome_->Update();
 	stage_->Update();
 
 	UpdateLockOn();
 
 	player_->Update();
-	// 連続エネルギー弾の狙い(撃っていないときは 0 に戻る)
-	mainCamera.SetAimOffset(player_->GetBarrageAimYaw(), player_->GetBarrageAimPitch());
+	// 連続エネルギー弾: 枠を動かした分だけカメラも向きを変える。構え中は少し寄る
+	mainCamera.SetAimTarget(player_->GetBarrage().GetAimPoint(), player_->IsBarrageActive());
 
 	// 技
 	UpdateVanish(dt);
@@ -892,6 +908,7 @@ void GameScene::UpdateBreakFreeze(void)
 
 			const VECTOR hitPos = HitEffectPos(*enemy);
 			BreakEffect::Play(hitPos, PlayerConfig::Break::FREEZE_TIME);
+			mainCamera.StartShake(PlayerConfig::HitShake::BREAK_TIME, PlayerConfig::HitShake::BREAK_POWER);
 			EffekseerEffect::GetInstance()->PlayHitEffect(hitPos, 0.0f);
 		}
 
@@ -1187,21 +1204,21 @@ void GameScene::UpdateMeleeHit(void)
 		enemy->AddKnockBack(hitDir, knock);
 
 		EffekseerEffect::GetInstance()->PlayHitEffect(HitEffectPos(*enemy), 0.0f);
-
+		
 		if (isFinish)
 		{
-			ApplyHitImpact(0.10f, 0.15f, 8.0f);
+			ApplyHitImpact(0.10f, PlayerConfig::HitShake::FINISH_TIME, PlayerConfig::HitShake::FINISH_POWER);
 		}
 		else
 		{
-			ApplyHitImpact(0.05f, 0.08f, 3.0f);
+			ApplyHitImpact(0.05f, PlayerConfig::HitShake::MELEE_TIME, PlayerConfig::HitShake::MELEE_POWER);
 		}
 
 		// クリティカルは、少し長く止めて画面を揺らす
 		if (player_->IsLastCritical())
 		{
 			hitStopTimer_ += DamageCalc::CRITICAL_HIT_STOP;
-			mainCamera.StartShake(0.10f, 5.0f);
+			mainCamera.StartShake(PlayerConfig::HitShake::CRITICAL_TIME, PlayerConfig::HitShake::CRITICAL_POWER);
 		}
 
 		player_->SetAttackHit();
@@ -1235,6 +1252,8 @@ void GameScene::UpdateKiBlastHit(void)
 
 			DealDamage(*enemy, player_->GetAttackDamage(KI_BLAST_DAMAGE_TYPE), KI_BLAST_STUN);
 
+			mainCamera.StartShake(PlayerConfig::HitShake::KI_BLAST_TIME, PlayerConfig::HitShake::KI_BLAST_POWER);
+
 			blast->Hit();
 			break;
 		}
@@ -1244,7 +1263,12 @@ void GameScene::UpdateKiBlastHit(void)
 // 連続エネルギー弾: 着弾した弾の爆発と、枠の中の敵へのダメージ
 void GameScene::UpdateBarrageHit(void)
 {
-	for (auto& shot : player_->GetBarrageShots())
+	PlayerBarrage& barrage = player_->GetBarrage();
+
+	const VECTOR aim = barrage.GetAimPoint();
+	const float range = PlayerBarrage::RingRadius() * 1.5f;
+
+	for (auto& shot : barrage.GetShots())
 	{
 		if (!shot.exploded || shot.handled)
 		{
@@ -1256,7 +1280,7 @@ void GameScene::UpdateBarrageHit(void)
 		// 着弾の光
 		EffekseerEffect::GetInstance()->PlayHitEffect(shot.pos, 0.0f);
 
-		// 着弾点から枠の半径の中にいる敵に当たる(逃げられると外れる)
+		// 枠の中にいる敵に当たる(枠の外に逃げられると外れる)
 		for (auto& enemy : enemies_)
 		{
 			if (!enemy || enemy->IsDead())
@@ -1264,25 +1288,21 @@ void GameScene::UpdateBarrageHit(void)
 				continue;
 			}
 
-			// 敵が画面の枠の中にいれば当たる(枠の外に出ていると外れる)
-			const VECTOR sp = ConvWorldPosToScreenPos(EnemyCenter(*enemy));
-
-			if (sp.z <= 0.0f || sp.z >= 1.0f)
-			{
-				continue;
-			}
-
-			const VECTOR rc = PlayerBarrage::RingCenter();
-			const float dx = sp.x - rc.x;
-			const float dy = sp.y - rc.y;
-
-			if (std::sqrt(dx * dx + dy * dy) > PlayerBarrage::RingRadius())
+			if (VSize(VSub(EnemyCenter(*enemy), aim)) > range)
 			{
 				continue;
 			}
 
 			DealDamage(*enemy, player_->GetAttackDamage(KI_BLAST_DAMAGE_TYPE),
 				PlayerConfig::Barrage::STUN);
+
+			mainCamera.StartShake(PlayerConfig::HitShake::BARRAGE_TIME, PlayerConfig::HitShake::BARRAGE_POWER);
+
+			// 当たった敵をのけぞらせる(連射の間は、怯み続けて動けない)
+			VECTOR knockDir = VSub(EnemyCenter(*enemy), player_->GetTransform().pos);
+			knockDir.y = 0.0f;
+			enemy->AddKnockBack(NormalizeOr(knockDir, player_->GetForward()), 3.0f);
+
 			break;
 		}
 	}
@@ -1417,6 +1437,8 @@ void GameScene::UpdateKamehameHit(float dt)
 		{
 			DealDamage(*enemy, player_->GetAttackDamage(BEAM_DAMAGE_TYPE), BEAM_STUN);
 
+			mainCamera.StartShake(PlayerConfig::HitShake::BEAM_TIME, PlayerConfig::HitShake::BEAM_POWER);
+
 			kamehameDamageTimer_ = 0.0f;
 		}
 	}
@@ -1532,14 +1554,25 @@ void GameScene::DrawBarrageReticle(void)
 		return;
 	}
 
-	const VECTOR c = PlayerBarrage::RingCenter();
-	const float r = PlayerBarrage::RingRadius();
+	// 枠の中心(3D)と、横に半径だけずらした点を画面の座標にして、円の大きさを決める
+	const VECTOR c = player_->GetBarrage().GetAimPoint();
+	const VECTOR s0 = ConvWorldPosToScreenPos(c);
+	const VECTOR s1 = ConvWorldPosToScreenPos(
+		VAdd(c, VScale(GetCameraRightVector(), PlayerBarrage::RingRadius())));
+
+	// カメラの後ろ側にあるときは描かない
+	if (s0.z <= 0.0f || s0.z >= 1.0f)
+	{
+		return;
+	}
+
+	const float r = std::fabs(s1.x - s0.x);
 
 	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 50);
-	DrawCircleAA(c.x, c.y, r, 64, GetColor(255, 255, 255), TRUE);
+	DrawCircleAA(s0.x, s0.y, r, 64, GetColor(255, 255, 255), TRUE);
 
 	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 220);
-	DrawCircleAA(c.x, c.y, r, 64, GetColor(255, 255, 255), FALSE, 3.0f);
+	DrawCircleAA(s0.x, s0.y, r, 64, GetColor(255, 255, 255), FALSE, 3.0f);
 
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 }

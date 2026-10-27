@@ -149,12 +149,6 @@ Player::Player(void)
 	isKiBlastShot_(false),
 	kiBlastTimer_(0.0f),
 
-	isBarrage_(false),
-	barrageTimer_(0.0f),
-	barrageShots_(0),
-	aimYaw_(0.0f),
-	aimPitch_(0.0f),
-
 	// ロックオン
 	isLockOn_(false),
 	lockOnPitch_(0.0f),
@@ -275,6 +269,7 @@ void Player::InitAnimation(const std::string& animDir)
 	// 気弾・かめはめ波・気溜め
 	add(ANIM_TYPE::KI_BLAST, "KiBlast.mv1", 60.0f);
 	add(ANIM_TYPE::KAMEHAME, "Special.mv1", 40.0f);
+	add(ANIM_TYPE::BARRAGE, "Special2.mv1", 40.0f);
 	add(ANIM_TYPE::CHARGE, "pawer.mv1", 40.0f);
 
 	// ダメージ・ガード
@@ -291,6 +286,7 @@ void Player::InitFrames(void)
 {
 	kamehame_.SetModel(transform_.modelId);
 	rightHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:RightHand");
+	barrage_.SetModel(transform_.modelId);
 
 	hipsFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:Hips");
 
@@ -2015,7 +2011,7 @@ void Player::UpdateKiBlast(void)
 	}
 
 	// 気弾のモーション中
-	if (isKiBlast_ && !isBarrage_)
+	if (isKiBlast_ && !barrage_.IsActive())
 	{
 		kiBlastTimer_ += scnMng_.GetDeltaTime();
 
@@ -2031,9 +2027,6 @@ void Player::UpdateKiBlast(void)
 			isKiBlast_ = false;
 			isKiBlastShot_ = false;
 			kiBlastTimer_ = 0.0f;
-			isBarrage_ = false;
-			barrageTimer_ = 0.0f;
-			barrageShots_ = 0;
 
 			// 移動していなければ待機のアニメへ
 			if (!IsMoveKeyDown(ins))
@@ -2056,16 +2049,13 @@ void Player::UpdateKiBlast(void)
 		kiBlasts_.end());
 }
 
-// 連続エネルギー弾
+// 連続エネルギー弾(構え・連射・弾の管理は PlayerBarrage が行う)
 void Player::UpdateBarrage(void)
 {
 	auto& ins = InputManager::GetInstance();
 
-	barrage_.Update(scnMng_.GetDeltaTime());
-	UpdateBarrageAim(scnMng_.GetDeltaTime());
-
 	// 構えを始める
-	if (!isBarrage_ &&
+	if (!barrage_.IsActive() &&
 		!isKiBlast_ &&
 		!attack_.IsAttack() &&
 		!kamehame_.IsActive() &&
@@ -2080,78 +2070,25 @@ void Player::UpdateBarrage(void)
 	{
 		if (UseKi(cfg::Barrage::KI_COST))
 		{
-			isBarrage_ = true;
+			barrage_.Start();
 			isKiBlast_ = true;
-			barrageTimer_ = 0.0f;
-			barrageShots_ = 0;
 			movePow_ = AsoUtility::VECTOR_ZERO;
 
-			animationController_->Play((int)ANIM_TYPE::KI_BLAST, false);
+			animationController_->Play((int)ANIM_TYPE::BARRAGE, false);
 		}
 	}
 
-	if (!isBarrage_)
-	{
-		return;
-	}
+	// 撃っていなくても、飛んでいる弾は動かし続ける
+	PlayerBarrage::Context ctx{};
+	ctx.deltaTime = scnMng_.GetDeltaTime();
+	ctx.playerPos = transform_.pos;
+	ctx.forward = GetForward();
+	ctx.hasTarget = isLockOn_ && hasAttackTarget_;
+	ctx.targetPos = attackTargetPos_;
 
-	barrageTimer_ += scnMng_.GetDeltaTime();
-
-	// 撃っている間は、狙う方向へ体を向ける
-	if (isLockOn_ && hasAttackTarget_)
-	{
-		FaceHorizontal(VSub(attackTargetPos_, transform_.pos));
-	}
-
-	// 構えが終わったら、一定間隔で撃つ
-	const float nextShotTime =
-		cfg::Barrage::START_DELAY + cfg::Barrage::INTERVAL * barrageShots_;
-
-	if (barrageShots_ < cfg::Barrage::SHOT_COUNT && barrageTimer_ >= nextShotTime)
-	{
-		ShotBarrage();
-	}
-
-	// 撃ち終わって少し待ったら終了
-	const float endTime = cfg::Barrage::START_DELAY +
-		cfg::Barrage::INTERVAL * cfg::Barrage::SHOT_COUNT +
-		cfg::Barrage::END_DELAY;
-
-	if (barrageTimer_ >= endTime)
-	{
-		isBarrage_ = false;
-		isKiBlast_ = false;
-		barrageTimer_ = 0.0f;
-		barrageShots_ = 0;
-
-		if (!IsMoveKeyDown(ins))
-		{
-			animationController_->Play((int)ANIM_TYPE::IDLE);
-		}
-	}
-}
-
-VECTOR Player::GetBarrageAimCenter(void) const
-{
-	return VAdd(attackTargetPos_, VGet(0.0f, cfg::Barrage::TARGET_HEIGHT, 0.0f));
-}
-
-void Player::UpdateBarrageAim(float dt)
-{
-	// 撃っていないときは、視点を元に戻す
-	if (!isBarrage_)
-	{
-		const float rate = 1.0f - expf(-cfg::Barrage::AIM_RETURN_SPEED * dt);
-		aimYaw_ -= aimYaw_ * rate;
-		aimPitch_ -= aimPitch_ * rate;
-		return;
-	}
-
-	auto& ins = InputManager::GetInstance();
-
-	// 右スティック、またはキーボードの矢印キー
+	// 枠を動かす: 右スティック、またはキーボードの矢印キー
 	float x = PadInput::RStickX();
-	float y = PadInput::RStickY();
+	float y = PadInput::RStickY();	// 上に倒して枠が下がるなら、ここを -PadInput::RStickY() にする
 
 	if (ins.IsNew(KEY_INPUT_RIGHT)) { x += 1.0f; }
 	if (ins.IsNew(KEY_INPUT_LEFT)) { x -= 1.0f; }
@@ -2163,66 +2100,30 @@ void Player::UpdateBarrageAim(float dt)
 	if (y > 1.0f) { y = 1.0f; }
 	if (y < -1.0f) { y = -1.0f; }
 
-	aimYaw_ += x * cfg::Barrage::AIM_SPEED * dt;
-	aimPitch_ += y * cfg::Barrage::AIM_SPEED * dt;
+	ctx.stickX = x;
+	ctx.stickY = y;
 
-	if (aimYaw_ > cfg::Barrage::AIM_MAX_YAW) { aimYaw_ = cfg::Barrage::AIM_MAX_YAW; }
-	if (aimYaw_ < -cfg::Barrage::AIM_MAX_YAW) { aimYaw_ = -cfg::Barrage::AIM_MAX_YAW; }
-	if (aimPitch_ > cfg::Barrage::AIM_MAX_PITCH) { aimPitch_ = cfg::Barrage::AIM_MAX_PITCH; }
-	if (aimPitch_ < -cfg::Barrage::AIM_MAX_PITCH) { aimPitch_ = -cfg::Barrage::AIM_MAX_PITCH; }
-}
-
-void Player::ShotBarrage(void)
-{
-	VECTOR shotPos = transform_.pos;
-
-	if (rightHandFrame_ != -1)
+	// 撃っている間は、狙う方向へ体を向ける
+	if (barrage_.IsActive() && ctx.hasTarget)
 	{
-		shotPos = MV1GetFramePosition(transform_.modelId, rightHandFrame_);
+		FaceHorizontal(VSub(attackTargetPos_, transform_.pos));
 	}
 
-	const VECTOR fwd = GetForward();
+	const bool finished = barrage_.Update(ctx);
 
-	// 画面の枠の中の、ランダムな点を通る視線を作る
-	const VECTOR ringC = PlayerBarrage::RingCenter();
-	const float ringR = PlayerBarrage::RingRadius();
+	// 1発撃つたびに、腕を突き出し直す
+	barrage_.ConsumeFired();
 
-	const float ang = GetRand(3600) / 3600.0f * DX_PI_F * 2.0f;
-	const float rad = sqrtf(GetRand(1000) / 1000.0f) * ringR * cfg::Barrage::AIM_RATE;
-
-	const float sx = ringC.x + cosf(ang) * rad;
-	const float sy = ringC.y + sinf(ang) * rad;
-
-	const VECTOR nearP = ConvScreenPosToWorldPos(VGet(sx, sy, 0.0f));
-	const VECTOR farP = ConvScreenPosToWorldPos(VGet(sx, sy, 1.0f));
-	const VECTOR ray = NormalizeSafe(VSub(farP, nearP));
-
-	// 敵までの距離のところで着弾する(ロックオンしていなければ、決まった距離)
-	float dist = cfg::Barrage::FORWARD_AIM_DIST;
-
-	if (isLockOn_ && hasAttackTarget_)
+	// 撃ち終わった
+	if (finished)
 	{
-		dist = VSize(VSub(GetBarrageAimCenter(), nearP));
+		isKiBlast_ = false;
+
+		if (!IsMoveKeyDown(ins))
+		{
+			animationController_->Play((int)ANIM_TYPE::IDLE);
+		}
 	}
-
-	const VECTOR target = VAdd(nearP, VScale(ray, dist));
-
-	// 軌道の膨らみ(進む向きに対して、横と上下へランダムにゆるく)
-	auto rnd = []() { return (GetRand(2000) - 1000) / 1000.0f; };
-
-	const VECTOR d = NormalizeSafe(VSub(target, shotPos));
-	const VECTOR side = NormalizeSafe(VCross(d, VGet(0.0f, 1.0f, 0.0f)));
-	const VECTOR up = NormalizeSafe(VCross(side, d));
-	const float distance = VSize(VSub(target, shotPos));
-
-	const VECTOR arc = VScale(
-		VAdd(VScale(side, rnd()), VScale(up, rnd() * 0.5f)),
-		distance * cfg::Barrage::ARC);
-
-	barrage_.Fire(shotPos, target, arc);
-
-	// 1発ごとに腕を突き出し直す
-	animationController_->Play((int)ANIM_TYPE::KI_BLAST, false);
 }
 
 // 気弾を撃つ
@@ -2369,7 +2270,7 @@ void Player::UpdateDodge(void)
 		if (justBuffTimer_ > 0.0f) { justBuffTimer_ -= dt; }
 	}
 
-	const bool trg = ins.IsTrgDown(KEY_INPUT_LSHIFT) || PadInput::IsStepTrg();
+	const bool trg = ins.IsTrgDown(KEY_INPUT_J) || PadInput::IsStepTrg();
 
 	// ステップを始められるか
 	//   (ステップ中は、少したてば次のステップを重ねて出せる)
@@ -2976,6 +2877,8 @@ void Player::UpdateGuard(void)
 
 void Player::GuardDamage(float damage)
 {
+	mainCamera.StartShake(cfg::HitShake::GUARD_TIME, cfg::HitShake::GUARD_POWER);
+
 	AddTension(cfg::Tension::GAIN_GUARD);
 
 	// ガードで受けた直後は、バニッシュアタックを出せる
@@ -3006,6 +2909,26 @@ void Player::Damage(int damage)
 
 	hp_ -= damage * DamageCalc::TAKEN_SCALE;
 
+	// 受けたダメージの大きさで、揺れの強さと長さを変える
+	{
+		float r = static_cast<float>(damage) * DamageCalc::TAKEN_SCALE /
+			(static_cast<float>(MAX_HP) * cfg::HitShake::TAKEN_FULL_RATE);
+		if (r > 1.0f) { r = 1.0f; }
+		if (r < 0.0f) { r = 0.0f; }
+
+		float power = cfg::HitShake::TAKEN_POWER_MIN +
+			(cfg::HitShake::TAKEN_POWER_MAX - cfg::HitShake::TAKEN_POWER_MIN) * r;
+		const float time = cfg::HitShake::TAKEN_TIME_MIN +
+			(cfg::HitShake::TAKEN_TIME_MAX - cfg::HitShake::TAKEN_TIME_MIN) * r;
+
+		if (barrage_.IsActive())
+		{
+			power *= cfg::HitShake::BARRAGE_TAKEN_RATE;
+		}
+
+		mainCamera.StartShake(time, power);
+	}
+
 	// 受けたダメージでテンションが増える
 	{
 		float gain = damage * cfg::Tension::GAIN_TAKEN_RATE;
@@ -3017,6 +2940,12 @@ void Player::Damage(int damage)
 	{
 		hp_ = 0;
 		isDead_ = true;
+	}
+
+	// 連続エネルギー弾の最中は、ダメージは受けるが怯まず撃ち続ける
+	if (barrage_.IsActive() && !isDead_)
+	{
+		return;
 	}
 
 	// 攻撃をやめる
@@ -3046,6 +2975,7 @@ void Player::Damage(int damage)
 	isKiBlast_ = false;
 	isKiBlastShot_ = false;
 	kiBlastTimer_ = 0.0f;
+	barrage_.Cancel();
 
 	movePow_ = AsoUtility::VECTOR_ZERO;
 
