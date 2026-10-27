@@ -12,15 +12,15 @@ public:
 	// SYNC攻撃を受け付ける時間
 	static constexpr float SYNC_TIME = 1.5f;
 
-	// スタンゲージ(ダメージを受けるとたまり、満タンで敵が動けなくなる)
+	// スタンゲージ(ダメージを受けると溜まり、満タンで敵が動けなくなる)
 	static constexpr float STUN_MAX = 100.0f;			// ゲージの最大
 	static constexpr float STUN_TIME = 5.0f;			// スタンしている時間(秒)
 	static constexpr float STUN_DECAY_DELAY = 3.0f;		// 攻撃されなくなってから、ゲージが減り始めるまでの時間(秒)
 	static constexpr float STUN_DECAY_SPEED = 0.0f;	// ゲージが減る速さ(1秒あたり)
-	static constexpr float STUN_RESIST_TIME = 6.0f;		// スタンが終わったあと、ゲージがたまらない時間(秒)
-	static constexpr int FLINCH_CHANCE = 100;			// 弱い攻撃でひるむ確率(%)。普段は怯まず、殴られても行動を続ける
+	static constexpr float STUN_RESIST_TIME = 6.0f;		// スタンが終わったあと、ゲージが溜まらない時間(秒)
+	static constexpr int FLINCH_CHANCE = 100;			// 弱い攻撃でひるむ確率(%)。低いと、殴られても行動を続ける
 	static constexpr float HEAVY_KNOCK = 20.0f;		// これ以上の吹き飛ばしは必ずひるむ(フィニッシュ・かめはめ波など)
-	static constexpr float ARMOR_KNOCK_RATE = 0.25f;	// ひるまないときの、押される強さの倍率
+	static constexpr float ARMOR_KNOCK_RATE = 0.25f;	// ひるまないときの、飛ばされる強さの倍率
 	static constexpr int STUN_DAMAGE_RATE = 2;			// スタン中に受けるダメージの倍率
 
 	EnemyBase(void);
@@ -60,7 +60,7 @@ public:
 	// スタンゲージの割合(0~1)。スタン中は、残り時間の割合
 	float GetStunRate(void) const;
 
-	// 攻撃が当たらない状態か(回避の直後など)。GameScene が判定の前に確認する
+	// 攻撃が当たらない状態か(大技の跳躍中など)。GameScene が判定の前に確認する
 	virtual bool IsInvincible(void) const;
 
 	// 攻撃中などで、弱い攻撃を受けても絶対にひるまない(スーパーアーマー)
@@ -72,26 +72,26 @@ public:
 	// SYNC受付時間更新
 	void UpdateSyncWindow(float deltaTime);
 
-	// SYNC表示
+	// SYNC可能か
 	bool IsSyncReady(void) const;
 
 	// SYNC受付終了
 	void EndSyncWindow(void);
 
-	// SYNC受付の進行率
+	// SYNC受付の残り割合
 	float GetSyncRate(void) const;
 
 protected:
 
-	// HPバー(各敵が Init / Update / Draw から呼ぶ)
+	// HPバー(各敵の Init / Update / Draw から呼ぶ)
 	void InitHud(const std::string& name, int maxHp);
 	void UpdateHud(void);
 	void DrawHud(void);
 
-	// 技の名前を画面に出す(技を出す瞬間に各敵が呼ぶ)
+	// 技の名前を画面に出す(技を出した瞬間に各敵が呼ぶ)
 	void ShowSkillName(const char* name);
 
-	// スタンゲージの更新(各敵が Update で毎フレーム呼ぶ)
+	// スタンゲージの更新(各敵の Update で毎フレーム呼ぶ)
 	//   戻り値: スタン中なら true
 	bool UpdateStunGauge(float deltaTime);
 
@@ -101,7 +101,7 @@ protected:
 
 	// ノックバック量
 	VECTOR knockBackPow_;
-	bool armoredHit_ = false;	// 今のノックバックは「ひるまない」弱い攻撃
+	bool armoredHit_ = false;	// 今のノックバックは「ひるまない」弱い攻撃か
 
 	// HP
 	int hp_;
@@ -112,7 +112,7 @@ protected:
 	// 攻撃を受ける半径
 	float hitRadius_;
 
-	// 時間停止中に蓄積したダメージ
+	// 時間停止中に溜めたダメージ
 	int pendingDamage_;
 
 	// SYNC受付中か
@@ -132,8 +132,7 @@ private:
 	float stunDecayWait_;		// ゲージが減り始めるまでの待ち時間
 	bool isStunned_;
 	float stunTimer_;			// スタンの残り時間
-	float stunResist_;			// スタン直後の、ゲージがたまらない残り時間
-	float breakTime_ = 999.0f;	// ゲージが割れてからの経過時間(BREAK!演出用)
+	float stunResist_;			// スタン明けの、ゲージが溜まらない残り時間
 	float stunBarTime_;			// ゲージの点滅用
 
 	// 技の名前の帯

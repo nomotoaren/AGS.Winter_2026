@@ -33,6 +33,16 @@ PlayerKamehameha::PlayerKamehameha(void)
 {
 }
 
+PlayerKamehameha::~PlayerKamehameha(void)
+{
+	// Init で作ったライトを消す(消さないと、シーンを作り直すたびにライトが増えていく)
+	if (lightHandle_ != -1)
+	{
+		DeleteLightHandle(lightHandle_);
+		lightHandle_ = -1;
+	}
+}
+
 void PlayerKamehameha::Init(const VECTOR& playerPos)
 {
 	chargeModel_ =
@@ -127,9 +137,11 @@ bool PlayerKamehameha::Update(const Context& ctx, VECTOR& faceAim)
 	}
 
 	// 相殺勝負中は、終わる直前で止めておく
-	if (hold_ && isBeam_ && timer_ >= cfg::Kamehame::END_TIME - 0.2f)
+	const float holdTime = cfg::Kamehame::END_TIME - cfg::Kamehame::HOLD_MARGIN;
+
+	if (hold_ && isBeam_ && timer_ >= holdTime)
 	{
-		timer_ = cfg::Kamehame::END_TIME - 0.2f;
+		timer_ = holdTime;
 	}
 
 	// 終了

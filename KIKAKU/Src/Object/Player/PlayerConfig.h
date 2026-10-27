@@ -28,20 +28,14 @@ namespace PlayerConfig
 		constexpr float TURN_GROW = 20.0f;			// 時間とともに曲がる速さを上げる量
 		constexpr float TURN_NEAR = 30.0f;			// 敵に近づいたときに追加で曲がる速さ
 		constexpr float NEAR_DISTANCE = 300.0f;		// 「近づいた」とみなす距離
-		constexpr float BRAKE_RATE = 0.12f;			// 近づくほど減速する割合
-		constexpr float BRAKE_MIN = 24.0f;			// 減速したときの最低速度
 		constexpr float COOLDOWN = 0.4f;			// 終わってから次を出せるまでの時間(秒)
 		constexpr float STOP_DISTANCE = 90.0f;		// 敵の水平方向のこの距離手前(敵と同じ高さ)まで来たら止まる
 		constexpr float ARRIVE_MARGIN = 10.0f;		// 目的地にこれ以内まで近づいたら到着とみなす
 		constexpr float MAX_SPEED = 90.0f;			// 1フレームの移動量の上限(通常は時間で決まるので届かない)
-		constexpr float ARC_RATE = 0.45f;			// 弧の横への膨らみ = 開始時の敵との距離 x これ(大きいほど大きく回り込む)
-		constexpr float ARC_MAX = 400.0f;			// 弧の横への膨らみの上限
-		constexpr float ARC_LIFT_RATE = 0.25f;		// 上への膨らみ(横の膨らみに対する割合。0で水平な弧)
 		constexpr float DURATION_MIN = 0.35f;		// 敵の懐に着くまでの最短時間(秒)。短いほど「一瞬」で着く
 		constexpr float DURATION_MAX = 0.70f;		// 同、最長(遠くからでもこれ以上かからない)
 		constexpr float DURATION_PER_DISTANCE = 0.0002f;	// 距離1あたりに足す時間(秒)
 		constexpr float INITIAL_DELAY = 0.06f;		// 最初にその場で構える時間(秒)
-		constexpr float ACCEL_WINDOW = 0.40f;		// 加速が終わるまでの時間(秒)
 		constexpr float MAX_DURATION = 1.0f;		// 保険のタイムアウト(秒)
 		constexpr float AFTER_IMAGE_INTERVAL = 0.03f;	// 残像を残す間隔(秒)
 		constexpr bool AUTO_ATTACK = true;			// 敵の懐に着いたら、そのまま1段目の攻撃に入る(カカロット風)
@@ -133,6 +127,10 @@ namespace PlayerConfig
 	{
 		constexpr float END_MAX_TIME = 1.5f;		// 終了モーションの保険のタイムアウト(秒)
 		constexpr float VISUAL_YAW_DEG = -65.0f;
+		constexpr float ANIM_LOOP_START = 40.0f;	// 溜めモーションのループ開始フレーム
+		constexpr float ANIM_LOOP_END = 45.0f;		// ループ終了フレーム(ここから先は終了モーション)
+		constexpr float ANIM_LOOP_SPEED = 5.0f;		// ループ中の再生速度
+		constexpr float ANIM_END_STEP = 70.0f;		// 終了モーションの最終フレーム
 	}
 
 	// かめはめ波のエフェクト(blue_laser.efkefc)
@@ -148,6 +146,7 @@ namespace PlayerConfig
 
 		constexpr float SHOT_TIME = 0.8f;   // (構えてから発射まで)
 		constexpr float END_TIME = 2.4f;   // (発射後のビームが約1.6秒)
+		constexpr float HOLD_MARGIN = 0.2f;			// 相殺勝負中、終わるこの秒数前で止めておく
 		constexpr float TRANSITION_TIME = 0.12f;	// 発射直後に手元の気弾が消えるまでの時間(秒)
 		constexpr float ANIM_LOOP_START = 40.0f;	// 終盤ループの開始ステップ(要調整)
 		constexpr float ANIM_LOOP_END = 45.0f;		// 終盤ループの終了ステップ(要調整)
@@ -158,7 +157,40 @@ namespace PlayerConfig
 		constexpr float ENEMY_CENTER_HEIGHT = 100.0f;	// 敵の足元から狙う位置(胸)までの高さ
 	}
 
-	// 回避ステップ(×ボタン / LSHIFT。連打で続けて出せる。カカロットの高速ステップ風)
+	// 連続エネルギー弾(TAB+U / L1+○)
+	namespace Barrage
+	{
+		constexpr float KI_COST = 20.0f;
+		constexpr int SHOT_COUNT = 12;			// 撃つ数
+		constexpr float START_DELAY = 0.45f;	// 構えてから撃ち始めるまで(秒)
+		constexpr float INTERVAL = 0.18f;		// 1発ごとの間隔(秒)。大きいほどゆっくり
+		constexpr float END_DELAY = 0.50f;		// 撃ち終わってから動けるまで(秒)
+
+		// 狙いの枠(画面に固定)
+		constexpr float RING_CENTER_X_RATE = 0.50f;	// 画面の横の位置(0.5で真ん中)
+		constexpr float RING_CENTER_Y_RATE = 0.45f;	// 画面の縦の位置
+		constexpr float RING_RADIUS_RATE = 0.22f;	// 枠の半径(画面の高さに対する割合)
+		constexpr float AIM_RATE = 0.85f;			// 枠の半径のうち、どこまで狙うか
+
+		// 視点の操作
+		constexpr float AIM_SPEED = 1.1f;			// 視点を振る速さ(rad/秒)
+		constexpr float AIM_MAX_YAW = 0.55f;		// 左右に振れる最大(rad)
+		constexpr float AIM_MAX_PITCH = 0.40f;		// 上下に振れる最大(rad)
+		constexpr float AIM_RETURN_SPEED = 6.0f;	// 撃ち終わったあと、視点が戻る速さ
+
+		constexpr float FORWARD_AIM_DIST = 800.0f;	// ロックオンしていないとき、どこまで飛ばすか
+		constexpr float TARGET_HEIGHT = 70.0f;		// 敵の足元から体の中心までの高さ
+
+		constexpr float SPEED = 3500.0f;		// 弾の速さ(1秒あたり)。これと距離で飛ぶ時間が決まる
+		constexpr float MIN_FLIGHT = 0.12f;		// 近くても、最低これだけ(秒)かけて飛ぶ
+		constexpr float ARC = 0.10f;			// 軌道の膨らみ(飛ぶ距離に対する割合。0で直進)
+		constexpr float LIFE = 1.5f;			// 弾の寿命(秒)
+		constexpr float RADIUS = 9.0f;			// 弾の見た目の大きさ
+		constexpr float TAIL_STEP = 14.0f;		// 尾の間隔
+		constexpr float STUN = 4.0f;			// 1発あたりのスタン値
+	}
+
+	// 回避ステップ
 	namespace Step
 	{
 		constexpr float SPEED_START = 18.0f;		// 出だしの速さ(1フレームの移動量)。大きいほど遠くまで飛ぶ(1回の移動距離 = 約 速さ x 時間 x 30)

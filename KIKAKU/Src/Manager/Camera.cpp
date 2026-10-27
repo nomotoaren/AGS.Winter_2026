@@ -502,6 +502,25 @@ void Camera::SetBeforeDrawLockOn(void)
 
     lookPos.y += LOOK_HEIGHT;
 
+    // 連続エネルギー弾の狙い: カメラの位置はそのままで、視線だけを振る
+    if (aimYaw_ != 0.0f || aimPitch_ != 0.0f)
+    {
+        const VECTOR v = VSub(lookPos, cameraPos);
+        const float len = VSize(v);
+
+        if (len > 0.001f)
+        {
+            const float h = sqrtf(v.x * v.x + v.z * v.z);
+            const float pitch = atan2f(v.y, h) + aimPitch_;
+            const float yaw = atan2f(v.x, v.z) + aimYaw_;
+
+            lookPos = VAdd(cameraPos, VGet(
+                len * cosf(pitch) * sinf(yaw),
+                len * sinf(pitch),
+                len * cosf(pitch) * cosf(yaw)));
+        }
+    }
+
     // 位置・注視点の追従
     const float posRate = 1.0f - expf(-POS_FOLLOW_SPEED * deltaTime);
     const float lookRate = 1.0f - expf(-LOOK_FOLLOW_SPEED * deltaTime);

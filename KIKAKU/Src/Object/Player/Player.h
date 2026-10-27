@@ -15,6 +15,7 @@
 #include "PlayerGuard.h"
 #include "PlayerAttack.h"
 #include "PlayerFinishBlast.h"
+  #include "PlayerBarrage.h"
 #include "../../Manager/ResourceManager.h"
 
 class AnimationController;
@@ -44,7 +45,7 @@ public:
 	static constexpr int ATTACK_DAMAGE = 1;
 
 	// 最大HP(HUDの表示にも使う)
-	static constexpr int MAX_HP = 1000;
+	static constexpr int MAX_HP = 10000;
 
 	static constexpr float ATTACK_END_WAIT = 0.15f;
 
@@ -135,11 +136,13 @@ public:
 	void Init(void) override;
 	void Update(void) override;
 	void Draw(void) override;
+
+	// HUD(2D)。3Dやエフェクトより手前に出すため、Draw とは別に呼ぶ
 	void DrawHud(void);
 
 	// ヒートアップ発動の演出中か / 演出が始まってからの経過時間(演出中でなければ -1)
 	bool IsHeatActivating(void) const { return heatActivate_ > 0.0f; }
-	float GetHeatActivateElapsed(void) const;		// HUD(2D)。3Dやエフェクトより手前に出すため、Draw とは別に呼ぶ
+	float GetHeatActivateElapsed(void) const;
 
 	void StopRecord(void);
 
@@ -204,6 +207,14 @@ public:
 
 	const std::vector<std::unique_ptr<KiBlast>>&
 		GetKiBlasts(void) const;
+
+	std::vector<PlayerBarrage::Shot>& GetBarrageShots(void) { return barrage_.GetShots(); }
+
+	// 連続エネルギー弾の狙いの枠
+	bool IsBarrageActive(void) const { return isBarrage_; }
+	float GetBarrageAimYaw(void) const { return aimYaw_; }
+	float GetBarrageAimPitch(void) const { return aimPitch_; }
+	VECTOR GetBarrageAimCenter(void) const;
 
 	void SetLockOn(bool lockOn);
 	bool IsLockOn(void) const;
@@ -296,10 +307,6 @@ private:
 		static constexpr float PlayerShadowHeight = 300.0f;
 		static constexpr float PlayerShadowSize = 30.0f;
 
-		// 回避
-		static constexpr float DodgeSpeed = 12.0f;
-		static constexpr float DodgeDuration = 0.18f;
-
 		// 気弾
 		static constexpr float KiBlastShotTime = 0.20f;
 		static constexpr float KiBlastEndTime = 0.45f;
@@ -324,12 +331,6 @@ private:
 	// 状態管理(更新ステップ)
 	std::function<void(void)> stateUpdate_;
 
-	// 移動スピード
-	float speed_;
-
-	// 移動方向
-	VECTOR moveDir_;
-
 	// 移動量
 	VECTOR movePow_;
 
@@ -337,13 +338,10 @@ private:
 
 	// 移動後の座標
 	VECTOR movedPos_;
-	float recordTime_;
 	bool isRecording_;
 
 	// 回転
 	Quaternion playerRotY_;
-	Quaternion goalQuaRot_;
-	float stepRotTime_;
 
 	// ジャンプ量
 	VECTOR jumpPow_;
@@ -375,22 +373,12 @@ private:
 	bool canChase_;
 
 	// 攻撃時の残像
-	int afterImageModel_;
 	bool isAfterImage_;
 	float afterImageTimer_;
-
-	VECTOR afterImagePos_;
 
 	// 気を溜める
 	bool isCharging_;
 	bool isChargeEnding_;
-
-	// 1回の攻撃時間
-	static constexpr float ATTACK_TIME = 1.0f;
-
-	// 実際に攻撃判定が出る時間
-	static constexpr float ATTACK_HIT_START = 0.3f;
-	static constexpr float ATTACK_HIT_END = 0.55f;
 
 	// HP
 	int hp_;
@@ -453,10 +441,6 @@ private:
 	void SetLockOnPitch(VECTOR dir);			// ロックオン時の上下の傾き
 	bool GetMoveBasis(VECTOR& forward, VECTOR& right);
 
-	// 回転
-	void SetGoalRotate(double rotRad);
-	void Rotate(void);
-
 	// 衝突判定
 	void Collision(void);
 	void CollisionGravity(void);
@@ -474,21 +458,32 @@ private:
 	void FinishAttack(void);
 	void AdvanceCombo(void);
 	void LeaveAfterImage(void);
+	void AddBoostAfterImage(void);		// 高速移動の残像を1枚残す
+	void MoveAndFace(const VECTOR& pos, const VECTOR& targetPos);	// pos へ移動して targetPos を向く
+	bool IsBeforeGold(void) const;		// ヒートアップ発動の演出中で、まだ金色になる前か
 	void UpdateKiBlast(void);
+	void UpdateBarrage(void);
+	void ShotBarrage(void);
+	void UpdateBarrageAim(float dt);
 	void ShotKiBlast(void);
 	void UpdateKamehame(void);
 
-	// 高速追撃
-	void UpdateCharge(void);
+	// 追撃(攻撃ボタンで敵へ飛びこむ)・高速接近
+	void UpdateAttackChase(void);
 	void EndChase(bool startAttack);
 	void EndBoostChase(void);
+	void SnapToTargetAndAttack(void);	// 敵の手前に位置を合わせて、1段目の攻撃を始める
 
 	// 気溜め
-	void UpdateChase(void);
+	void UpdateKiCharge(void);
 	void StopCharge(void);
 	void BeginChargeEnding(void);
+	void PlayChargeLoop(void);			// 気溜めモーションをループ付きで流す
+	void AddKi(float amount);			// 気を増やす(最大で止める)
 
+	// 回避
 	void UpdateDodge(void);
+	void StartStep(void);				// ステップを始める(向き・アニメ)
 	void UpdateGuard(void);
 
 	// テンション・ヒートアップ・追撃・フィニッシュ気弾
@@ -515,8 +510,15 @@ private:
 	bool isKiBlastShot_;
 	float kiBlastTimer_;
 
+	// 連続エネルギー弾
+	bool isBarrage_;
+	float barrageTimer_;
+	int barrageShots_;
+	PlayerBarrage barrage_;
+	float aimYaw_;
+	float aimPitch_;
+
 	// 残像
-	int afterImageAttachNo_;
 	MATRIX afterImageMatrix_;
 	std::vector<BoostAfterImage> boostAfterImages_;
 
@@ -530,9 +532,6 @@ private:
 	bool isDodge_;
 	float dodgeTimer_;
 	VECTOR dodgeDir_;
-
-	// 飛行
-	bool isFlying_;
 
 	// 浮遊の見た目
 	float floatPitch_ = 0.0f;		// 前後の傾き(前傾がプラス)
@@ -569,6 +568,7 @@ private:
 	float dashHold_ = 0.0f;			// ×を押し続けている時間(パッドのダッシュ用)
 
 	float stepAfterImageTimer_ = 0.0f;
+	int dashStepCount_ = 0;			// DashStepTo を呼んだ回数(残像を何回かに1回だけ出す)
 
 	// ジャスト回避
 	bool justDodged_ = false;
@@ -582,7 +582,6 @@ private:
 	bool heatUp_ = false;
 	float heatUpTimer_ = 0.0f;
 	float heatHold_ = 0.0f;
-	float heatBurst_ = 0.0f;		// (未使用)
 	float heatActivate_ = 0.0f;		// ヒートアップ発動の演出の残り時間
 
 	// 追撃
@@ -601,7 +600,6 @@ private:
 	bool clashActive_ = false;
 	float clashRate_ = 0.5f;
 	float justBuffTimer_ = 0.0f;		// ダメージが上がっている残り時間
-	void StartStep(void);			// ステップを始める(向き・アニメ)
 
 	// HUD(HP・気ゲージ)
 	PlayerHud hud_;

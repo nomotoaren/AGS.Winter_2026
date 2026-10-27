@@ -75,7 +75,7 @@ void EnemyKiBlast::Update(float deltaTime)
 		return;
 	}
 
-	// ’Ç”ö: ’x‚ê‚ÄŽn‚Ü‚èA’Ç”öŽžŠÔ‚Ì‚ ‚¢‚¾Œü‚«‚ð–Ú•W‚Ö­‚µ‚¸‚Â‹È‚°‚é(ŒÅ’èˆÊ’u‚ð‘_‚¤’e‚à‚ ‚é)
+	// ’Ç”ö: ’x‚ê‚ÄŽn‚Ü‚èA’Ç”öŽžŠÔ‚Ì‚ ‚¢‚¾‚¾‚¯–Ú•W‚Ö­‚µ‚¸‚Â‹È‚ª‚é(ŒÅ’èˆÊ’u‚ð‘_‚¤’e‚à“¯‚¶)
 	const bool homing = (homingTarget_ != nullptr || useFixedGoal_);
 
 	if (homing && time_ >= homingDelay_ && time_ < homingTime_)
@@ -110,22 +110,20 @@ void EnemyKiBlast::Draw(void) const
 		return;
 	}
 
-	// ‚ä‚ç‚ä‚ç‚Æ‘å‚«‚³‚ð•Ï‚¦‚ÄAƒGƒlƒ‹ƒM[‚Ì‰ò‚ÉŒ©‚¹‚é
+	// ­‚µ‚¸‚Â‘å‚«‚³‚ð•Ï‚¦‚ÄAƒGƒlƒ‹ƒM[‚Ì‰ò‚ÉŒ©‚¹‚é
 	const float wobble = 1.0f + 0.12f * sinf(time_ * 30.0f);
 
 	SetUseLighting(FALSE);
 	SetWriteZBuffer3D(FALSE);
 
-	// ”ö(i‚ñ‚Å‚«‚½•ûŒü‚ÖL‚Ñ‚éŒõ‚Ì‹Ø)B‘¬‚¢’e‚Ù‚Ç’·‚­Œ©‚¦‚é
+	// ”ö(i‚ñ‚Å‚«‚½•ûŒü‚ÖL‚Ñ‚éŒõ‚Ì‹Ø)B‘¬‚¢’e‚Ù‚Ç’·‚­‚È‚é
 	{
-		{
-			const VECTOR tail = VSub(pos_, VScale(dir_, speed_ * kTailLength));
+		const VECTOR tail = VSub(pos_, VScale(dir_, speed_ * kTailLength));
 
-			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 120);
-			DrawCapsule3D(pos_, tail, radius_ * kTailOuterScale, 8, GetColor(230, 60, 255), GetColor(230, 60, 255), TRUE);
-			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 200);
-			DrawCapsule3D(pos_, tail, radius_ * kTailInnerScale, 8, GetColor(255, 220, 255), GetColor(255, 220, 255), TRUE);
-		}
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 120);
+		DrawCapsule3D(pos_, tail, radius_ * kTailOuterScale, 8, GetColor(230, 60, 255), GetColor(230, 60, 255), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 200);
+		DrawCapsule3D(pos_, tail, radius_ * kTailInnerScale, 8, GetColor(255, 220, 255), GetColor(255, 220, 255), TRUE);
 	}
 
 	// ŠO‘¤‚ÌŒõ(”¼“§–¾)
@@ -139,6 +137,7 @@ void EnemyKiBlast::Draw(void) const
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 	DrawSphere3D(pos_, radius_ * kCoreScale, 16, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
 
-	SetUseLighting(TRUE);
+	// •`‰æÝ’è‚ðŒ³‚É–ß‚·
+	SetWriteZBuffer3D(TRUE);
 	SetUseLighting(TRUE);
 }

@@ -21,19 +21,18 @@
 
 namespace cfg = PlayerConfig;
 
-// 定数・ヘルパー(このcppの中だけで使う)
-// 調整用の数字は PlayerConfig.h にまとめてある
+// 形態ごとのデータ
 namespace
 {
-	// 形態ごとのデータ(model, animDir, scale, speedRate, attackRate)
-	// ※ Player::FORM / Player::FormData は public にしておくこと
+	// BASE: 通常 / SUPER: 変身後
+	// モデル・アニメーションのフォルダ・スケール・移動速度の倍率・攻撃力の倍率
 	const Player::FormData kFormData[(int)Player::FORM::MAX] =
 	{
 		{ ResourceManager::SRC::PLAYER,   "Player/Animation/", 1.5f, 1.0f, 1.0f },
 		{ ResourceManager::SRC::EVPLAY_,  "Player/AnimationEV/", 0.8f, 0.8f, 2.0f },
 	};
 
-	// WASDのどれかが押されているか
+	// 移動キー(またはスティック)が押されているか
 	bool IsMoveKeyDown(InputManager& ins)
 	{
 		return ins.IsNew(KEY_INPUT_W) ||
@@ -43,8 +42,8 @@ namespace
 			PadInput::IsStickTilted();
 	}
 
-	// 2つの姿勢行列の間を t(0~1) で補間する
-	//   要素ごとに補間したあと、回転部分を直交化して形が崩れないようにする
+	// 2つの行列を t(0~1) で混ぜる
+	//   単純に混ぜると縮んだりゆがんだりするので、向きを直交させ直し、大きさは別に混ぜる
 	MATRIX BlendMatrix(const MATRIX& a, const MATRIX& b, float t)
 	{
 		MATRIX r{};
@@ -58,7 +57,7 @@ namespace
 
 		auto row = [](const MATRIX& m, int i) { return VGet(m.m[i][0], m.m[i][1], m.m[i][2]); };
 
-		// 各軸の長さ(スケール)も補間して保つ
+		// 各軸の大きさ(スケール)は別に混ぜる
 		const float sx = VSize(row(a, 0)) + (VSize(row(b, 0)) - VSize(row(a, 0))) * t;
 		const float sy = VSize(row(a, 1)) + (VSize(row(b, 1)) - VSize(row(a, 1))) * t;
 		const float sz = VSize(row(a, 2)) + (VSize(row(b, 2)) - VSize(row(a, 2))) * t;
@@ -88,7 +87,7 @@ namespace
 		return r;
 	}
 
-	// Mixamo のボーンを名前で探す(接頭辞がモデルによって違うので順に試す)
+	// mixamo のボーンを探す(名前の前に付く文字がモデルによって違うので、順に試す)
 	int FindMixamoFrame(int model, const char* bone)
 	{
 		const char* prefixes[] = { "mixamorig:", "mixamorig1:", "mixamorig2:", "" };
@@ -113,8 +112,6 @@ Player::Player(void)
 	animationController_(nullptr),
 	state_(STATE::NONE),
 
-	speed_(0.0f),
-	moveDir_(AsoUtility::VECTOR_ZERO),
 	movePow_(AsoUtility::VECTOR_ZERO),
 	movedPos_(AsoUtility::VECTOR_ZERO),
 	knockBackPow_(AsoUtility::VECTOR_ZERO),
@@ -122,8 +119,6 @@ Player::Player(void)
 	damageTimer_(0.0f),
 
 	playerRotY_(Quaternion()),
-	goalQuaRot_(Quaternion()),
-	stepRotTime_(0.0f),
 
 	jumpPow_(AsoUtility::VECTOR_ZERO),
 	isJump_(false),
@@ -134,20 +129,17 @@ Player::Player(void)
 	gravHitPosUp_(AsoUtility::VECTOR_ZERO),
 
 	imgShadow_(-1),
-	recordTime_(0.0f),
 	isRecording_(false),
 
-	// 攻撃関連
+	// 攻撃
 	hasAttackTarget_(false),
 	attackTargetPos_(AsoUtility::VECTOR_ZERO),
 	canChase_(false),
-	afterImageModel_(-1),
 	isAfterImage_(false),
 	afterImageTimer_(0.0f),
-	afterImagePos_(AsoUtility::VECTOR_ZERO),
 	afterImageMatrix_({}),
 
-	// 気を溜める
+	// 気溜め
 	isCharging_(false),
 	isChargeEnding_(false),
 	ki_(0.0f),
@@ -157,6 +149,12 @@ Player::Player(void)
 	isKiBlastShot_(false),
 	kiBlastTimer_(0.0f),
 
+	isBarrage_(false),
+	barrageTimer_(0.0f),
+	barrageShots_(0),
+	aimYaw_(0.0f),
+	aimPitch_(0.0f),
+
 	// ロックオン
 	isLockOn_(false),
 	lockOnPitch_(0.0f),
@@ -165,12 +163,6 @@ Player::Player(void)
 	isDodge_(false),
 	dodgeTimer_(0.0f),
 	dodgeDir_(AsoUtility::VECTOR_ZERO),
-
-	// 飛行
-	isFlying_(false),
-
-	// 残像
-	afterImageAttachNo_(-1),
 
 	hp_(MAX_HP),
 	isDead_(false),
@@ -184,7 +176,7 @@ Player::Player(void)
 	form_(FORM::BASE),
 	nextForm_(FORM::BASE)
 {
-	// 状態管理
+	// 状態ごとの初期処理を登録
 	stateChanges_.emplace(STATE::NONE, std::bind(&Player::ChangeStateNone, this));
 	stateChanges_.emplace(STATE::PLAY, std::bind(&Player::ChangeStatePlay, this));
 }
@@ -195,10 +187,8 @@ Player::~Player(void)
 
 void Player::Init(void)
 {
-	// モデルの基本設定
+	// モデル
 	transform_.SetModel(resMng_.LoadModelDuplicate(ResourceManager::SRC::PLAYER));
-
-	afterImageModel_ = MV1DuplicateModel(transform_.modelId);
 
 	transform_.scl = { 1.5f, 1.5f, 1.5f };
 	transform_.pos = { 0.0f, 1000.0f, 0.0f };
@@ -207,13 +197,13 @@ void Player::Init(void)
 		Quaternion::Euler({ 0.0f, AsoUtility::Deg2RadF(180.0f), 0.0f });
 	transform_.Update();
 
-	// アニメーションの設定
+	// アニメーション
 	InitAnimation(kFormData[(int)FORM::BASE].animDir);
 
-	// 手のフレーム(かめはめ波・気弾の発射位置用)
+	// 手・腰・脚のフレーム
 	InitFrames();
 
-	// かめはめ波(気弾・ビームのモデルとライト)
+	// かめはめ波
 	kamehame_.Init(transform_.pos);
 
 	// カプセルコライダ
@@ -222,10 +212,10 @@ void Player::Init(void)
 	capsule_->SetLocalPosDown({ 0.0f, 30.0f, 0.0f });
 	capsule_->SetRadius(20.0f);
 
-	// 丸影画像
+	// 丸影
 	imgShadow_ = resMng_.Load(ResourceManager::SRC::PLAYER_SHADOW).handleId_;
 
-	// 変身後のモデル・アニメを先に読み込んでおく(変身の瞬間にカクつくのを防ぐ)
+	// 変身後のモデルも一度読んでおき、通常の形態に戻す
 	ApplyForm(FORM::SUPER);
 	ApplyForm(FORM::BASE);
 
@@ -246,7 +236,7 @@ void Player::InitAnimation(const std::string& animDir)
 
 	animationController_ = std::make_unique<AnimationController>(transform_.modelId);
 
-	// 形態のフォルダにファイルがあればそれを使い、なければ通常形態のものを使う
+	// 形態のフォルダに無いアニメは、通常形態のものを使う
 	auto add = [&](ANIM_TYPE type, const char* file, float speed)
 		{
 			std::string full = path + file;
@@ -282,12 +272,12 @@ void Player::InitAnimation(const std::string& animDir)
 	add(ANIM_TYPE::ATTACK07, "Attack07.mv1", 65.0f);
 	add(ANIM_TYPE::ATTACK08, "Attack08.mv1", 65.0f);
 
-	// 気功
+	// 気弾・かめはめ波・気溜め
 	add(ANIM_TYPE::KI_BLAST, "KiBlast.mv1", 60.0f);
 	add(ANIM_TYPE::KAMEHAME, "Special.mv1", 40.0f);
 	add(ANIM_TYPE::CHARGE, "pawer.mv1", 40.0f);
 
-	// 被弾・ガード
+	// ダメージ・ガード
 	add(ANIM_TYPE::DAMAGE, "Damege.mv1", 60.0f);
 	add(ANIM_TYPE::GUARD, "Block.mv1", 80.0f);
 	add(ANIM_TYPE::GUARD_BURST, "pawer.mv1", 100.0f);
@@ -296,7 +286,7 @@ void Player::InitAnimation(const std::string& animDir)
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
-// 手のフレームを探す
+// モデルのフレームを探し直す(モデルが変わったら呼ぶ)
 void Player::InitFrames(void)
 {
 	kamehame_.SetModel(transform_.modelId);
@@ -318,7 +308,7 @@ void Player::InitFrames(void)
 	legTune_[TUNE_LEAN] = lp::LEAN_RATE;
 }
 
-// 脚のボーンを探す(モデルを差し替えたら再取得が必要)
+// 脚のボーンを探し、回転軸を求める
 void Player::InitLegFrames(void)
 {
 	const int model = transform_.modelId;
@@ -330,9 +320,8 @@ void Player::InitLegFrames(void)
 	legFrames_[LEG_R_KNEE] = FindMixamoFrame(model, "RightLeg");
 	legFrames_[LEG_R_FOOT] = FindMixamoFrame(model, "RightFoot");
 
-	// ボーンごとに「キャラの左右軸・前後軸」を、そのボーン自身の座標系に直しておく
-	//   ボーンの向き(Mixamo の回転軸)はモデルによってバラバラなので、
-	//   初期姿勢での親子の行列をたどって、モデル空間の軸をボーンの中の軸に変換する
+	// 各ボーンから見た「キャラの左右の軸」と「キャラの前後の軸」を求めておく
+	//   (ボーンごとに向きが違うので、モデル空間の軸をボーンの空間へ変換する)
 	for (int i = 0; i < LEG_MAX; i++)
 	{
 		const int frame = legFrames_[i];
@@ -344,7 +333,7 @@ void Player::InitLegFrames(void)
 			continue;
 		}
 
-		// このボーンの初期姿勢での「モデル空間での向き」
+		// ボーンからモデルの空間への行列(親をたどって掛ける)
 		MATRIX toModel = MV1GetFrameBaseLocalMatrix(model, frame);
 		for (int p = MV1GetFrameParent(model, frame); p >= 0; p = MV1GetFrameParent(model, p))
 		{
@@ -357,17 +346,17 @@ void Player::InitLegFrames(void)
 	}
 }
 
-// 形態を適用する(モデル・アニメ・スケール・残像用モデルを作り直す)
+// 形態を切り替える(モデル・アニメ・フレームを作り直す)
 void Player::ApplyForm(FORM form)
 {
 	const FormData& data = kFormData[(int)form];
 
-	// 1. アニメ管理は古いモデルが生きているうちに破棄する
+	// 古いモデルを参照しているアニメを先に消す
 	animationController_.reset();
 
 	const int oldModel = transform_.modelId;
 
-	// 2. 新しいモデルに差し替え
+	// 新しい形態のモデル
 	const int newModel = resMng_.LoadModelDuplicate(data.model);
 	transform_.SetModel(newModel);
 	transform_.scl = { data.scale, data.scale, data.scale };
@@ -375,34 +364,27 @@ void Player::ApplyForm(FORM form)
 		Quaternion::Euler({ 0.0f, AsoUtility::Deg2RadF(180.0f), 0.0f });
 	transform_.Update();
 
-	// 3. アニメーション・手のフレームを作り直す
+	// アニメーションとフレーム
 	InitAnimation(data.animDir);
 	InitFrames();
 
-	// 4. 残像用モデルを作り直す
-	if (afterImageModel_ != -1)
-	{
-		MV1DeleteModel(afterImageModel_);
-	}
-	afterImageModel_ = MV1DuplicateModel(newModel);
-
-	// 古いモデルの行列で作った残像は使えないので消す
+	// 古いモデルの残像は消す
 	boostAfterImages_.clear();
 	isAfterImage_ = false;
 
-	// 5. 古いモデルを削除(これを先にやると変身後のアニメが再生されなかったので最後)
+	// 古いモデルを消す
 	MV1DeleteModel(oldModel);
 
 	form_ = form;
 }
 
-// 変身(Gキー)
-//   流れは PlayerTransform に任せ、モデル差し替えとアニメ再生だけここで行う
+// 変身(H+G / L2+R2+□)
+//   気が足りれば変身、変身中なら元に戻る
 void Player::UpdateTransform(void)
 {
 	auto& ins = InputManager::GetInstance();
 
-	// 開始
+	// 変身を始める
 	if (!formChange_.IsActive() &&
 		!attack_.IsAttack() &&
 		!kamehame_.IsActive() &&
@@ -410,20 +392,20 @@ void Player::UpdateTransform(void)
 		!isCharging_ &&
 		!isChargeEnding_ &&
 		!boostChase_.IsActive() &&
-		((ins.IsNew(KEY_INPUT_H) &&	// フォームチェンジパレット(H)を開いている間だけ変身できる
+		((ins.IsNew(KEY_INPUT_H) &&	// H を押しながら G
 			ins.IsTrgDown(KEY_INPUT_G)) ||
-			PadInput::IsTransformTrg()))	// パッド: L2+R2 を押しながら □
+			PadInput::IsTransformTrg()))	// パッド
 	{
 		const FORM next = (form_ == FORM::BASE) ? FORM::SUPER : FORM::BASE;
 
-		// 変身は ki を消費、元に戻るときは消費しない
+		// 元に戻るときは気を使わない
 		if (next == FORM::BASE || UseKi(cfg::Transform::KI_COST))
 		{
 			nextForm_ = next;
 
 			movePow_ = AsoUtility::VECTOR_ZERO;
 
-			// 溜めモーションを最初から最後まで1回だけ流す(ループしない)
+			// 溜めモーションを1回だけ流す
 			animationController_->ClearEndLoop();
 			animationController_->Play((int)ANIM_TYPE::CHARGE, false,
 				0.0f, cfg::Transform::ANIM_END_STEP, false, true);
@@ -447,12 +429,12 @@ void Player::UpdateTransform(void)
 	{
 		ApplyForm(nextForm_);
 
-		// 差し替え後は、同じ再生位置から続きを流す(最初からにしない)
+		// 差し替えたモデルで、溜めモーションの続きを流す
 		animationController_->ClearEndLoop();
 		animationController_->Play((int)ANIM_TYPE::CHARGE, false,
 			result.step, cfg::Transform::ANIM_END_STEP, false, true);
 
-		// 変身するときだけ、画面揺れを出す(元に戻るときは演出なし)
+		// 変身するときだけ画面を揺らす
 		if (formChange_.IsToSuper())
 		{
 			mainCamera.StartShake(0.3f, 6.0f);
@@ -477,10 +459,10 @@ float Player::GetAttackRate(void) const
 
 int Player::GetAttackDamage(int baseDamage) const
 {
-	// ジャスト回避の直後は、ダメージが上がる
+	// ジャスト回避のあとは、ダメージが上がる
 	const float justRate = (justBuffTimer_ > 0.0f) ? cfg::JustDodge::DAMAGE_RATE : 1.0f;
 
-	// 倍率をかけたあとに、ぶれとクリティカルをかける
+	// ダメージの計算(クリティカルもここで決まる)
 	const DamageCalc::Result result =
 		DamageCalc::Roll(baseDamage * GetAttackRate() * justRate);
 
@@ -490,21 +472,21 @@ int Player::GetAttackDamage(int baseDamage) const
 
 void Player::Update(void)
 {
-	// パッドの入力を更新(1フレームに1回)
+	// パッドの入力
 	PadInput::Update();
 
-	// 脚のポーズの調整モード(Debug ビルドのみ)
+	// 脚のポーズの調整(Debug ビルドのみ)
 	UpdateLegTune();
 
-	// HUDはダメージ中も更新する
+	// HUD
 	hud_.Update(*this);
 
-	// テンション・ヒートアップ・追撃の受付・フィニッシュ気弾(ダメージ中も進める)
+	// テンション・ヒートアップ・追撃などのタイマー
 	UpdateTensionTimers(scnMng_.GetDeltaTime());
 
 	UpdateKnockBack();
 
-	// ダメージ中は通常の更新をしない
+	// ダメージ中は動けない
 	if (UpdateDamage())
 	{
 		return;
@@ -513,14 +495,14 @@ void Player::Update(void)
 	// 状態ごとの更新
 	stateUpdate_();
 
-	// 当たり判定用の向き(ロックオン中は上下の傾きも付ける)
+	// ロックオン中は、敵の方へ上下にも傾ける
 	Quaternion logicRot = playerRotY_;
 	if (isLockOn_ && hasAttackTarget_ && !attack_.IsAttack())
 	{
 		logicRot = playerRotY_.Mult(Quaternion::Euler({ lockOnPitch_, 0.0f, 0.0f }));
 	}
 
-	// 浮遊の傾き(movePow_ が決まったあとに計算する)
+	// 浮遊の見た目(傾き・上下ゆれ)
 	UpdateFloatLean();
 	ApplyVisualTransform(logicRot);
 
@@ -528,7 +510,7 @@ void Player::Update(void)
 
 	CancelRootMotion();
 
-	// アニメを再生したあとで、脚だけ舞空術のポーズへ寄せる
+	// 浮遊中の脚のポーズ
 	UpdateLegPose();
 
 	UpdateAfterImages();
@@ -539,7 +521,7 @@ void Player::PushOut(const VECTOR& offset)
 {
 	transform_.pos = VAdd(transform_.pos, offset);
 
-	// transform_.Update() だと浮遊の見た目が一瞬消えるので、見た目込みで作り直す
+	// 見た目の位置も合わせる
 	ApplyVisualTransform(transform_.quaRot);
 }
 
@@ -549,7 +531,7 @@ void Player::UpdateKnockBack(void)
 	{
 		transform_.pos = VAdd(transform_.pos, knockBackPow_);
 
-		// 床より下には押し出されない(すり抜け防止)
+		// 地面より下には行かない
 		if (transform_.pos.y < Constants::MinHeight)
 		{
 			transform_.pos.y = Constants::MinHeight;
@@ -582,17 +564,17 @@ bool Player::UpdateDamage(void)
 		return false;
 	}
 
-	// 被弾中も上下ゆれは続ける(傾きは0へ戻っていく)
+	// ダメージ中も浮遊の見た目は続ける
 	UpdateFloatLean();
 	ApplyVisualTransform(damageRot_);
 	animationController_->Update();
-	UpdateLegPose();					// 被弾中はポーズを解いていく
+	UpdateLegPose();					// ダメージ中はポーズを外していく
 	return true;
 }
 
 void Player::UpdateAfterImages(void)
 {
-	// 攻撃時の残像
+	// 攻撃の残像
 	if (isAfterImage_)
 	{
 		afterImageTimer_ -= scnMng_.GetDeltaTime();
@@ -609,7 +591,7 @@ void Player::UpdateAfterImages(void)
 	{
 		it->timer -= scnMng_.GetDeltaTime();
 
-		// 残像が多すぎると重くなるので、古いものから消す
+		// 多すぎるときは古いものから消す
 		const bool tooMany = (boostAfterImages_.size() > 6);
 
 		if (it->timer <= 0.0f || tooMany)
@@ -623,8 +605,8 @@ void Player::UpdateAfterImages(void)
 	}
 }
 
-// 移動量から体の傾きを決める(見た目だけ)
-//   前進で前傾、後退でのけぞり、横移動で横に傾く
+// 浮遊の見た目: 移動の向きに体を傾ける
+//   当たり判定は動かさず、描画の行列だけ傾ける
 void Player::UpdateFloatLean(void)
 {
 	const float dt = scnMng_.GetDeltaTime();
@@ -633,11 +615,11 @@ void Player::UpdateFloatLean(void)
 	float targetPitch = 0.0f;
 	float targetRoll = 0.0f;
 
-	// 自分で移動しているときだけ傾ける(攻撃・回避・高速接近などはモーションに任せる)
+	// 自分で動いているときだけ傾ける
 	if (IsFloatSelfMove())
 	{
 		const VECTOR forward = GetForward();
-		const VECTOR right = VGet(forward.z, 0.0f, -forward.x);	// GetMoveBasis と同じ作り方
+		const VECTOR right = VGet(forward.z, 0.0f, -forward.x);	// 右
 
 		const float f = VDot(movePow_, forward);	// 前がプラス、後ろがマイナス
 		const float s = VDot(movePow_, right);		// 右がプラス
@@ -648,12 +630,12 @@ void Player::UpdateFloatLean(void)
 		targetPitch = std::clamp(targetPitch, -cfg::Float::MAX_PITCH, cfg::Float::MAX_PITCH);
 		targetRoll = std::clamp(targetRoll, -cfg::Float::MAX_ROLL, cfg::Float::MAX_ROLL);
 
-		// 調整モードで変えられる倍率
+		// 脚のポーズの倍率で、傾きも調整する
 		targetPitch *= legTune_[TUNE_LEAN];
 		targetRoll *= legTune_[TUNE_LEAN];
 	}
 
-	// 回避ステップ中は、進む向きへ体を大きく倒す(アニメは走りのままでも、飛んでいる感じが出る)
+	// 回避ステップ中は、進む向きへ大きく倒す
 	float smooth = cfg::Float::LEAN_SMOOTH;
 
 	if (isDodge_)
@@ -672,7 +654,7 @@ void Player::UpdateFloatLean(void)
 		smooth = cfg::Step::LEAN_SMOOTH;
 	}
 
-	// (Windows.h の min マクロと衝突しないよう std::min は使わない)
+	// 目標の傾きへ少しずつ近づける
 	float k = smooth * dt;
 	if (k > 1.0f) { k = 1.0f; }
 
@@ -680,7 +662,7 @@ void Player::UpdateFloatLean(void)
 	floatRoll_ += (targetRoll - floatRoll_) * k;
 }
 
-// 自分で移動している状態か(攻撃・回避・高速接近・気功などはそれぞれのモーションに任せる)
+// 自分で移動している状態か(攻撃・回避などではない)
 bool Player::IsFloatSelfMove(void) const
 {
 	return
@@ -694,18 +676,16 @@ bool Player::IsFloatSelfMove(void) const
 }
 
 // 脚のポーズの調整モード(Debug ビルドのみ)
-//   F1      : 調整モードの ON / OFF
-//   F2 / F3 : 調整する項目を選ぶ(上 / 下)
-//   F5 / F6 : 値を減らす / 増やす(LSHIFT を押しながらだと細かく)
+//   F1: 開く/閉じる  F2/F3: 項目  F5/F6: 値  LSHIFT: 細かく
 //   決まった値は画面に出るので、PlayerConfig.h の LegPose に書き写す
 namespace
 {
 	const char* kLegTuneName[] =
 	{
-		"L_THIGH   左もも(+前 -後)",
+		"L_THIGH   左太もも(+前 -後)",
 		"L_KNEE    左ひざ(曲げ)",
 		"L_OPEN    左脚の開き",
-		"R_THIGH   右もも(+前 -後)",
+		"R_THIGH   右太もも(+前 -後)",
 		"R_KNEE    右ひざ(曲げ)",
 		"R_OPEN    右脚の開き",
 		"FOOT      足首",
@@ -769,7 +749,7 @@ void Player::CancelRootMotion(void)
 {
 	if (hipsFrame_ < 0) { return; }
 
-	// 移動系のアニメのときだけ打ち消す(攻撃の踏み込みなどはそのまま)
+	// 移動のアニメだけ、腰の水平移動を打ち消す(それ以外は元に戻す)
 	switch ((ANIM_TYPE)animationController_->GetPlayType())
 	{
 	case ANIM_TYPE::RUN:
@@ -792,7 +772,7 @@ void Player::CancelRootMotion(void)
 	MATRIX m = MV1GetFrameLocalMatrix(model, hipsFrame_);
 	const MATRIX base = MV1GetFrameBaseLocalMatrix(model, hipsFrame_);
 
-	// 水平方向(X,Z)の移動だけ初期位置に固定。上下(Y)はアニメのまま
+	// 水平(X・Z)だけ、元の位置に戻す
 	m.m[3][0] = base.m[3][0];
 	m.m[3][2] = base.m[3][2];
 
@@ -800,9 +780,8 @@ void Player::CancelRootMotion(void)
 }
 
 // 浮遊移動中の脚のポーズ
-//   移動アニメ(Walk など)はそのまま再生し、その結果の上から脚のボーンだけを
-//   「片膝を上げて、もう片方を後ろに曲げる」舞空術の姿勢へ寄せる
-//   legPoseRate_ で少しずつ寄せるので、攻撃などに切り替わるときもカクッとしない
+//   移動アニメの上から、脚のボーンだけポーズへ寄せる
+//   左脚: 太ももを前へ上げて膝を曲げる / 右脚: 少し開いて軽く曲げて垂らす
 void Player::UpdateLegPose(void)
 {
 	namespace lp = cfg::LegPose;
@@ -810,7 +789,7 @@ void Player::UpdateLegPose(void)
 	const float dt = scnMng_.GetDeltaTime();
 	const int model = transform_.modelId;
 
-	// 移動しているか(水平でも上下でも)
+	// 動いているか
 	const bool moving =
 		VSize(ToHorizontal(movePow_)) > Constants::Epsilon ||
 		fabsf(movePow_.y) > Constants::Epsilon;
@@ -821,7 +800,7 @@ void Player::UpdateLegPose(void)
 	if (k > 1.0f) { k = 1.0f; }
 	legPoseRate_ += (target - legPoseRate_) * k;
 
-	// ほぼアニメのままなら、上書きを外して終わり
+	// ほぼポーズなしなら、アニメのままにする
 	if (legPoseRate_ < 0.01f)
 	{
 		legPoseRate_ = 0.0f;
@@ -836,7 +815,7 @@ void Player::UpdateLegPose(void)
 		return;
 	}
 
-	// 横移動の量(-1~1)。右へ動くと脚は左へ流れる
+	// 横移動の量(脚を進行方向と逆へ流す)
 	const VECTOR forward = GetForward();
 	const VECTOR right = VGet(forward.z, 0.0f, -forward.x);
 	float side = VDot(movePow_, right) / SPEED_RUN;
@@ -845,7 +824,7 @@ void Player::UpdateLegPose(void)
 	const float sway = sinf(floatBobTime_ * 0.7f) * lp::SWAY;
 	const float spread = -side * lp::SIDE_SPREAD * lp::SIDE_SIGN;
 
-	// アニメの結果とポーズを rate で混ぜて、ボーンに設定する
+	// アニメの姿勢とポーズを、legPoseRate_ で混ぜる
 	auto apply = [&](int frame, const MATRIX& rot)
 		{
 			if (frame < 0)
@@ -853,11 +832,11 @@ void Player::UpdateLegPose(void)
 				return;
 			}
 
-			// 一度上書きを外して、このフレームのアニメの姿勢を取り出す
+			// アニメの姿勢
 			MV1ResetFrameUserLocalMatrix(model, frame);
 			const MATRIX anim = MV1GetFrameLocalMatrix(model, frame);
 
-			// ポーズは初期姿勢(脚がまっすぐ下)を基準に回して作る
+			// ポーズ: 元の姿勢から回したもの
 			const MATRIX base = MV1GetFrameBaseLocalMatrix(model, frame);
 			const MATRIX pose = MMult(rot, base);
 
@@ -866,9 +845,8 @@ void Player::UpdateLegPose(void)
 
 	auto rad = [](float deg) { return AsoUtility::Deg2RadF(deg); };
 
-	// キャラの左右軸まわりに振る回転(前へ振るのがプラス)と、前後軸まわりに開く回転
-	//   ※ このモデルは素の状態で -Z 向き(Init で 180度回している)なので、
-	//     左右軸(+X)まわりのプラス回転で脚が前(-Z)へ出る
+	// swing: 脚を前後に振る(キャラの左右の軸で回す)
+	// spreadRot: 脚を横に開く(キャラの前後の軸で回す)
 	const float fs = lp::FORWARD_SIGN;
 	auto swing = [&](int leg, float deg)
 		{
@@ -879,9 +857,8 @@ void Player::UpdateLegPose(void)
 			return MGetRotAxis(legAxisFront_[leg], rad(deg));
 		};
 
-	// 太もも:前へ上げる / 膝:すねを後ろへ折る(太ももと逆向き) / 足首:つま先を下へ伸ばす(逆向き)
-	// 左脚(前へ上げて深く曲げる)
-	// 外へ開く角度(左脚はキャラの左=モデルの+X側へ、右脚は逆へ)
+	// 左脚
+	//   太ももを前へ上げ、膝を深く曲げる
 	const float openL = legTune_[TUNE_L_OPEN] * lp::OPEN_SIGN;
 	const float openR = -legTune_[TUNE_R_OPEN] * lp::OPEN_SIGN;
 
@@ -889,18 +866,17 @@ void Player::UpdateLegPose(void)
 	apply(legFrames_[LEG_L_KNEE], swing(LEG_L_KNEE, -(legTune_[TUNE_L_KNEE] - sway)));
 	apply(legFrames_[LEG_L_FOOT], swing(LEG_L_FOOT, -legTune_[TUNE_FOOT]));
 
-	// 右脚(外へ開いて「く」の字に曲げる)
+	// 右脚
 	apply(legFrames_[LEG_R_UP], MMult(swing(LEG_R_UP, legTune_[TUNE_R_THIGH] - sway), spreadRot(LEG_R_UP, spread + openR)));
 	apply(legFrames_[LEG_R_KNEE], swing(LEG_R_KNEE, -(legTune_[TUNE_R_KNEE] + sway)));
 	apply(legFrames_[LEG_R_FOOT], swing(LEG_R_FOOT, -legTune_[TUNE_FOOT]));
 }
 
-// 見た目用の行列を作る
-//   描画用には「傾き + 上下ゆれ + 腰中心の補正」を入れ、
-//   作り終わったら pos / quaRot を当たり判定用の値に戻す(カプセルが傾かないように)
+// 見た目の向き・位置を transform_ に反映する
+//   当たり判定用の位置と向きは変えずに、描画の行列だけ傾けたり揺らしたりする
 void Player::ApplyVisualTransform(const Quaternion& logicRot)
 {
-	// 気溜め・変身のアニメは体が横向きなので、その間だけ見た目を回して背中をカメラへ向ける
+	// 気溜め・変身中は、見た目だけ体の向きを回す
 	Quaternion baseRot = logicRot;
 	if (isCharging_ || isChargeEnding_ || formChange_.IsActive())
 	{
@@ -909,7 +885,7 @@ void Player::ApplyVisualTransform(const Quaternion& logicRot)
 	}
 	else if (heatActivate_ > 0.0f)
 	{
-		// ヒートアップ発動の演出(気溜めのポーズ)は、見た目の向きだけ回す
+		// ヒートアップ発動の演出中も、見た目だけ体の向きを回す
 		baseRot = logicRot.Mult(Quaternion::Euler(
 			{ 0.0f, AsoUtility::Deg2RadF(cfg::HeatUp::ACTIVATE_YAW_DEG), 0.0f }));
 	}
@@ -917,7 +893,7 @@ void Player::ApplyVisualTransform(const Quaternion& logicRot)
 	const Quaternion visualRot =
 		baseRot.Mult(Quaternion::Euler({ floatPitch_, 0.0f, floatRoll_ }));
 
-	// 足元を中心に回すと腰が pivot → visualRot * pivot にずれるので、その差を戻す
+	// 傾ける中心(体の真ん中)がずれないように位置を補正し、上下にゆらす
 	const VECTOR pivot = { 0.0f, cfg::Float::PIVOT_HEIGHT, 0.0f };
 	VECTOR offset = VSub(pivot, visualRot.PosAxis(pivot));
 	offset.y += sinf(floatBobTime_) * cfg::Float::BOB_AMPLITUDE;
@@ -926,7 +902,7 @@ void Player::ApplyVisualTransform(const Quaternion& logicRot)
 
 	transform_.pos = VAdd(logicPos, offset);
 	transform_.quaRot = visualRot;
-	transform_.Update();		// ここでモデルの行列が見た目用になる
+	transform_.Update();		// 描画用の行列を作る
 
 	transform_.pos = logicPos;
 	transform_.quaRot = logicRot;
@@ -936,7 +912,7 @@ void Player::ChangeState(STATE state)
 {
 	state_ = state;
 
-	// 各状態遷移の初期処理
+	// 状態ごとの初期処理
 	stateChanges_[state_]();
 }
 
@@ -960,7 +936,7 @@ void Player::UpdatePlay(void)
 
 	UpdateGuard();
 
-	// ガード系の状態中は移動などを受け付けない
+	// ガード・ガードブレイク・バースト中は動けない
 	if (guard_.IsBusy())
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
@@ -970,17 +946,17 @@ void Player::UpdatePlay(void)
 	// 変身
 	UpdateTransform();
 
-	// 変身中は他の処理をしない(重力・押し出しだけ処理する)
+	// 変身中は他のことをしない
 	if (formChange_.IsActive())
 	{
 		Collision();
 		return;
 	}
 
-	// ヒートアップ(気力MAX + テンション満タンで長押し)
+	// ヒートアップ
 	UpdateHeatUp();
 
-	// 発動の演出中は動けない
+	// ヒートアップ発動の演出中は動けない
 	if (heatActivate_ > 0.0f)
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
@@ -989,14 +965,15 @@ void Player::UpdatePlay(void)
 	}
 
 	// 気溜め
-	UpdateChase();
+	UpdateKiCharge();
 
-	// 気溜め中は他の処理をしない
+	// 気溜め中は他のことをしない
 	if (isCharging_ || isChargeEnding_)
 	{
 		return;
 	}
 
+	UpdateBarrage();
 	UpdateKiBlast();
 	UpdateAttack();
 	UpdateKamehame();
@@ -1008,10 +985,8 @@ void Player::UpdatePlay(void)
 		ProcessMove();
 	}
 
-	// 追撃移動
-	UpdateCharge();
-
-	Rotate();
+	// 追撃
+	UpdateAttackChase();
 
 	jumpPow_ = AsoUtility::VECTOR_ZERO;
 
@@ -1022,23 +997,21 @@ void Player::UpdatePlay(void)
 
 void Player::Draw(void)
 {
-	// 攻撃時の残像
+	// 攻撃の残像
 	if (isAfterImage_)
 	{
 		DrawAfterImage(afterImageMatrix_, 0.35f, false);
 	}
 
-	// 高速移動の残像(時間とともに薄くする)
+	// 高速移動の残像
 	for (auto& image : boostAfterImages_)
 	{
 		DrawAfterImage(image.matrix, image.timer / Constants::BoostAfterImageDuration * 0.5f, true);
 	}
 
-	// ヒートアップ中の体の色を決める
+	// ヒートアップ中は、体を金色っぽくする
 	{
-		const bool beforeGold =
-			(heatActivate_ > 0.0f) &&
-			(cfg::HeatUp::ACTIVATE_TIME - heatActivate_ < cfg::HeatUp::ACTIVATE_BURST_END);
+		const bool beforeGold = IsBeforeGold();
 
 		float g = 1.0f;
 		float b = 1.0f;
@@ -1053,7 +1026,7 @@ void Player::Draw(void)
 		MV1SetDifColorScale(transform_.modelId, GetColorF(1.0f, g, b, 1.0f));
 	}
 
-	// プレイヤー本体
+	// 本体
 	SetUseLighting(false);
 	MV1DrawModel(transform_.modelId);
 	SetUseLighting(true);
@@ -1073,6 +1046,13 @@ float Player::GetHeatActivateElapsed(void) const
 	}
 
 	return cfg::HeatUp::ACTIVATE_TIME - heatActivate_;
+}
+
+// ヒートアップ発動の演出中で、まだ金色になる前(光がはじけ終わる前)か
+bool Player::IsBeforeGold(void) const
+{
+	return heatActivate_ > 0.0f &&
+		GetHeatActivateElapsed() < cfg::HeatUp::ACTIVATE_BURST_END;
 }
 
 void Player::DrawHud(void)
@@ -1097,6 +1077,8 @@ void Player::DrawAfterImage(const MATRIX& matrix, float opacity, bool disableLig
 
 void Player::DrawKiBlast(void)
 {
+	barrage_.Draw();
+
 	for (auto& blast : kiBlasts_)
 	{
 		blast->Draw();
@@ -1114,7 +1096,7 @@ void Player::DrawShadow(void)
 	const float SHADOW_SIZE = Constants::PlayerShadowSize;
 	const float SHADOW_MAX_ALPHA = 128.0f;
 
-	// 高さに応じた影の濃さ(足元に近いほど濃い)
+	// 高いところほど薄くする
 	auto calcAlpha = [&](float y) -> int
 		{
 			if (y <= transform_.pos.y - SHADOW_HEIGHT)
@@ -1128,10 +1110,10 @@ void Player::DrawShadow(void)
 	SetUseLighting(FALSE);
 	SetUseZBuffer3D(TRUE);
 
-	// テクスチャの端からは端のドットが続くようにする
+	// テクスチャの外は伸ばす
 	SetTextureAddressMode(DX_TEXADDRESS_CLAMP);
 
-	// 頂点データのうち、変化しない部分
+	// 影のポリゴン
 	VERTEX3D vertex[3] = { VERTEX3D(), VERTEX3D(), VERTEX3D() };
 	vertex[0].dif = GetColorU8(255, 255, 255, 255);
 	vertex[0].spc = GetColorU8(0, 0, 0, 0);
@@ -1148,7 +1130,7 @@ void Player::DrawShadow(void)
 			continue;
 		}
 
-		// プレイヤー直下の地面ポリゴンを取得
+		// 足元の地面のポリゴンを探す
 		MV1_COLL_RESULT_POLY_DIM hitDim = MV1CollCheck_Capsule(
 			collider->modelId_, -1,
 			transform_.pos,
@@ -1159,7 +1141,7 @@ void Player::DrawShadow(void)
 		{
 			const MV1_COLL_RESULT_POLY& poly = hitDim.Dim[i];
 
-			// 少し持ち上げて地面と重ならないようにする
+			// 地面に埋もれないように少し浮かせる
 			VECTOR slide = VScale(poly.Normal, 0.5f);
 
 			for (int v = 0; v < 3; v++)
@@ -1167,7 +1149,7 @@ void Player::DrawShadow(void)
 				vertex[v].pos = VAdd(poly.Position[v], slide);
 				vertex[v].dif.a = calcAlpha(poly.Position[v].y);
 
-				// UVは地面ポリゴンとプレイヤーの相対座標から求める
+				// プレイヤーの位置を中心にテクスチャを貼る
 				vertex[v].u = (poly.Position[v].x - transform_.pos.x) / (SHADOW_SIZE * 2.0f) + 0.5f;
 				vertex[v].v = (poly.Position[v].z - transform_.pos.z) / (SHADOW_SIZE * 2.0f) + 0.5f;
 			}
@@ -1195,14 +1177,13 @@ VECTOR Player::NormalizeSafe(VECTOR v)
 	return (VSize(v) > Constants::Epsilon) ? VNorm(v) : v;
 }
 
-// 向きをそのまま設定(dirは正規化済みで長さがあること)
+// 正規化済みの方向を向く
 void Player::FaceDirection(VECTOR dir)
 {
 	playerRotY_ = Quaternion::LookRotation(dir);
-	goalQuaRot_ = playerRotY_;
 }
 
-// 水平成分だけを使って向きを設定。向けたら true
+// 水平成分だけで向く(向けなければ false)
 bool Player::FaceHorizontal(VECTOR dir)
 {
 	dir = ToHorizontal(dir);
@@ -1216,23 +1197,23 @@ bool Player::FaceHorizontal(VECTOR dir)
 	return true;
 }
 
-// 上下の傾き(ロックオン用)を dir から求める
+// ロックオン時の上下の傾き
 void Player::SetLockOnPitch(VECTOR dir)
 {
 	float horizontalDistance = sqrtf(dir.x * dir.x + dir.z * dir.z);
 	lockOnPitch_ = -atan2f(dir.y, horizontalDistance);
 }
 
-// 移動・回避に使う前方向と右方向(水平)を求める。
-// ロックオン中は敵が基準。敵との水平距離がほぼ0ならカメラ基準
+// 移動の基準(前・右)を求める
+//   ロックオン中は敵の方向、それ以外はカメラの方向
 bool Player::GetMoveBasis(VECTOR& forward, VECTOR& right)
 {
 	if (isLockOn_ && hasAttackTarget_)
 	{
 		const VECTOR toTarget = ToHorizontal(VSub(attackTargetPos_, transform_.pos));
 
-		// 敵がほぼ真上・真下にいるときは、向きが定まらずおかしくなるので、
-		// 距離の条件を満たすときだけ敵基準にする(満たさなければ下のカメラ基準)
+		// 敵が近すぎると向きが定まらないので、
+		//   そのときはカメラ基準にする
 		if (VSize(toTarget) > cfg::Move::LOCK_BASIS_MIN_DISTANCE)
 		{
 			forward = VNorm(toTarget);
@@ -1255,6 +1236,15 @@ void Player::LeaveAfterImage(void)
 	afterImageTimer_ = Constants::AfterImageDuration;
 }
 
+// 高速移動の残像を1枚残す
+void Player::AddBoostAfterImage(void)
+{
+	BoostAfterImage image{};
+	image.matrix = MV1GetMatrix(transform_.modelId);
+	image.timer = Constants::BoostAfterImageDuration;
+	boostAfterImages_.push_back(image);
+}
+
 void Player::ProcessMove(void)
 {
 	auto& ins = InputManager::GetInstance();
@@ -1272,12 +1262,12 @@ void Player::ProcessMove(void)
 
 	movePow_ = AsoUtility::VECTOR_ZERO;
 
-	// 前方向・右方向
+	// 移動の基準
 	VECTOR forward;
 	VECTOR right;
 	GetMoveBasis(forward, right);
 
-	// 水平移動の入力
+	// 移動の向き
 	VECTOR dir = AsoUtility::VECTOR_ZERO;
 
 	if (ins.IsNew(KEY_INPUT_W)) { dir = VAdd(dir, forward); }
@@ -1285,12 +1275,12 @@ void Player::ProcessMove(void)
 	if (ins.IsNew(KEY_INPUT_D)) { dir = VAdd(dir, right); }
 	if (ins.IsNew(KEY_INPUT_A)) { dir = VSub(dir, right); }
 
-	// 上下移動(E:上昇 Q:下降 / パッド: R2を押しながら左スティックの上下)
+	// 上下の移動(E: 上 / Q: 下)
 	float verticalMove = 0.0f;
 	if (ins.IsNew(KEY_INPUT_E)) { verticalMove = Constants::VerticalMoveSpeed; }
 	if (ins.IsNew(KEY_INPUT_Q)) { verticalMove = -Constants::VerticalMoveSpeed; }
 
-	// パッドの左スティック
+	// パッド: 上下移動モード中は、スティックの縦で上下に動く
 	if (PadInput::IsVerticalMode())
 	{
 		verticalMove = PadInput::StickY() * Constants::VerticalMoveSpeed;
@@ -1302,10 +1292,10 @@ void Player::ProcessMove(void)
 		dir = VAdd(dir, VScale(right, PadInput::StickX()));
 	}
 
-	// 斜め移動の速度を揃える
+	// 斜めでも速くならないようにする
 	dir = NormalizeSafe(dir);
 
-	// パッド: ×を押し続けるとダッシュ(押した瞬間のステップのあとに入る)
+	// ×を押し続けるとダッシュ
 	if (PadInput::IsNew(PadInput::BTN::CROSS))
 	{
 		dashHold_ += scnMng_.GetDeltaTime();
@@ -1322,14 +1312,13 @@ void Player::ProcessMove(void)
 	{
 		const bool isRun = ins.IsNew(KEY_INPUT_RSHIFT) || isDash;
 
-		// 形態ごとの速度倍率をかける
-		speed_ = (isDash ? cfg::Move::DASH_SPEED : (isRun ? SPEED_RUN : SPEED_MOVE))
+		// 速さ(ダッシュ / 走り / 歩き)に、形態とヒートアップの倍率をかける
+		const float speed = (isDash ? cfg::Move::DASH_SPEED : (isRun ? SPEED_RUN : SPEED_MOVE))
 			* kFormData[(int)form_].speedRate
 			* (heatUp_ ? cfg::HeatUp::SPEED_RATE : 1.0f);
-		moveDir_ = dir;
-		movePow_ = VScale(dir, speed_);
+		movePow_ = VScale(dir, speed);
 
-		// 通常時は移動方向を向く
+		// ロックオン中は敵の方を向いたまま動く
 		if (!isLockOn_)
 		{
 			FaceDirection(dir);
@@ -1348,10 +1337,10 @@ void Player::ProcessMove(void)
 		animationController_->Play((int)ANIM_TYPE::IDLE);
 	}
 
-	// 水平移動とは別に上下移動を入れる
+	// 上下の移動
 	movePow_.y = verticalMove;
 
-	// 高さ制限
+	// 高さの範囲に収める
 	float nextY = transform_.pos.y + movePow_.y;
 
 	if (nextY < Constants::MinHeight)
@@ -1365,14 +1354,14 @@ void Player::ProcessMove(void)
 	}
 }
 
-// 移動中のアニメーションを選ぶ
+// 移動のアニメーション(ロックオン中は向きに合わせて横歩き・後ろ歩き)
 void Player::PlayMoveAnimation(bool isRun)
 {
 	auto& ins = InputManager::GetInstance();
 
 	ANIM_TYPE type = isRun ? ANIM_TYPE::FAST_RUN : ANIM_TYPE::RUN;
 
-	// ロックオン中は入力方向に応じて後退・横移動
+	// ロックオン中は、入力の向きでアニメを変える
 	if (isLockOn_)
 	{
 		const bool w = ins.IsNew(KEY_INPUT_W) || PadInput::StickY() > 0.3f;
@@ -1401,35 +1390,9 @@ void Player::ProcessJump(void)
 {
 }
 
-void Player::SetGoalRotate(double rotRad)
-{
-	VECTOR cameraRot = mainCamera.GetAngles();
-	Quaternion axis = Quaternion::AngleAxis((double)cameraRot.y + rotRad, AsoUtility::AXIS_Y);
-
-	// 現在設定されている回転との角度差を取る
-	double angleDiff = Quaternion::Angle(axis, goalQuaRot_);
-
-	// しきい値
-	if (angleDiff > 0.1)
-	{
-		stepRotTime_ = TIME_ROT;
-	}
-
-	goalQuaRot_ = axis;
-}
-
-void Player::Rotate(void)
-{
-	// NOTE: 元のコードから、時間が二重に減算される挙動をそのまま残している
-	stepRotTime_ -= scnMng_.GetDeltaTime();
-
-	stepRotTime_ -= scnMng_.GetDeltaTime();
-	if (stepRotTime_ < 0.0f) { stepRotTime_ = 0.0f; }
-}
-
 void Player::Collision(void)
 {
-	// 現在座標を起点に移動後座標を決める
+	// 移動後の位置
 	movedPos_ = VAdd(transform_.pos, movePow_);
 
 	CollisionCapsule();
@@ -1440,7 +1403,7 @@ void Player::Collision(void)
 
 void Player::CollisionGravity(void)
 {
-	// ジャンプ量を加算
+	// 重力(ジャンプ)の分
 	movedPos_ = VAdd(movedPos_, jumpPow_);
 
 	const VECTOR dirGravity = AsoUtility::DIR_D;
@@ -1460,16 +1423,16 @@ void Player::CollisionGravity(void)
 			continue;
 		}
 
-		// 地面との衝突
+		// 足元の地面との当たり判定
 		auto hit = MV1CollCheck_Line(
 			collider->modelId_, -1, gravHitPosUp_, gravHitPosDown_);
 
 		if (hit.HitFlag > 0 && VDot(dirGravity, jumpPow_) > 0.9f)
 		{
-			// 衝突地点から、少し上に移動
+			// 地面の少し上に合わせる
 			movedPos_ = VAdd(hit.HitPosition, VScale(dirUpGravity, 2.0f));
 
-			// ジャンプリセット
+			// 着地
 			jumpPow_ = AsoUtility::VECTOR_ZERO;
 			stepJump_ = 0.0f;
 			isJump_ = false;
@@ -1479,7 +1442,7 @@ void Player::CollisionGravity(void)
 
 void Player::CollisionCapsule(void)
 {
-	// カプセルを移動させる
+	// 移動後の位置でカプセルを作る
 	Transform trans = Transform(transform_);
 	trans.pos = movedPos_;
 	trans.Update();
@@ -1501,7 +1464,7 @@ void Player::CollisionCapsule(void)
 		{
 			const auto& hit = hits.Dim[i];
 
-			// 当たらなくなるまで、ポリゴンの法線方向へ押し出す
+			// 当たらなくなるまで、面の向きに少しずつ押し出す
 			for (int tryCnt = 0; tryCnt < 10; tryCnt++)
 			{
 				int pHit = HitCheck_Capsule_Triangle(
@@ -1519,7 +1482,7 @@ void Player::CollisionCapsule(void)
 			}
 		}
 
-		// 検出した地面ポリゴン情報の後始末
+		// 当たり判定の結果を片付ける
 		MV1CollResultPolyDimTerminate(hits);
 	}
 }
@@ -1532,7 +1495,7 @@ void Player::CalcGravityPow(void)
 	VECTOR gravity = VScale(dirGravity, gravityPow);
 	jumpPow_ = VAdd(jumpPow_, gravity);
 
-	// 重力方向と反対方向(マイナス)でなければ、ジャンプ力を無くす
+	// 上向きに進んでいなければ、重力の速さにそろえる
 	float dot = VDot(dirGravity, jumpPow_);
 	if (dot >= 0.0f)
 	{
@@ -1560,7 +1523,7 @@ void Player::UpdateAttack(void)
 	auto& ins = InputManager::GetInstance();
 	const bool pushAttack = ins.IsTrgDown(KEY_INPUT_F) || PadInput::IsFightTrg();
 
-	// 追撃: ふっ飛ばした直後に攻撃ボタンを押すと、相手の元へ瞬間移動して追い打ちする(ヒートアップ中は自動)
+	// 追撃できる間に攻撃ボタン(ヒートアップ中は自動)で追撃する
 	if (pursuitWindow_ > 0.0f &&
 		!pursuitPending_ &&
 		!kamehame_.IsActive() &&
@@ -1577,7 +1540,7 @@ void Player::UpdateAttack(void)
 			pursuitRecover_ = cfg::Pursuit::HIT_DELAY + cfg::Pursuit::RECOVER_TIME;
 
 			attack_.Reset();
-			attack_.CancelChase();
+			attack_.EndChase();
 			boostChase_.Cancel();
 			movePow_ = AsoUtility::VECTOR_ZERO;
 
@@ -1586,7 +1549,7 @@ void Player::UpdateAttack(void)
 		}
 	}
 
-	// 敵がいれば追撃(接近)から始める
+	// 敵がいれば、まず敵へ飛びこむ
 	if (hasAttackTarget_ &&
 		!attack_.IsAttack() &&
 		!kamehame_.IsActive() &&
@@ -1602,7 +1565,7 @@ void Player::UpdateAttack(void)
 		return;
 	}
 
-	// 攻撃開始 / 次のコンボの先行入力
+	// 攻撃を始める / 攻撃中なら次の段の先行入力
 	if (!kamehame_.IsActive() && !attack_.IsChasing() && !boostChase_.IsActive() && pushAttack)
 	{
 		if (!attack_.IsAttack())
@@ -1625,7 +1588,7 @@ void Player::UpdateAttack(void)
 			animationController_->GetPlayRate(),
 			animationController_->IsEnd());
 
-		// 敵の方を向き、通常コンボ中は一定距離を保つ
+		// 敵の方を向く
 		if (VSize(result.faceDir) > Constants::Epsilon)
 		{
 			FaceHorizontal(result.faceDir);
@@ -1657,7 +1620,7 @@ void Player::UpdateAttack(void)
 	}
 }
 
-// 1段目から攻撃を始める
+// 1段目の攻撃を始める
 void Player::StartAttack(void)
 {
 	attack_.StartAttack();
@@ -1665,7 +1628,7 @@ void Player::StartAttack(void)
 	animationController_->Play((int)ANIM_TYPE::ATTACK01, false);
 }
 
-// コンボ終了
+// 攻撃を終える
 void Player::FinishAttack(void)
 {
 	attack_.Reset();
@@ -1673,19 +1636,14 @@ void Player::FinishAttack(void)
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
-// 次のコンボへ進む(2~8段目)。位置の計算は PlayerAttack、移動とアニメはここ
+// 次の段の攻撃へ(瞬間移動とアニメ)
 void Player::AdvanceCombo(void)
 {
 	const PlayerAttack::ComboStep step = attack_.AdvanceCombo(MakeAttackContext());
 
-	// 残像を残して移動し、敵の方を向く
+	// 瞬間移動する段
 	if (step.warp)
 	{
-		if (step.setAfterImagePos)
-		{
-			afterImagePos_ = transform_.pos;
-		}
-
 		LeaveAfterImage();
 		transform_.pos = step.warpPos;
 
@@ -1693,13 +1651,13 @@ void Player::AdvanceCombo(void)
 
 		if (step.lookPitch)
 		{
-			SetLockOnPitch(lookDir);	// 上下の傾きも付ける(8段目)
+			SetLockOnPitch(lookDir);	// 8段目は上下にも傾ける
 		}
 
 		FaceHorizontal(lookDir);
 	}
 
-	// 瞬間移動する段(4,6,7,8)は、移動量を消す
+	// 瞬間移動する段は、そこで止まる
 	if (step.combo >= 6 || step.combo == 4)
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
@@ -1755,16 +1713,16 @@ void Player::UpdateKamehame(void)
 {
 	auto& ins = InputManager::GetInstance();
 
-	// 開始
+	// かめはめ波を撃ち始める
 	if (!attack_.IsAttack() &&
 		!kamehame_.IsActive() &&
 		!isJump_ &&
 		!attack_.IsChasing() &&
 		!boostChase_.IsActive() &&
 		!isDodge_ &&
-		((ins.IsNew(KEY_INPUT_TAB) &&	// 必殺技ページ(TAB)を開いている間だけ撃てる
+		((ins.IsNew(KEY_INPUT_TAB) &&	// TAB を押しながら R
 			ins.IsTrgDown(KEY_INPUT_R)) ||
-			PadInput::IsKamehameTrg()))	// パッド: L1 を押しながら □
+			PadInput::IsKamehameTrg()))	// パッド
 	{
 		if (UseKi(KAMEHAME_KI_COST))
 		{
@@ -1786,7 +1744,7 @@ void Player::UpdateKamehame(void)
 		return;
 	}
 
-	// 更新(狙う方向が返ってきたら、体をそちらへ向ける)
+	// 撃っている間は、狙う向きへ体を向ける
 	VECTOR aim = AsoUtility::VECTOR_ZERO;
 	const bool finished = kamehame_.Update(MakeKamehameContext(), aim);
 
@@ -1831,12 +1789,12 @@ bool Player::IsKamehame(void) const
 	return kamehame_.IsActive();
 }
 
-// 気溜め
-void Player::UpdateChase(void)
+// 気溜め(T 長押し / パッドの△長押し)
+void Player::UpdateKiCharge(void)
 {
 	auto& ins = InputManager::GetInstance();
 
-	// 気溜め開始
+	// 気溜めを始める
 	if (!isCharging_ &&
 		!isChargeEnding_ &&
 		!attack_.IsAttack() &&
@@ -1847,11 +1805,10 @@ void Player::UpdateChase(void)
 		isCharging_ = true;
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
-		// 0~45フレームを再生し、40~45をループさせる
-		animationController_->Play((int)ANIM_TYPE::CHARGE, true, 0.0f, 45.0f);
-		animationController_->SetEndLoop(40.0f, 45.0f, 5.0f);
+		// 溜めモーションをループさせる
+		PlayChargeLoop();
 
-		// 変身後の姿のときは、変身用の気溜めエフェクトを出す
+		// 気溜めのエフェクト
 		EffekseerEffect::GetInstance()->PlayChargeEffect(
 			transform_.pos, form_ == FORM::SUPER);
 	}
@@ -1863,13 +1820,11 @@ void Player::UpdateChase(void)
 
 		EffekseerEffect::GetInstance()->UpdateChargeEffect(transform_.pos);
 
-		ki_ += KI_CHARGE_SPEED * scnMng_.GetDeltaTime();
+		AddKi(KI_CHARGE_SPEED * scnMng_.GetDeltaTime());
 
-		// 満タンで終了モーションへ(ヒートアップできるときは、長押しの間そのまま溜め続ける)
+		// 満タンになったら、ヒートアップできないときは終わる
 		if (ki_ >= MAX_KI)
 		{
-			ki_ = MAX_KI;
-
 			if (!CanHeatUp())
 			{
 				BeginChargeEnding();
@@ -1877,7 +1832,7 @@ void Player::UpdateChase(void)
 			}
 		}
 
-		// 移動・攻撃などでキャンセル
+		// 移動や攻撃の入力があったら、すぐにやめる
 		const bool cancelCharge =
 			IsMoveKeyDown(ins) ||
 			ins.IsNew(KEY_INPUT_RSHIFT) ||
@@ -1894,7 +1849,7 @@ void Player::UpdateChase(void)
 		}
 		else if (!ins.IsNew(KEY_INPUT_T) && !PadInput::IsChargeHold())
 		{
-			// Tキーを離したので終了モーションへ
+			// ボタンを離したら、終了モーションへ
 			BeginChargeEnding();
 			return;
 		}
@@ -1904,14 +1859,14 @@ void Player::UpdateChase(void)
 		}
 	}
 
-	// 気溜め終了モーション
+	// 気溜めの終了モーション
 	if (isChargeEnding_)
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
 		chargeEndTimer_ += scnMng_.GetDeltaTime();
 
-		// 他のモーション(ガードなど)に切り替わるとIsEndにならないので、時間でも終わらせる
+		// モーションが終わったら(念のため時間でも)待機へ
 		if (animationController_->IsEnd() || chargeEndTimer_ >= cfg::Charge::END_MAX_TIME)
 		{
 			isChargeEnding_ = false;
@@ -1921,7 +1876,7 @@ void Player::UpdateChase(void)
 	}
 }
 
-// 気溜めを中断する(フラグ・ループ・エフェクトをすべて解除)
+// 気溜めをすぐにやめる
 void Player::StopCharge(void)
 {
 	isCharging_ = false;
@@ -1932,7 +1887,7 @@ void Player::StopCharge(void)
 	EffekseerEffect::GetInstance()->StopChargeEffect();
 }
 
-// 気溜めを終えて、終了モーションに入る
+// 気溜めの終了モーションを始める
 void Player::BeginChargeEnding(void)
 {
 	isCharging_ = false;
@@ -1943,13 +1898,33 @@ void Player::BeginChargeEnding(void)
 
 	animationController_->ClearEndLoop();
 
-	// 45~70フレームの終了モーション
-	animationController_->Play((int)ANIM_TYPE::CHARGE, false, 45.0f, 70.0f, false, true);
+	// 溜めモーションの続き(ループの後ろ)を最後まで流す
+	animationController_->Play((int)ANIM_TYPE::CHARGE, false,
+		cfg::Charge::ANIM_LOOP_END, cfg::Charge::ANIM_END_STEP, false, true);
 }
 
-// 追撃(Fキーで敵に接近)
-//   接近の判断は PlayerAttack、移動・向き・アニメはここ
-void Player::UpdateCharge(void)
+// 気溜めモーションを、ループ付きで最初から流す
+void Player::PlayChargeLoop(void)
+{
+	animationController_->Play((int)ANIM_TYPE::CHARGE, true, 0.0f, cfg::Charge::ANIM_LOOP_END);
+	animationController_->SetEndLoop(
+		cfg::Charge::ANIM_LOOP_START, cfg::Charge::ANIM_LOOP_END, cfg::Charge::ANIM_LOOP_SPEED);
+}
+
+// 気を増やす(最大で止める)
+void Player::AddKi(float amount)
+{
+	ki_ += amount;
+
+	if (ki_ > MAX_KI)
+	{
+		ki_ = MAX_KI;
+	}
+}
+
+// 追撃(攻撃ボタンで敵へ飛びこむ)
+//   届いたら敵の手前に位置を合わせて攻撃、届かなければ空振り
+void Player::UpdateAttackChase(void)
 {
 	if (!attack_.IsChasing())
 	{
@@ -1976,7 +1951,7 @@ void Player::UpdateCharge(void)
 		break;
 
 	case PlayerAttack::ChaseEnd::LUNGE:
-		// 飛び込む時間を使い切った: 届いていなくてもその場で攻撃する(空振りになる)
+		// 飛びこめる時間を使い切った: その場で攻撃(空振り)
 		EndChase(false);
 		StartAttack();
 		break;
@@ -1987,7 +1962,7 @@ void Player::UpdateCharge(void)
 	}
 }
 
-// 追撃を終える。startAttack が true なら、敵の前に位置を合わせてそのまま攻撃に入る
+// 追撃を終える(startAttack が true なら、敵の手前に合わせて攻撃を始める)
 void Player::EndChase(bool startAttack)
 {
 	canChase_ = false;
@@ -1999,11 +1974,15 @@ void Player::EndChase(bool startAttack)
 		return;
 	}
 
-	// 敵との相対位置を攻撃距離にスナップして向きを合わせる
-	const PlayerAttack::Context ctx = MakeAttackContext();
+	SnapToTargetAndAttack();
+}
+
+// 敵の手前(水平)に位置を合わせて、1段目の攻撃を始める
+void Player::SnapToTargetAndAttack(void)
+{
 	VECTOR snapPos;
 
-	if (PlayerAttack::CalcSnapPos(ctx, snapPos))
+	if (PlayerAttack::CalcSnapPos(MakeAttackContext(), snapPos))
 	{
 		transform_.pos.x = snapPos.x;
 		transform_.pos.z = snapPos.z;
@@ -2014,12 +1993,12 @@ void Player::EndChase(bool startAttack)
 	StartAttack();
 }
 
-// 気弾
+// 気弾(U / パッドの○)
 void Player::UpdateKiBlast(void)
 {
 	auto& ins = InputManager::GetInstance();
 
-	// 開始
+	// 気弾を撃ち始める
 	if (!isKiBlast_ &&
 		!attack_.IsAttack() &&
 		!kamehame_.IsActive() &&
@@ -2035,25 +2014,28 @@ void Player::UpdateKiBlast(void)
 		animationController_->Play((int)ANIM_TYPE::KI_BLAST, false);
 	}
 
-	// モーション中
-	if (isKiBlast_)
+	// 気弾のモーション中
+	if (isKiBlast_ && !isBarrage_)
 	{
 		kiBlastTimer_ += scnMng_.GetDeltaTime();
 
-		// 手が前に出たあたりで発射
+		// 撃つタイミング
 		if (!isKiBlastShot_ && kiBlastTimer_ >= Constants::KiBlastShotTime)
 		{
 			ShotKiBlast();
 		}
 
-		// 終了
+		// モーションの終わり
 		if (kiBlastTimer_ >= Constants::KiBlastEndTime)
 		{
 			isKiBlast_ = false;
 			isKiBlastShot_ = false;
 			kiBlastTimer_ = 0.0f;
+			isBarrage_ = false;
+			barrageTimer_ = 0.0f;
+			barrageShots_ = 0;
 
-			// 移動していなかったらIDLE
+			// 移動していなければ待機のアニメへ
 			if (!IsMoveKeyDown(ins))
 			{
 				animationController_->Play((int)ANIM_TYPE::IDLE);
@@ -2061,20 +2043,189 @@ void Player::UpdateKiBlast(void)
 		}
 	}
 
-	// 飛んでいる気弾を更新
+	// 撃った気弾を動かす
 	for (auto& blast : kiBlasts_)
 	{
 		blast->Update();
 	}
 
-	// 消えた気弾を削除
+	// 消えた気弾を片付ける
 	kiBlasts_.erase(
 		std::remove_if(kiBlasts_.begin(), kiBlasts_.end(),
 			[](const std::unique_ptr<KiBlast>& blast) { return blast->IsDead(); }),
 		kiBlasts_.end());
 }
 
-// 気弾を1発撃つ
+// 連続エネルギー弾
+void Player::UpdateBarrage(void)
+{
+	auto& ins = InputManager::GetInstance();
+
+	barrage_.Update(scnMng_.GetDeltaTime());
+	UpdateBarrageAim(scnMng_.GetDeltaTime());
+
+	// 構えを始める
+	if (!isBarrage_ &&
+		!isKiBlast_ &&
+		!attack_.IsAttack() &&
+		!kamehame_.IsActive() &&
+		!isCharging_ &&
+		!isChargeEnding_ &&
+		!isJump_ &&
+		!attack_.IsChasing() &&
+		!boostChase_.IsActive() &&
+		!isDodge_ &&
+		((ins.IsNew(KEY_INPUT_TAB) && ins.IsTrgDown(KEY_INPUT_U)) ||
+			PadInput::IsBarrageTrg()))
+	{
+		if (UseKi(cfg::Barrage::KI_COST))
+		{
+			isBarrage_ = true;
+			isKiBlast_ = true;
+			barrageTimer_ = 0.0f;
+			barrageShots_ = 0;
+			movePow_ = AsoUtility::VECTOR_ZERO;
+
+			animationController_->Play((int)ANIM_TYPE::KI_BLAST, false);
+		}
+	}
+
+	if (!isBarrage_)
+	{
+		return;
+	}
+
+	barrageTimer_ += scnMng_.GetDeltaTime();
+
+	// 撃っている間は、狙う方向へ体を向ける
+	if (isLockOn_ && hasAttackTarget_)
+	{
+		FaceHorizontal(VSub(attackTargetPos_, transform_.pos));
+	}
+
+	// 構えが終わったら、一定間隔で撃つ
+	const float nextShotTime =
+		cfg::Barrage::START_DELAY + cfg::Barrage::INTERVAL * barrageShots_;
+
+	if (barrageShots_ < cfg::Barrage::SHOT_COUNT && barrageTimer_ >= nextShotTime)
+	{
+		ShotBarrage();
+	}
+
+	// 撃ち終わって少し待ったら終了
+	const float endTime = cfg::Barrage::START_DELAY +
+		cfg::Barrage::INTERVAL * cfg::Barrage::SHOT_COUNT +
+		cfg::Barrage::END_DELAY;
+
+	if (barrageTimer_ >= endTime)
+	{
+		isBarrage_ = false;
+		isKiBlast_ = false;
+		barrageTimer_ = 0.0f;
+		barrageShots_ = 0;
+
+		if (!IsMoveKeyDown(ins))
+		{
+			animationController_->Play((int)ANIM_TYPE::IDLE);
+		}
+	}
+}
+
+VECTOR Player::GetBarrageAimCenter(void) const
+{
+	return VAdd(attackTargetPos_, VGet(0.0f, cfg::Barrage::TARGET_HEIGHT, 0.0f));
+}
+
+void Player::UpdateBarrageAim(float dt)
+{
+	// 撃っていないときは、視点を元に戻す
+	if (!isBarrage_)
+	{
+		const float rate = 1.0f - expf(-cfg::Barrage::AIM_RETURN_SPEED * dt);
+		aimYaw_ -= aimYaw_ * rate;
+		aimPitch_ -= aimPitch_ * rate;
+		return;
+	}
+
+	auto& ins = InputManager::GetInstance();
+
+	// 右スティック、またはキーボードの矢印キー
+	float x = PadInput::RStickX();
+	float y = PadInput::RStickY();
+
+	if (ins.IsNew(KEY_INPUT_RIGHT)) { x += 1.0f; }
+	if (ins.IsNew(KEY_INPUT_LEFT)) { x -= 1.0f; }
+	if (ins.IsNew(KEY_INPUT_UP)) { y += 1.0f; }
+	if (ins.IsNew(KEY_INPUT_DOWN)) { y -= 1.0f; }
+
+	if (x > 1.0f) { x = 1.0f; }
+	if (x < -1.0f) { x = -1.0f; }
+	if (y > 1.0f) { y = 1.0f; }
+	if (y < -1.0f) { y = -1.0f; }
+
+	aimYaw_ += x * cfg::Barrage::AIM_SPEED * dt;
+	aimPitch_ += y * cfg::Barrage::AIM_SPEED * dt;
+
+	if (aimYaw_ > cfg::Barrage::AIM_MAX_YAW) { aimYaw_ = cfg::Barrage::AIM_MAX_YAW; }
+	if (aimYaw_ < -cfg::Barrage::AIM_MAX_YAW) { aimYaw_ = -cfg::Barrage::AIM_MAX_YAW; }
+	if (aimPitch_ > cfg::Barrage::AIM_MAX_PITCH) { aimPitch_ = cfg::Barrage::AIM_MAX_PITCH; }
+	if (aimPitch_ < -cfg::Barrage::AIM_MAX_PITCH) { aimPitch_ = -cfg::Barrage::AIM_MAX_PITCH; }
+}
+
+void Player::ShotBarrage(void)
+{
+	VECTOR shotPos = transform_.pos;
+
+	if (rightHandFrame_ != -1)
+	{
+		shotPos = MV1GetFramePosition(transform_.modelId, rightHandFrame_);
+	}
+
+	const VECTOR fwd = GetForward();
+
+	// 画面の枠の中の、ランダムな点を通る視線を作る
+	const VECTOR ringC = PlayerBarrage::RingCenter();
+	const float ringR = PlayerBarrage::RingRadius();
+
+	const float ang = GetRand(3600) / 3600.0f * DX_PI_F * 2.0f;
+	const float rad = sqrtf(GetRand(1000) / 1000.0f) * ringR * cfg::Barrage::AIM_RATE;
+
+	const float sx = ringC.x + cosf(ang) * rad;
+	const float sy = ringC.y + sinf(ang) * rad;
+
+	const VECTOR nearP = ConvScreenPosToWorldPos(VGet(sx, sy, 0.0f));
+	const VECTOR farP = ConvScreenPosToWorldPos(VGet(sx, sy, 1.0f));
+	const VECTOR ray = NormalizeSafe(VSub(farP, nearP));
+
+	// 敵までの距離のところで着弾する(ロックオンしていなければ、決まった距離)
+	float dist = cfg::Barrage::FORWARD_AIM_DIST;
+
+	if (isLockOn_ && hasAttackTarget_)
+	{
+		dist = VSize(VSub(GetBarrageAimCenter(), nearP));
+	}
+
+	const VECTOR target = VAdd(nearP, VScale(ray, dist));
+
+	// 軌道の膨らみ(進む向きに対して、横と上下へランダムにゆるく)
+	auto rnd = []() { return (GetRand(2000) - 1000) / 1000.0f; };
+
+	const VECTOR d = NormalizeSafe(VSub(target, shotPos));
+	const VECTOR side = NormalizeSafe(VCross(d, VGet(0.0f, 1.0f, 0.0f)));
+	const VECTOR up = NormalizeSafe(VCross(side, d));
+	const float distance = VSize(VSub(target, shotPos));
+
+	const VECTOR arc = VScale(
+		VAdd(VScale(side, rnd()), VScale(up, rnd() * 0.5f)),
+		distance * cfg::Barrage::ARC);
+
+	barrage_.Fire(shotPos, target, arc);
+
+	// 1発ごとに腕を突き出し直す
+	animationController_->Play((int)ANIM_TYPE::KI_BLAST, false);
+}
+
+// 気弾を撃つ
 void Player::ShotKiBlast(void)
 {
 	VECTOR shotPos = transform_.pos;
@@ -2086,7 +2237,7 @@ void Player::ShotKiBlast(void)
 
 	VECTOR shotDir = GetForward();
 
-	// ロックオンしている敵がいる場合は敵に向けて撃つ
+	// ロックオン中は敵へ向けて撃つ
 	if (isLockOn_ && hasAttackTarget_)
 	{
 		shotDir = NormalizeSafe(VSub(attackTargetPos_, shotPos));
@@ -2094,7 +2245,7 @@ void Player::ShotKiBlast(void)
 
 	isKiBlastShot_ = true;
 
-	// 連続で撃つと、強力なフィニッシュ気弾になる
+	// 続けて撃った回数を数える(間が空くと戻る)
 	kiBlastChainTimer_ = cfg::Finish::RESET_TIME;
 	kiBlastCount_++;
 
@@ -2116,8 +2267,8 @@ const std::vector<std::unique_ptr<KiBlast>>& Player::GetKiBlasts(void) const
 	return kiBlasts_;
 }
 
-// 高速接近(ロックオン中にSPACE)
-//   軌道の計算は PlayerBoostChase に任せ、結果(移動・向き・残像)を反映する
+// 高速接近(ロックオン中に SPACE / L3)
+//   弧を描いて敵の懐へ近づき、着いたらそのまま攻撃する
 void Player::UpdateBoostChase(void)
 {
 	auto& ins = InputManager::GetInstance();
@@ -2131,7 +2282,7 @@ void Player::UpdateBoostChase(void)
 	ctx.interrupted = attack_.IsAttack();
 	ctx.deltaTime = scnMng_.GetDeltaTime();
 
-	// 開始
+	// 高速接近を始める
 	if (boostChase_.CanStart() &&
 		isLockOn_ &&
 		hasAttackTarget_ &&
@@ -2144,7 +2295,7 @@ void Player::UpdateBoostChase(void)
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
-		// 弧の膨らむ側: 左右キー(スティック)を入れていればその側
+		// 弧を膨らませる側(横の入力があればその側)
 		int sideInput = 0;
 		if (ins.IsNew(KEY_INPUT_D) || PadInput::StickX() > 0.3f)
 		{
@@ -2171,28 +2322,16 @@ void Player::UpdateBoostChase(void)
 	{
 		EndBoostChase();
 
-		// 敵の懐に着いたら、そのまま攻撃へ(カカロットの高速移動→殴りの流れ)
+		// 敵の懐に着いたら、そのまま1段目の攻撃へ
 		if (result.arrived && cfg::Boost::AUTO_ATTACK && hasAttackTarget_)
 		{
-			// 敵との位置を攻撃距離に合わせて、向きも合わせてから攻撃に入る
-			const PlayerAttack::Context attackCtx = MakeAttackContext();
-			VECTOR snapPos;
-
-			if (PlayerAttack::CalcSnapPos(attackCtx, snapPos))
-			{
-				transform_.pos.x = snapPos.x;
-				transform_.pos.z = snapPos.z;
-
-				FaceHorizontal(VSub(attackTargetPos_, transform_.pos));
-			}
-
-			StartAttack();
+			SnapToTargetAndAttack();
 		}
 
 		return;
 	}
 
-	// 向き(上下の傾きは lockOnPitch_ として Update で反映される)
+	// 進む向きを向く
 	if (VSize(result.faceDir) > Constants::Epsilon)
 	{
 		FaceHorizontal(result.faceDir);
@@ -2201,17 +2340,14 @@ void Player::UpdateBoostChase(void)
 
 	movePow_ = result.move;
 
-	// 残像
+	// 一定間隔で残像を残す
 	if (result.leaveAfterImage)
 	{
-		BoostAfterImage image{};
-		image.matrix = MV1GetMatrix(transform_.modelId);
-		image.timer = Constants::BoostAfterImageDuration;
-		boostAfterImages_.push_back(image);
+		AddBoostAfterImage();
 	}
 }
 
-// 高速接近を終える(待ち時間は PlayerBoostChase が付ける)
+// 高速接近を終える
 void Player::EndBoostChase(void)
 {
 	boostChase_.Cancel();
@@ -2220,12 +2356,12 @@ void Player::EndBoostChase(void)
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
-// 回避(LSHIFT)
+// 回避ステップ(LSHIFT / パッドの×)
 void Player::UpdateDodge(void)
 {
 	auto& ins = InputManager::GetInstance();
 
-	// ジャスト回避の各タイマー
+	// ジャスト回避のタイマー
 	{
 		const float dt = scnMng_.GetDeltaTime();
 
@@ -2235,8 +2371,8 @@ void Player::UpdateDodge(void)
 
 	const bool trg = ins.IsTrgDown(KEY_INPUT_LSHIFT) || PadInput::IsStepTrg();
 
-	// 開始: 回避していなければ、攻撃などの最中でない時だけ
-	//       回避中でも、一定時間たてば次のステップを重ねて出せる(連打で続けて高速移動)
+	// ステップを始められるか
+	//   (ステップ中は、少したてば次のステップを重ねて出せる)
 	bool canStart = false;
 
 	if (!isDodge_)
@@ -2260,12 +2396,12 @@ void Player::UpdateDodge(void)
 
 	dodgeTimer_ += scnMng_.GetDeltaTime();
 
-	// 出だしが速く、だんだん減速する(一気に飛んで、すっと止まる)
+	// 出だしが速く、だんだん遅くなる
 	float t = dodgeTimer_ / cfg::Step::DURATION;
 
 	if (t > 1.0f) { t = 1.0f; }
 
-	const float ease = 1.0f - (1.0f - t) * (1.0f - t);	// 0 -> 1 (後半ほどゆっくり)
+	const float ease = 1.0f - (1.0f - t) * (1.0f - t);	// 減速の曲線
 	const float speed = cfg::Step::SPEED_START + (cfg::Step::SPEED_END - cfg::Step::SPEED_START) * ease;
 
 	movePow_ = VScale(dodgeDir_, speed);
@@ -2281,15 +2417,12 @@ void Player::UpdateDodge(void)
 		}
 	}
 
-	// 残像を一定間隔で残す
+	// 一定間隔で残像を残す
 	stepAfterImageTimer_ -= scnMng_.GetDeltaTime();
 
 	if (stepAfterImageTimer_ <= 0.0f)
 	{
-		BoostAfterImage image{};
-		image.matrix = MV1GetMatrix(transform_.modelId);
-		image.timer = Constants::BoostAfterImageDuration;
-		boostAfterImages_.push_back(image);
+		AddBoostAfterImage();
 
 		stepAfterImageTimer_ = cfg::Step::AFTER_IMAGE_INTERVAL;
 	}
@@ -2303,7 +2436,7 @@ void Player::UpdateDodge(void)
 	}
 }
 
-// ステップを始める(入力方向を決めて、アニメと演出を出す)
+// ステップを始める(向き・アニメ)
 void Player::StartStep(void)
 {
 	auto& ins = InputManager::GetInstance();
@@ -2316,7 +2449,7 @@ void Player::StartStep(void)
 		return;
 	}
 
-	// 入力方向へ回避。入力なしなら後ろ
+	// 入力の向きへ(入力が無ければ後ろへ)
 	if (PadInput::IsStickTilted())
 	{
 		dodgeDir_ = NormalizeSafe(VAdd(
@@ -2333,7 +2466,7 @@ void Player::StartStep(void)
 	dodgeTimer_ = 0.0f;
 	stepAfterImageTimer_ = 0.0f;
 
-	// 向きに合わせて、飛んでいくアニメを選ぶ(プレイヤーの向きから見て前・後ろ・左・右)
+	// 進む向きに合わせたアニメを選ぶ
 	{
 		const VECTOR f = NormalizeSafe(ToHorizontal(transform_.quaRot.GetForward()));
 		const VECTOR r = VGet(f.z, 0.0f, -f.x);
@@ -2362,7 +2495,7 @@ bool Player::IsDodging(void) const
 	return isDodge_;
 }
 
-// ジャスト回避: ステップを始めてすぐのうちに、敵の攻撃が来たら成立
+// ジャスト回避(敵の攻撃が回避の出だしに当たったら成立)
 bool Player::TryJustDodge(void)
 {
 	if (!isDodge_ || dodgeTimer_ > cfg::JustDodge::WINDOW || justCooldown_ > 0.0f)
@@ -2376,23 +2509,18 @@ bool Player::TryJustDodge(void)
 
 	AddTension(cfg::Tension::GAIN_JUST_DODGE);
 
-	ki_ += cfg::JustDodge::KI_GAIN;
-
-	if (ki_ > MAX_KI)
-	{
-		ki_ = MAX_KI;
-	}
+	AddKi(cfg::JustDodge::KI_GAIN);
 
 	return true;
 }
 
 //----------------------------------------------------------------------
-// テンション / ヒートアップ / 追撃 / 相殺勝負
+// テンションゲージ / ヒートアップ
 //----------------------------------------------------------------------
 
 void Player::AddTension(float amount)
 {
-	// ヒートアップ中は、ゲージは持続時間を表すので増やさない
+	// ヒートアップ中は増えない
 	if (heatUp_)
 	{
 		return;
@@ -2415,7 +2543,7 @@ float Player::GetHeatHoldRate(void) const
 	return rate > 1.0f ? 1.0f : rate;
 }
 
-// ヒートアップ: 条件がそろった状態で、気溜めのボタン(T / △)を押し続ける
+// ヒートアップ(テンション満タン+気力MAXで、T / △長押し)
 void Player::UpdateHeatUp(void)
 {
 	auto& ins = InputManager::GetInstance();
@@ -2445,8 +2573,8 @@ void Player::UpdateHeatUp(void)
 		tension_ = MAX_TENSION;
 		ki_ = MAX_KI;
 
-		// 発動の演出(光の柱 → 光がはじける)。この間は気溜めのポーズで動けない
-		//   溜めている最中だったなら、モーションは最初からやり直さず、そのまま続ける
+		// 気溜め中なら、そのモーションのまま演出に入る
+		//   そうでなければ溜めモーションを流す
 		const bool wasCharging = isCharging_;
 
 		heatActivate_ = cfg::HeatUp::ACTIVATE_TIME;
@@ -2461,16 +2589,15 @@ void Player::UpdateHeatUp(void)
 		else
 		{
 			StopCharge();
-			animationController_->Play((int)ANIM_TYPE::CHARGE, true, 0.0f, 45.0f);
-			animationController_->SetEndLoop(40.0f, 45.0f, 5.0f);
+			PlayChargeLoop();
 		}
 	}
 }
 
-// 毎フレーム進めるもの(ダメージ中・気溜め中でも止めない)
+// テンション・ヒートアップ・追撃・フィニッシュ気弾のタイマー
 void Player::UpdateTensionTimers(float deltaTime)
 {
-	// 発動の演出が終わったら、ふつうのポーズに戻す
+	// ヒートアップ発動の演出
 	if (heatActivate_ > 0.0f)
 	{
 		heatActivate_ -= deltaTime;
@@ -2483,7 +2610,7 @@ void Player::UpdateTensionTimers(float deltaTime)
 		}
 	}
 
-	// ヒートアップ: ゲージが持続時間として減っていく。気力は減らない(演出中は減らさない)
+	// ヒートアップ中: 気力は減らず、テンションが時間で減る
 	if (heatUp_ && heatActivate_ <= 0.0f)
 	{
 		heatUpTimer_ -= deltaTime;
@@ -2500,7 +2627,7 @@ void Player::UpdateTensionTimers(float deltaTime)
 		}
 	}
 
-	// 追撃できる時間
+	// 追撃できる残り時間
 	if (pursuitWindow_ > 0.0f)
 	{
 		pursuitWindow_ -= deltaTime;
@@ -2525,7 +2652,7 @@ void Player::UpdateTensionTimers(float deltaTime)
 		}
 	}
 
-	// フィニッシュ気弾の回数: 間が空いたら戻る
+	// 気弾を続けて撃った回数は、間が空くと戻る
 	if (kiBlastChainTimer_ > 0.0f)
 	{
 		kiBlastChainTimer_ -= deltaTime;
@@ -2537,7 +2664,7 @@ void Player::UpdateTensionTimers(float deltaTime)
 		}
 	}
 
-	// フィニッシュ気弾を飛ばす(狙っている敵がいれば少し曲がる)
+	// フィニッシュ気弾(ロックオン中は敵の胸を狙う)
 	{
 		VECTOR aim = VAdd(attackTargetPos_, VGet(0.0f, Constants::EnemyCenterHeight, 0.0f));
 		const bool hasAim = isLockOn_ && hasAttackTarget_;
@@ -2554,7 +2681,7 @@ void Player::UpdateTensionTimers(float deltaTime)
 	}
 }
 
-// 追撃のチャンスを始める
+// 追撃できる時間を始める
 void Player::OpenPursuit(bool fromPursuit)
 {
 	if (fromPursuit)
@@ -2597,7 +2724,7 @@ void Player::SetClash(bool active, float rate)
 	kamehame_.SetHold(active);
 }
 
-// ヒートアップ中のオーラ
+// ヒートアップのオーラ
 void Player::DrawHeatAura(void) const
 {
 	if (!heatUp_ && heatActivate_ <= 0.0f)
@@ -2611,10 +2738,10 @@ void Player::DrawHeatAura(void) const
 
 	SetUseLighting(FALSE);
 
-	// 半透明の光が奥の敵を隠さないように、深度は書き込まない
+	// オーラで体が隠れないように、Zバッファに書かない
 	SetWriteZBuffer3D(FALSE);
 
-	// 発動の演出: 青白い光の柱が立ちのぼり → 光がはじける
+	// 発動の演出: 光の柱 → 光がはじける
 	if (heatActivate_ > 0.0f)
 	{
 		const float t = cfg::HeatUp::ACTIVATE_TIME - heatActivate_;
@@ -2632,7 +2759,7 @@ void Player::DrawHeatAura(void) const
 			DrawCapsule3D(VAdd(base, VGet(0.0f, -20.0f, 0.0f)), top, 14.0f, 8,
 				GetColor(230, 245, 255), GetColor(230, 245, 255), TRUE);
 
-			// 昇っていく青い光の粒
+			// 立ち昇る光の粒
 			SetDrawBlendMode(DX_BLENDMODE_ADD, 200);
 
 			for (int i = 0; i < 14; i++)
@@ -2659,10 +2786,8 @@ void Player::DrawHeatAura(void) const
 		}
 	}
 
-	// 金色の光は、光がはじけたあとから
-	const bool beforeGold =
-		(heatActivate_ > 0.0f) &&
-		(cfg::HeatUp::ACTIVATE_TIME - heatActivate_ < cfg::HeatUp::ACTIVATE_BURST_END);
+	// 金色になる前は、ここまで
+	const bool beforeGold = IsBeforeGold();
 
 	if (!heatUp_ || beforeGold)
 	{
@@ -2672,7 +2797,7 @@ void Player::DrawHeatAura(void) const
 		return;
 	}
 
-	// 体のまわりに薄く金色の光をまとう(濃くすると敵が見えなくなる)
+	// 金色のオーラ
 	SetDrawBlendMode(DX_BLENDMODE_ADD, 22 + (int)(14.0f * pulse));
 	DrawCapsule3D(VAdd(base, VGet(0.0f, 30.0f, 0.0f)), VAdd(base, VGet(0.0f, 130.0f, 0.0f)),
 		46.0f + 6.0f * pulse, 12, GetColor(255, 200, 60), GetColor(255, 200, 60), TRUE);
@@ -2681,7 +2806,7 @@ void Player::DrawHeatAura(void) const
 	DrawCapsule3D(VAdd(base, VGet(0.0f, 20.0f, 0.0f)), VAdd(base, VGet(0.0f, 150.0f, 0.0f)),
 		70.0f + 10.0f * pulse, 12, GetColor(255, 235, 140), GetColor(255, 235, 140), TRUE);
 
-	// 昇っていく火花
+	// 炎のようなゆらめき
 	constexpr int   kFlameCount = 8;
 	constexpr float kFlameRadius = 52.0f;	// 体からの距離
 	constexpr float kFlameWidth = 14.0f;	// 炎の太さ
@@ -2702,7 +2827,7 @@ void Player::DrawHeatAura(void) const
 		DrawCone3D(tip, root, kFlameWidth, 8, color, color, TRUE);
 	}
 
-	// 昇っていく火の粉
+	// 立ち昇る光の粒
 	SetDrawBlendMode(DX_BLENDMODE_ADD, 200);
 
 	for (int i = 0; i < 16; i++)
@@ -2728,33 +2853,25 @@ bool Player::ConsumeVanish(void)
 
 void Player::DashStepTo(const VECTOR& pos, const VECTOR& targetPos)
 {
-	// 数コマに1回だけ残像を残す
-	static int s_count = 0;
-
-	if ((s_count++ % 3) == 0)
+	// 3回に1回だけ残像を残す
+	if ((dashStepCount_++ % 3) == 0)
 	{
-		BoostAfterImage image{};
-		image.matrix = MV1GetMatrix(transform_.modelId);
-		image.timer = Constants::BoostAfterImageDuration;
-		boostAfterImages_.push_back(image);
+		AddBoostAfterImage();
 	}
 
-	movePow_ = AsoUtility::VECTOR_ZERO;
-	transform_.pos = pos;
-	vanishCalmTimer_ = cfg::Vanish::CAMERA_CALM_TIME;
-
-	FaceHorizontal(VSub(targetPos, pos));
-	transform_.Update();
+	MoveAndFace(pos, targetPos);
 }
 
 void Player::VanishTo(const VECTOR& pos, const VECTOR& targetPos)
 {
-	// 消える前の場所に残像を残す
-	BoostAfterImage image{};
-	image.matrix = MV1GetMatrix(transform_.modelId);
-	image.timer = Constants::BoostAfterImageDuration;
-	boostAfterImages_.push_back(image);
+	// 残像を残して瞬間移動
+	AddBoostAfterImage();
+	MoveAndFace(pos, targetPos);
+}
 
+// pos へ移動して targetPos を向く(追撃・バニッシュアタック用)
+void Player::MoveAndFace(const VECTOR& pos, const VECTOR& targetPos)
+{
 	movePow_ = AsoUtility::VECTOR_ZERO;
 	transform_.pos = pos;
 	vanishCalmTimer_ = cfg::Vanish::CAMERA_CALM_TIME;
@@ -2770,14 +2887,14 @@ bool Player::ConsumeJustDodge(void)
 	return result;
 }
 
-// ガード
-//   状態と耐久値は PlayerGuard に任せ、アニメの再生と気の消費だけここで行う
+// ガード(L / パッドの L2)
+//   ガード中にバースト(B)・バニッシュアタック(V)
 void Player::UpdateGuard(void)
 {
 	InputManager& ins = InputManager::GetInstance();
 
-	// 攻撃・かめはめ波・気弾・回避・高速接近・変身の最中はガードを始められない
-	// (途中でガードすると、モーションや状態が中途半端に残って止まってしまうため)
+	// ガードの状態は PlayerGuard に任せ、
+	//   返ってきた出来事に合わせてアニメを再生する
 	PlayerGuard::Context ctx{};
 	ctx.deltaTime = SceneManager::GetInstance().GetDeltaTime();
 	ctx.canStart =
@@ -2804,7 +2921,7 @@ void Player::UpdateGuard(void)
 
 	const PlayerGuard::Result result = guard_.Update(ctx);
 
-	// ガード系の状態中は動けない
+	// ガードブレイク・バースト中は動けない
 	if (guard_.IsBreak() || guard_.IsBurst())
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
@@ -2818,7 +2935,7 @@ void Player::UpdateGuard(void)
 
 	if (result.started)
 	{
-		// 気溜めの途中でガードしたときは、気溜めをやめる(状態が残って動けなくなるのを防ぐ)
+		// 気溜め中なら止める
 		StopCharge();
 
 		movePow_ = AsoUtility::VECTOR_ZERO;
@@ -2831,7 +2948,7 @@ void Player::UpdateGuard(void)
 		animationController_->Play((int)ANIM_TYPE::IDLE);
 	}
 
-	// ガード中にバニッシュアタック(狙う敵がいない・気が足りないときは出さない)
+	// バニッシュアタック(ガードで攻撃を受けた直後だけ出せる)
 	if (result.vanishRequested && hasAttackTarget_ && guardHitTimer_ > 0.0f && UseKi(cfg::Guard::VANISH_KI_COST))
 	{
 		guard_.StartVanish();
@@ -2844,7 +2961,7 @@ void Player::UpdateGuard(void)
 		return;
 	}
 
-	// ガード中にバースト(気が足りない場合は発動しない)
+	// ガードバースト
 	if (result.burstRequested && UseKi(cfg::Guard::BURST_KI_COST))
 	{
 		guard_.StartBurst();
@@ -2861,10 +2978,10 @@ void Player::GuardDamage(float damage)
 {
 	AddTension(cfg::Tension::GAIN_GUARD);
 
-	// 攻撃を受けている間だけ、バニッシュアタックで切り返せる
+	// ガードで受けた直後は、バニッシュアタックを出せる
 	guardHitTimer_ = cfg::Guard::VANISH_WINDOW;
 
-	// ガードブレイクしたらモーションを変える
+	// 耐久値が無くなったらガードブレイク
 	if (guard_.Damage(damage))
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
@@ -2881,15 +2998,15 @@ bool Player::IsGuardBurstTrigger(void) const { return guard_.IsBurstTrigger(); }
 // ダメージ
 void Player::Damage(int damage)
 {
-	// 死亡中・変身中は無敵
+	// 死亡・変身中・ヒートアップ発動の演出中は受けない
 	if (isDead_ || formChange_.IsActive() || heatActivate_ > 0.0f)
 	{
 		return;
 	}
 
-	hp_ -= damage;
+	hp_ -= damage * DamageCalc::TAKEN_SCALE;
 
-	// 攻撃を受けるとテンションが溜まる
+	// 受けたダメージでテンションが増える
 	{
 		float gain = damage * cfg::Tension::GAIN_TAKEN_RATE;
 		if (gain > cfg::Tension::GAIN_TAKEN_MAX) { gain = cfg::Tension::GAIN_TAKEN_MAX; }
@@ -2902,28 +3019,28 @@ void Player::Damage(int damage)
 		isDead_ = true;
 	}
 
-	// 攻撃をなくす
+	// 攻撃をやめる
 	attack_.Reset();
 
-	// 追撃のチャンスもなくなる
+	// 追撃もやめる
 	pursuitWindow_ = 0.0f;
 	pursuitPending_ = false;
 
-	// 気溜めを解除
+	// 気溜めをやめる
 	if (isCharging_ || isChargeEnding_)
 	{
 		StopCharge();
 	}
 
-	// かめはめ波を解除
+	// かめはめ波をやめる
 	if (kamehame_.IsActive())
 	{
 		kamehame_.Cancel();
 	}
 
-	// 移動系の状態を解除する(残すと、被弾後に動けなくなったり状態が混ざる)
+	// 高速接近・追撃・回避・気弾をやめる
 	boostChase_.Cancel();
-	attack_.CancelChase();
+	attack_.EndChase();
 	isDodge_ = false;
 	dodgeTimer_ = 0.0f;
 	isKiBlast_ = false;
@@ -2932,7 +3049,7 @@ void Player::Damage(int damage)
 
 	movePow_ = AsoUtility::VECTOR_ZERO;
 
-	// ダメージ状態
+	// 少しの間動けない
 	isDamage_ = true;
 	damageTimer_ = Constants::DamageStateTime;
 
@@ -2967,7 +3084,7 @@ void Player::AddAttackMove(VECTOR dir, float power)
 	transform_.pos = VAdd(transform_.pos, VScale(VNorm(dir), power));
 }
 
-// 攻撃判定・ロックオン・状態の取得/設定
+// 攻撃判定
 bool Player::IsAttack(void) const
 {
 	return attack_.IsAttack();
@@ -3009,7 +3126,7 @@ bool Player::CanChase(void) const { return canChase_; }
 
 bool Player::UseKi(float amount)
 {
-	// ヒートアップ中は気力を消費しない
+	// ヒートアップ中は気を使わない
 	if (heatUp_)
 	{
 		return true;
@@ -3024,7 +3141,7 @@ bool Player::UseKi(float amount)
 	return true;
 }
 
-// ロックオン対象の方を向く(上下の傾きも設定)
+// 敵の方を向く(上下の傾きも)
 void Player::LookAtTarget(VECTOR targetPos)
 {
 	VECTOR dir = VSub(targetPos, transform_.pos);
@@ -3038,7 +3155,7 @@ void Player::LookAtTarget(VECTOR targetPos)
 	FaceHorizontal(dir);
 }
 
-// ダメージを与えた敵の方を向く
+// 攻撃してきた敵の方を向く(ダメージ中の向き)
 void Player::LookAtDamageEnemy(VECTOR enemyPos)
 {
 	if (!FaceHorizontal(VSub(enemyPos, transform_.pos)))
@@ -3050,7 +3167,7 @@ void Player::LookAtDamageEnemy(VECTOR enemyPos)
 	transform_.quaRot = damageRot_;
 }
 
-// コライダ
+// 衝突判定に使うコライダ
 void Player::AddCollider(std::weak_ptr<Collider> collider)
 {
 	colliders_.push_back(collider);

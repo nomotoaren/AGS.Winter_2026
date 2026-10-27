@@ -17,8 +17,12 @@ namespace DamageCalc
 	// クリティカルのダメージ倍率
 	constexpr float CRITICAL_RATE = 1.5f;
 
-	// クリティカル時に、ヒットストップへ足す時間(秒)
+	// クリティカル時に、ヒットストップへ足す時間
 	constexpr float CRITICAL_HIT_STOP = 0.04f;
+
+	// 数字を大きく見せるための倍率
+	constexpr int DEALT_SCALE = 100;	// 敵に与えるダメージ
+	constexpr int TAKEN_SCALE = 10;		// 自分が受けるダメージ
 
 	struct Result
 	{
@@ -37,7 +41,7 @@ namespace DamageCalc
 		const bool critical =
 			GetRand(9999) < static_cast<int>(CRITICAL_CHANCE * 10000.0f);
 
-		float damage = baseDamage * variance;
+		float damage = baseDamage * static_cast<float>(DEALT_SCALE) * variance;
 
 		if (critical)
 		{

@@ -37,6 +37,9 @@ public:
 	static float StickX(void);
 	static float StickY(void);
 	static bool IsStickTilted(void);
+	// 右スティック(-1.0 ~ 1.0)。Y は上がプラス
+	static float RStickX(void);
+	static float RStickY(void);
 
 	// ---- 操作(カカロットの割り当て) ----
 	static bool IsGuard(void);			// L2
@@ -54,6 +57,7 @@ public:
 	static bool IsSpecialPalette(void);	// L1 長押し(必殺技パレット)
 	static bool IsFormPalette(void);	// L2 + R2 長押し(フォームチェンジパレット)
 	static bool IsKamehameTrg(void);	// 必殺技パレット中の □
+	static bool IsBarrageTrg(void);		// 必殺技パレット中の ○
 	static bool IsTransformTrg(void);	// フォームチェンジパレット中の □
 
 private:
@@ -62,6 +66,8 @@ private:
 	static bool old_[(int)BTN::MAX];
 	static float stickX_;
 	static float stickY_;
+	static float rStickX_;
+	static float rStickY_;
 	static bool connected_;
 
 	// ガードの誤爆防止(L2+R2 のパレットを開閉するときに、L2 だけの瞬間でガードが入らないようにする)

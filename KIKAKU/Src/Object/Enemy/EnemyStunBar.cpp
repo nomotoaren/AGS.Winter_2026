@@ -1,22 +1,17 @@
 #include <cmath>
 #include <cstring>
 #include <DxLib.h>
+#include "EnemyHudLayout.h"
 #include "EnemyStunBar.h"
 
 namespace
 {
-	// EnemyHud と同じ基準解像度(約1500)でのレイアウト。実際の画面幅に合わせて拡大縮小する
-	constexpr float BASE_WIDTH = 1500.0f;
-
-	// EnemyHud.cpp の配置と合わせる値
-	constexpr float MARGIN_X = 50.0f;
-	constexpr float MARGIN_Y = 28.0f;
-	constexpr float ICON_RADIUS = 40.0f;
-	constexpr float HP_BAR_HEIGHT = 16.0f;
-
 	constexpr float BAR_WIDTH = 300.0f;
 	constexpr float BAR_HEIGHT = 10.0f;
-	constexpr float OFFSET_BELOW_HP = 36.0f;	// HPバーの下からの距離(HPの数字の下に置く)
+	constexpr float OFFSET_BELOW_HP = 36.0f;	// HPバーの下端からの距離(HPの数字の下に置く)
+
+	// BREAK! 演出の、最後に薄くなっていく時間(秒)
+	constexpr float BREAK_FADE_TIME = 0.25f;
 }
 
 void EnemyStunBar::Draw(float rate, bool stunned, float time) const
@@ -30,23 +25,20 @@ void EnemyStunBar::Draw(float rate, bool stunned, float time) const
 	int sw = 0;
 	int sh = 0;
 	GetDrawScreenSize(&sw, &sh);
-	const float s = sw / BASE_WIDTH;
 
 	if (rate < 0.0f) { rate = 0.0f; }
 	if (rate > 1.0f) { rate = 1.0f; }
 
-	// EnemyHud と同じ式で、HPバーの右端と下端を求める
-	const float iconR = ICON_RADIUS * s;
-	const float iconX = sw - MARGIN_X * s - iconR - 10.0f * s;
-	const float iconY = MARGIN_Y * s + iconR;
-
-	const float barRight = iconX - iconR * 0.35f;
-	const float hpBarY = iconY - 20.0f * s;
+	// EnemyHud と同じ計算で、HPバーの右端と上端を求める
+	const EnemyHudLayout::Anchor a = EnemyHudLayout::Compute(sw);
+	const float s = a.scale;
+	const float barRight = a.barRight;
+	const float hpBarY = a.barY;
 
 	const float w = BAR_WIDTH * s;
 	const float h = BAR_HEIGHT * s;
 	const float x = barRight - w;
-	const float y = hpBarY + HP_BAR_HEIGHT * s + OFFSET_BELOW_HP * s;
+	const float y = hpBarY + EnemyHudLayout::HP_BAR_HEIGHT * s + OFFSET_BELOW_HP * s;
 
 	// 影
 	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
@@ -57,7 +49,7 @@ void EnemyStunBar::Draw(float rate, bool stunned, float time) const
 	// 空の部分
 	DrawBoxAA(x, y, barRight, y + h, GetColor(28, 30, 34), TRUE);
 
-	// 色: 削られている間は紫、スタン中(回復待ち)は黄色く点滅
+	// 色: 減っている間は紫、スタン中(回復待ち)は黄色く点滅
 	int r = 190;
 	int g = 110;
 	int b = 255;
@@ -83,7 +75,7 @@ void EnemyStunBar::Draw(float rate, bool stunned, float time) const
 
 	DrawBoxAA(x, y, barRight, y + h, GetColor(165, 135, 70), FALSE, 1.5f * s);
 
-	// 文字(ゲージの左側)
+	// 文字(ゲージの左)
 	const char* text = stunned ? "STUN!" : "STUN";
 	const int tw = GetDrawStringWidth(text, (int)strlen(text));
 
@@ -91,7 +83,7 @@ void EnemyStunBar::Draw(float rate, bool stunned, float time) const
 		stunned ? GetColor(255, 230, 90) : GetColor(210, 190, 255));
 }
 
-// 画面中央に、黄色い放射状の光と「BREAK!」を出す(カカロットのブレイク演出)
+// 画面中央に、黄色い放射状の光と「BREAK!」を出す(ブレイク演出)
 void EnemyStunBar::DrawBreak(float elapsed) const
 {
 	if (elapsed < 0.0f || elapsed >= BREAK_TIME)
@@ -105,14 +97,14 @@ void EnemyStunBar::DrawBreak(float elapsed) const
 
 	const float cx = sw * 0.5f;
 	const float cy = sh * 0.30f;
-	const float s = sw / BASE_WIDTH;
+	const float s = sw / EnemyHudLayout::BASE_WIDTH;
 
-	// 最後の 0.4 秒で薄くなる
+	// 最後の BREAK_FADE_TIME 秒で薄くなる
 	float fade = 1.0f;
-	const float fadeStart = BREAK_TIME - 0.25f;
+	const float fadeStart = BREAK_TIME - BREAK_FADE_TIME;
 	if (elapsed > fadeStart)
 	{
-		fade = 1.0f - (elapsed - fadeStart) / 0.25f;
+		fade = 1.0f - (elapsed - fadeStart) / BREAK_FADE_TIME;
 	}
 
 	// 放射状の光: 最初の 0.2 秒で一気に伸びる
@@ -127,7 +119,7 @@ void EnemyStunBar::DrawBreak(float elapsed) const
 	SetDrawBlendMode(DX_BLENDMODE_ADD, (int)(110.0f * fade));
 	for (int i = 0; i < RAYS; i++)
 	{
-		// 太さと長さを少しずらして、ギザギザに見せる
+		// 太さと長さを交互にずらして、ギザギザに見せる
 		const float a = spin + PI2 * i / RAYS;
 		const float w = (i % 2 == 0) ? 0.10f : 0.06f;
 		const float l = (i % 2 == 0) ? len : len * 0.7f;
@@ -196,15 +188,11 @@ void EnemyStunBar::DrawSkillBanner(const char* name, float elapsed) const
 	int sw = 0;
 	int sh = 0;
 	GetDrawScreenSize(&sw, &sh);
-	const float s = sw / BASE_WIDTH;
 
-	// EnemyHud と同じ式で、HPバーの右端と下端を求める(スタンゲージのさらに下)
-	const float iconR = ICON_RADIUS * s;
-	const float iconX = sw - MARGIN_X * s - iconR - 10.0f * s;
-	const float iconY = MARGIN_Y * s + iconR;
-
-	const float barRight = iconX - iconR * 0.35f;
-	const float hpBarY = iconY - 20.0f * s;
+	// EnemyHud と同じ計算で、HPバーの右端を求める(スタンゲージのさらに下)
+	const EnemyHudLayout::Anchor a = EnemyHudLayout::Compute(sw);
+	const float s = a.scale;
+	const float barRight = a.barRight;
 
 	// 右から滑り込む / 終わり際に薄くなる
 	float slide = elapsed / 0.15f;
@@ -216,7 +204,7 @@ void EnemyStunBar::DrawSkillBanner(const char* name, float elapsed) const
 	const float w = 430.0f * s;
 	const float h = 30.0f * s;
 	const float right = barRight + (1.0f - slide) * 140.0f * s;
-	// 「バトル条件」(右上の帯)の下に出す
+	// 右上のゲージ類の下に出す
 	const float y = 214.0f * s;
 
 	// 帯: 左ほど透明
@@ -226,9 +214,9 @@ void EnemyStunBar::DrawSkillBanner(const char* name, float elapsed) const
 	for (int i = 0; i < SLICES; i++)
 	{
 		const float u = (float)(i + 1) / SLICES;
-		const int a = (int)(215.0f * fade * powf(u, 0.8f));
+		const int alpha = (int)(215.0f * fade * powf(u, 0.8f));
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, a);
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
 		DrawBoxAA(right - w + sliceW * i, y, right - w + sliceW * (i + 1) + 1.0f, y + h,
 			GetColor(130, 55, 200), TRUE);
 	}
@@ -246,7 +234,7 @@ void EnemyStunBar::DrawSkillBanner(const char* name, float elapsed) const
 
 	SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(255.0f * fade));
 
-	// 印(爆発のような形)
+	// 印(稲妻のような形)
 	{
 		const float ix = textX - 22.0f * s;
 		const float iy = y + h * 0.5f;

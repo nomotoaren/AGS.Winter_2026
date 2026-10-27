@@ -7,6 +7,8 @@ bool PadInput::cur_[(int)PadInput::BTN::MAX] = {};
 bool PadInput::old_[(int)PadInput::BTN::MAX] = {};
 float PadInput::stickX_ = 0.0f;
 float PadInput::stickY_ = 0.0f;
+float PadInput::rStickX_ = 0.0f;
+float PadInput::rStickY_ = 0.0f;
 bool PadInput::connected_ = false;
 int PadInput::l2HoldFrame_ = 0;
 int PadInput::guardBlockFrame_ = 0;
@@ -57,6 +59,8 @@ void PadInput::Update(void)
 
 	stickX_ = 0.0f;
 	stickY_ = 0.0f;
+	rStickX_ = 0.0f;
+	rStickY_ = 0.0f;
 
 	connected_ = GetJoypadNum() > 0;
 
@@ -122,6 +126,23 @@ void PadInput::Update(void)
 
 	stickX_ = x;
 	stickY_ = y;
+
+	// 右スティック(どのパッドでも -1000 ~ 1000)
+	int rx = 0;
+	int ry = 0;
+	GetJoypadAnalogInputRight(&rx, &ry, PAD);
+
+	float rsx = (float)rx / 1000.0f;
+	float rsy = -(float)ry / 1000.0f;	// 上をプラスにする
+
+	if (std::sqrt(rsx * rsx + rsy * rsy) < STICK_DEAD_ZONE)
+	{
+		rsx = 0.0f;
+		rsy = 0.0f;
+	}
+
+	rStickX_ = rsx;
+	rStickY_ = rsy;
 
 	// ガード誤爆防止のカウント
 	l2HoldFrame_ = cur_[(int)BTN::L2] ? l2HoldFrame_ + 1 : 0;
@@ -218,7 +239,22 @@ bool PadInput::IsKamehameTrg(void)
 	return IsSpecialPalette() && IsTrg(BTN::SQUARE);
 }
 
+bool PadInput::IsBarrageTrg(void)
+{
+	return IsSpecialPalette() && IsTrg(BTN::CIRCLE);
+}
+
 bool PadInput::IsTransformTrg(void)
 {
 	return IsFormPalette() && IsTrg(BTN::SQUARE);
+}
+
+float PadInput::RStickX(void)
+{ 
+	return rStickX_; 
+}
+
+float PadInput::RStickY(void)
+{ 
+	return rStickY_; 
 }

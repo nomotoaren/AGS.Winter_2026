@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-// 敵のHPバー(画面右上、ドラゴンボール カカロット風)
+// 敵のHPバー(画面右上)
 // 使い方:
 //   Init() を1回、毎フレーム Update(hp)、描画の最後に Draw()
 class EnemyHud
@@ -26,6 +26,9 @@ public:
 
 private:
 
+	// 作ったフォントを消す(デストラクタと、Init のやり直し用)
+	void DeleteFonts(void);
+
 	int fontName_;
 	int fontIcon_;
 	int fontNum_;
@@ -36,9 +39,8 @@ private:
 	int hp_;
 	int maxHp_;
 
-	float delayedHp_;	// 遅れて減る白いバーのHP
+	float delayedHp_;	// 遅れて減る赤いバーのHP
 	float delayWait_;	// 減り始めるまでの待ち時間
 	float flashTimer_;	// 被弾フラッシュ
-	float time_;		// ピンチ点滅用
 	bool initialized_;
 };

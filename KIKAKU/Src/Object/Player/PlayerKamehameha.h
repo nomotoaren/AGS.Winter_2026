@@ -19,7 +19,7 @@ public:
 	};
 
 	PlayerKamehameha(void);
-	~PlayerKamehameha(void) = default;
+	~PlayerKamehameha(void);
 
 	// 気弾のモデル・ビームのモデル・ライトを用意する
 	void Init(const VECTOR& playerPos);

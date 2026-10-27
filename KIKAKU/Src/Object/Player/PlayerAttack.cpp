@@ -41,11 +41,6 @@ void PlayerAttack::StartChase(void)
 	chaseLastDistance_ = FLT_MAX;
 }
 
-void PlayerAttack::CancelChase(void)
-{
-	EndChase();
-}
-
 void PlayerAttack::EndChase(void)
 {
 	isChasing_ = false;
@@ -246,7 +241,7 @@ void PlayerAttack::CalcFollow(const Context& ctx, ComboResult& result) const
 	result.faceDir = VNorm(toTarget);
 
 	// 8’i–Ú‚Í“r’†‚©‚ç’Ç]‚µ‚È‚¢
-	bool keepAttackPosition = (combo_ >= 1 && combo_ <= 7);
+	bool keepAttackPosition = (combo_ >= 1 && combo_ < cfg::Attack::MAX_COMBO);
 
 	if (combo_ == cfg::Attack::MAX_COMBO && attackTimer_ < cfg::Attack::COMBO8_FOLLOW_END)
 	{
@@ -309,7 +304,6 @@ PlayerAttack::ComboStep PlayerAttack::AdvanceCombo(const Context& ctx)
 			const VECTOR sideDir = VGet(-dir.z, 0.0f, dir.x);
 
 			step.warp = true;
-			step.setAfterImagePos = true;
 			step.warpPos = VAdd(ctx.targetPos, VScale(sideDir, cfg::Attack::WARP_DISTANCE));
 		}
 		break;
@@ -360,15 +354,13 @@ PlayerAttack::ComboStep PlayerAttack::AdvanceCombo(const Context& ctx)
 
 bool PlayerAttack::IsHitTiming(void) const
 {
-	// ”ÍˆÍŠO‚ÌƒRƒ“ƒ{‚ÍŠù’è’l(0.2~0.3•b)
-	cfg::Attack::HitWindow window = { 0.2f, 0.3f };
-
-	if (combo_ >= 1 && combo_ <= cfg::Attack::MAX_COMBO)
+	// UŒ‚’†‚Í combo_ ‚ª•K‚¸ 1~MAX_COMBO ‚É‚È‚é
+	if (!isAttack_ || combo_ < 1 || combo_ > cfg::Attack::MAX_COMBO)
 	{
-		window = cfg::Attack::HIT_WINDOWS[combo_ - 1];
+		return false;
 	}
 
-	return isAttack_ &&
-		attackTimer_ >= window.start &&
-		attackTimer_ <= window.end;
+	const cfg::Attack::HitWindow& window = cfg::Attack::HIT_WINDOWS[combo_ - 1];
+
+	return attackTimer_ >= window.start && attackTimer_ <= window.end;
 }

@@ -43,16 +43,14 @@ void PlayerBoostChase::Start(const Context& ctx, int sideInput)
 {
 	isActive_ = true;
 	timer_ = 0.0f;
-	// “’…‚Ü‚Å‚ÌŠÔ‚Í‹——£‚É‰‚¶‚ÄŒˆ‚ß‚é(‹ß‚¯‚ê‚ÎˆêuA‰“‚­‚Ä‚à’·‚­‚È‚è‚·‚¬‚È‚¢)
-	{
-		const float startDistance = VSize(VSub(ctx.targetPos, ctx.playerPos));
-		float duration = cfg::Boost::DURATION_MIN + startDistance * cfg::Boost::DURATION_PER_DISTANCE;
-
-		if (duration > cfg::Boost::DURATION_MAX) { duration = cfg::Boost::DURATION_MAX; }
-
-		duration_ = duration;
-	}
 	afterImageTimer_ = 0.0f;
+
+	const float distance = VSize(VSub(ctx.targetPos, ctx.playerPos));
+
+	// “’…‚Ü‚Å‚ÌŠÔ‚Í‹——£‚É‰‚¶‚ÄŒˆ‚ß‚é(‹ß‚¯‚ê‚ÎˆêuA‰“‚­‚Ä‚à’·‚­‚È‚è‚·‚¬‚È‚¢)
+	duration_ = cfg::Boost::DURATION_MIN + distance * cfg::Boost::DURATION_PER_DISTANCE;
+
+	if (duration_ > cfg::Boost::DURATION_MAX) { duration_ = cfg::Boost::DURATION_MAX; }
 
 	// ŒÊ‚Ì–c‚ç‚Ş‘¤: “ü—Í‚ª‚ ‚ê‚Î‚»‚Ì‘¤A‚È‚¯‚ê‚Î‘O‰ñ‚Æ‹t
 	if (sideInput > 0)
@@ -74,7 +72,6 @@ void PlayerBoostChase::Start(const Context& ctx, int sideInput)
 	const VECTOR side = VCross(VGet(0.0f, 1.0f, 0.0f), horizontal);
 
 	// “G‚ª‹ß‚¢‚Æ‚«‚ÍŒÊ‚ğ¬‚³‚­‚·‚é(‘å‚«‚­U‚é‚ÆA“G‚Ìü‚è‚ğ‰ñ‚Á‚Ä‚©‚ç‹ß‚Ã‚­–³‘Ê‚È“®‚«‚É‚È‚é)
-	const float distance = VSize(VSub(ctx.targetPos, ctx.playerPos));
 	float arcRate =
 		(distance - cfg::Boost::ARC_MIN_DISTANCE) /
 		(cfg::Boost::ARC_FULL_DISTANCE - cfg::Boost::ARC_MIN_DISTANCE);

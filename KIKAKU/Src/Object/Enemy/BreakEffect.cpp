@@ -93,7 +93,7 @@ namespace
 		const float t = cy - h * 0.5f;
 		const float b = cy + h * 0.5f;
 
-		VERTEX2D vt[6];
+		VERTEX2D vt[6]{};
 		vt[0] = MakeVertex(l, t, 0.0f, 0.0f);
 		vt[1] = MakeVertex(r, t, 1.0f, 0.0f);
 		vt[2] = MakeVertex(r, b, 1.0f, 1.0f);
@@ -154,7 +154,7 @@ namespace
 		const float gx = cx + (gu - 0.5f) * w + ox;
 		const float gy = cy + (gv - 0.5f) * h + oy;
 
-		VERTEX2D vt[3];
+		VERTEX2D vt[3]{};
 		for (int n = 0; n < 3; n++)
 		{
 			const float lx = (uv[n][0] - gu) * w * shrink;
@@ -294,14 +294,14 @@ void BreakEffect::Draw(void)
 			for (int i = 0; i < kCols; i++)
 			{
 				// 格子の4つの角
-				float p[4][2];
+				float p[4][2]{};
 				GridPoint(i, j, p[0][0], p[0][1]);			// 左上
 				GridPoint(i + 1, j, p[1][0], p[1][1]);		// 右上
 				GridPoint(i + 1, j + 1, p[2][0], p[2][1]);	// 右下
 				GridPoint(i, j + 1, p[3][0], p[3][1]);		// 左下
 
 				// 1マスを2つの三角形に分ける(斜めの向きは交互)
-				float tri[2][3][2];
+				float tri[2][3][2]{};
 				const int idx[2][3] =
 				{
 					{ 0, 1, 2 }, { 0, 2, 3 }

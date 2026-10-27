@@ -7,7 +7,13 @@
 #include "../../Manager/InputManager.h"
 #include "../../Manager/PadInput.h"
 #include "Player.h"
+#include "PlayerConfig.h"
+#include "../Common/HudDraw.h"
 #include "PlayerHud.h"
+
+using HudDraw::DrawStringRight;
+using HudDraw::HpLayerColor;
+using HudDraw::DrawLayeredHp;
 
 namespace
 {
@@ -48,7 +54,6 @@ namespace
 	constexpr float CMD_TITLE_H = 36.0f;
 	constexpr float CMD_KEY_MIN_W = 32.0f;
 	constexpr int CMD_MAX_ROWS = 8;				// 1ページの最大行数(高さを固定する)
-	constexpr float CMD_TF_KI_COST = 30.0f;		// 変身に必要な気(Player.cpp の TRANSFORM_KI_COST と同じ値)
 
 	// ダメージ数字
 	constexpr float POPUP_TIME = 0.9f;
@@ -176,13 +181,6 @@ namespace
 			text, GetColor(25, 30, 50), font, GetColor(235, 238, 248));
 	}
 
-	// 右寄せで文字を描く
-	void DrawStringRight(int rightX, int y, const char* str, unsigned int color, int font)
-	{
-		const int w = GetDrawStringWidthToHandle(str, (int)std::strlen(str), font);
-		DrawStringToHandle(rightX - w, y, str, color, font);
-	}
-
 	// 三日月形の帯(アイコンの右側を、下から上へ満ちる)。ヒートアップのテンションゲージに使う
 	//   rate  : 満ちている割合(0~1。下から)
 	//   wobble: 炎のゆらぎの強さ(0なら動かない)
@@ -257,15 +255,11 @@ namespace
 		}
 	}
 
-	// 右から左へ減るゲージ。
-	//   rate    : 現在値
-	//   lagRate : 遅れて減る部分(rate より大きい)
+	// 右から左へ減るゲージ(rate: 現在値 0~1)
 	void DrawGauge(float x, float y, float w, float h, float s,
-		float rate, float lagRate, unsigned int lagColor, unsigned int color,
-		unsigned int frameColor, float frameThick)
+		float rate, unsigned int color, unsigned int frameColor, float frameThick)
 	{
 		rate = std::clamp(rate, 0.0f, 1.0f);
-		lagRate = std::clamp(lagRate, 0.0f, 1.0f);
 
 		// 影
 		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
@@ -277,12 +271,6 @@ namespace
 		DrawBoxAA(x, y, x + w, y + h, GetColor(28, 30, 34), TRUE);
 
 		const float right = x + w;
-
-		// 遅れて減る部分
-		if (lagRate > rate)
-		{
-			DrawBoxAA(right - w * lagRate, y, right - w * rate, y + h, lagColor, TRUE);
-		}
 
 		// 現在値
 		if (rate > 0.0f)
@@ -296,97 +284,6 @@ namespace
 		}
 
 		DrawBoxAA(x, y, x + w, y + h, frameColor, FALSE, frameThick);
-	}
-
-	// ---- 重なる体力ゲージ(カカロット方式) ----
-	//   体力を HP_LAYERS 枚の層に分け、いちばん上の層から順に減らす。
-	//   減りきると、下の層の色が現れる。層ごとに色が違う。
-	//   ダメージで減った分は、赤いバーが遅れて縮む。
-	constexpr int HP_LAYERS = 5;
-
-	// 層の色(下から順)。1層目(最後の1層)が赤、5層目(いちばん上)が濃い緑
-	unsigned int HpLayerColor(int layer)
-	{
-		switch (layer)
-		{
-		case 0:  return GetColor(190, 35, 45);		// 1層目: 赤
-		case 1:  return GetColor(250, 235, 120);	// 2層目: 薄い黄色
-		case 2:  return GetColor(225, 175, 20);		// 3層目: 濃い黄色
-		case 3:  return GetColor(140, 225, 110);	// 4層目: 薄い緑
-		default: return GetColor(25, 150, 55);		// 5層目: 濃い緑
-		}
-	}
-
-	// 値 v が何番目の層にあるか(0 が最下層)
-	int HpLayerOf(float v, float layerHp)
-	{
-		if (v <= 0.0f) { return 0; }
-
-		int layer = (int)std::ceil(v / layerHp) - 1;
-		if (layer < 0) { layer = 0; }
-		if (layer > HP_LAYERS - 1) { layer = HP_LAYERS - 1; }
-		return layer;
-	}
-
-	// 層の中での割合(0~1)
-	float HpLayerFrac(float v, int layer, float layerHp)
-	{
-		return std::clamp((v - layer * layerHp) / layerHp, 0.0f, 1.0f);
-	}
-
-	// 戻り値: 今の層の数(「x3」と表示する用)
-	int DrawLayeredHp(float x, float y, float w, float h, float s,
-		float hp, float delayedHp, float maxHp,
-		unsigned int frameColor, float frameThick, float time)
-	{
-		const float layerHp = maxHp / (float)HP_LAYERS;
-		const float right = x + w;
-
-		const int curL = HpLayerOf(hp, layerHp);
-		const float frac = (hp <= 0.0f) ? 0.0f : HpLayerFrac(hp, curL, layerHp);
-
-		// 影
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
-		DrawBoxAA(x - 3.0f * s, y - 3.0f * s, right + 3.0f * s, y + h + 3.0f * s,
-			GetColor(10, 10, 14), TRUE);
-		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-
-		// 空の部分 / 下の層(すぐ下の層の色が、全幅で見えている)
-		DrawBoxAA(x, y, right, y + h, GetColor(28, 30, 34), TRUE);
-
-		if (curL > 0)
-		{
-			DrawBoxAA(x, y, right, y + h, HpLayerColor(curL - 1), TRUE);
-		}
-
-		// ダメージで減った分: 明るい赤のバーが遅れて縮む
-		if (delayedHp > hp)
-		{
-			const int dL = HpLayerOf(delayedHp, layerHp);
-			const float dFrac = (dL == curL) ? HpLayerFrac(delayedHp, dL, layerHp) : 1.0f;
-
-			if (dFrac > frac)
-			{
-				DrawBoxAA(right - w * dFrac, y, right - w * frac, y + h, GetColor(255, 85, 70), TRUE);
-			}
-		}
-
-		// 今の層(1層目の赤は、元から赤いので脈打たせない)
-		const unsigned int color = HpLayerColor(curL);
-
-		if (frac > 0.0f)
-		{
-			DrawBoxAA(right - w * frac, y, right, y + h, color, TRUE);
-
-			// 上半分に光沢
-			SetDrawBlendMode(DX_BLENDMODE_ALPHA, 75);
-			DrawBoxAA(right - w * frac, y, right, y + h * 0.45f, GetColor(255, 255, 255), TRUE);
-			SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
-		}
-
-		DrawBoxAA(x, y, right, y + h, frameColor, FALSE, frameThick);
-
-		return (hp <= 0.0f) ? 0 : curL + 1;
 	}
 }
 
@@ -417,17 +314,26 @@ PlayerHud::PlayerHud(void)
 
 PlayerHud::~PlayerHud(void)
 {
-	if (fontName_ != -1) { DeleteFontToHandle(fontName_); }
-	if (fontNum_ != -1) { DeleteFontToHandle(fontNum_); }
-	if (fontIcon_ != -1) { DeleteFontToHandle(fontIcon_); }
-	if (fontSmall_ != -1) { DeleteFontToHandle(fontSmall_); }
-	if (fontCmd_ != -1) { DeleteFontToHandle(fontCmd_); }
-	if (fontCombo_ != -1) { DeleteFontToHandle(fontCombo_); }
-	if (fontDamage_ != -1) { DeleteFontToHandle(fontDamage_); }
+	DeleteFonts();
+}
+
+void PlayerHud::DeleteFonts(void)
+{
+	for (int* font : { &fontName_, &fontNum_, &fontIcon_, &fontSmall_, &fontCmd_, &fontCombo_, &fontDamage_ })
+	{
+		if (*font != -1)
+		{
+			DeleteFontToHandle(*font);
+			*font = -1;
+		}
+	}
 }
 
 void PlayerHud::Init(void)
 {
+	// 2回呼ばれても、前のフォントが残らないようにする
+	DeleteFonts();
+
 	int sw = 0;
 	int sh = 0;
 	GetDrawScreenSize(&sw, &sh);
@@ -580,26 +486,6 @@ void PlayerHud::Update(const Player& player)
 	}
 }
 
-unsigned int PlayerHud::GetHpColor(float rate) const
-{
-	if (rate > 0.5f)
-	{
-		return GetColor(75, 215, 65);	// 緑
-	}
-
-	if (rate > 0.25f)
-	{
-		return GetColor(245, 215, 55);	// 黄
-	}
-
-	// ピンチは赤く点滅
-	const float pulse = 0.5f + 0.5f * sinf(time_ * 9.0f);
-	const int r = 200 + (int)(55.0f * pulse);
-	const int g = 40 + (int)(40.0f * pulse);
-
-	return GetColor(r, g, 45);
-}
-
 void PlayerHud::Draw(const Player& player)
 {
 	int sw = 0;
@@ -609,9 +495,6 @@ void PlayerHud::Draw(const Player& player)
 
 	const float maxHp = (float)Player::MAX_HP;
 	const float hp = (float)player.GetHp();
-
-	const float rate = std::clamp(hp / maxHp, 0.0f, 1.0f);
-	const float delayedRate = std::clamp(delayedHp_ / maxHp, 0.0f, 1.0f);
 
 	// ---- レイアウト(画面右下。アイコンが一番右、バーはその左) ----
 	const float iconR = ICON_RADIUS * s;
@@ -641,7 +524,7 @@ void PlayerHud::Draw(const Player& player)
 
 	// 重なる体力ゲージ(層ごとに色が違い、減った分は赤い)
 	const int layerNum = DrawLayeredHp(barX, barY, barW, barH, s,
-		hp, delayedHp_, maxHp, frameColor, frameThick, time_);
+		hp, delayedHp_, maxHp, frameColor, frameThick);
 
 	// 残りの層の数(「x4」)をバーの左に出す
 	if (layerNum > 0)
@@ -686,8 +569,7 @@ void PlayerHud::Draw(const Player& player)
 		kiColor = GetColor(110 + (int)(80.0f * pulse), 215 + (int)(30.0f * pulse), 255);
 	}
 
-	DrawGauge(kiX, kiY, kiW, kiH, s, kiRate, kiRate, kiColor, kiColor,
-		GetColor(165, 135, 70), 2.0f * s);
+	DrawGauge(kiX, kiY, kiW, kiH, s, kiRate, kiColor, GetColor(165, 135, 70), 2.0f * s);
 
 	// かめはめ波に必要な量の目印(足りていれば明るく光る)
 	{
@@ -1009,7 +891,7 @@ void PlayerHud::DrawCommandPanel(const Player& player) const
 	{
 		{ "G", { PadIcon::SQUARE }, 1, false,
 			isSuper ? "元に戻る" : "変身",
-			isSuper || ki >= CMD_TF_KI_COST, player.IsTransforming() },
+			isSuper || ki >= PlayerConfig::Transform::KI_COST, player.IsTransforming() },
 	};
 
 	const Command* commands = pageNormal;

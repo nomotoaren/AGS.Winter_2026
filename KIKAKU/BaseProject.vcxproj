@@ -19,6 +19,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Src\Object\Player\PlayerBarrage.cpp" />
+    <ClCompile Include="Src\Object\Common\Huddraw.cpp" />
     <ClCompile Include="Src\Utility\DamageCalc.cpp" />
     <ClCompile Include="Src\Manager\Playrecord.cpp" />
     <ClCompile Include="Src\Scene\ClashSystem.cpp" />
@@ -38,7 +40,6 @@
     <ClCompile Include="Src\Object\Player\PlayerBoostChase.cpp" />
     <ClCompile Include="Src\Object\Player\PlayerTransform.cpp" />
     <ClCompile Include="Src\Object\Player\PlayerKamehameha.cpp" />
-    <ClCompile Include="Src\Object\Player\PlayerConfig.cpp" />
     <ClCompile Include="Src\Manager\Padinput.cpp" />
     <ClCompile Include="Src\Object\Enemy\Enemyhud.cpp" />
     <ClCompile Include="Src\Object\Player\PlayerHud.cpp" />
@@ -78,6 +79,9 @@
     <ClCompile Include="Src\Controller\TimeStopController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Src\Object\Player\PlayerBarrage.h" />
+    <ClInclude Include="Src\Object\Common\Huddraw.h" />
+    <ClInclude Include="Src\Object\Enemy\EnemyHudLayout.h" />
     <ClInclude Include="Src\Utility\DamageCalc.h" />
     <ClInclude Include="Src\Manager\Playrecord.h" />
     <ClInclude Include="Src\Scene\ClashSystem.h" />

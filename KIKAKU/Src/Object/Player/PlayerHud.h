@@ -36,7 +36,7 @@ public:
 
 private:
 
-	struct DamagePopup 
+	struct DamagePopup
 	{
 		VECTOR pos;
 		int value;
@@ -50,8 +50,8 @@ private:
 	void DrawBattleHints(const Player& player) const;	// 追撃の案内・相殺勝負のゲージ
 	void DrawDamagePopups(void) const;
 
-	// 残量に応じたHPの色
-	unsigned int GetHpColor(float rate) const;
+	// 作ったフォントを消す(デストラクタと、Init のやり直し用)
+	void DeleteFonts(void);
 
 	int fontName_;
 	int fontNum_;
@@ -75,7 +75,7 @@ private:
 	float comboHold_;	// コンボが終わったあと表示を残す時間
 	float comboPop_;	// コンボが増えた瞬間の演出
 
-	int palette_;		// コマンド一覧のページ(0=通常 1=必殺技パレット 2=フォームチェンジ)
+	int palette_;		// コマンド一覧のページ
 	bool tabHeld_;		// TABキーを押しているか
 
 	std::vector<DamagePopup> popups_;

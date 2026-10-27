@@ -47,7 +47,8 @@ public:
 
 	bool IsDead(void) const { return isDead_; }
 	const VECTOR& GetPos(void) const { return pos_; }
-	void SetPos(const VECTOR& pos) { pos_ = pos; }	// 相殺勝負で押し引きするとき用	const VECTOR& GetPos(void) const { return pos_; }
+	// 相殺勝負で押し引きするとき用
+	void SetPos(const VECTOR& pos) { pos_ = pos; }
 
 	float GetRadius(void) const { return radius_; }
 

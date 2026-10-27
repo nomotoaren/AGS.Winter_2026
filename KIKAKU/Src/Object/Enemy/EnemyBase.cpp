@@ -1,6 +1,5 @@
 #include <DxLib.h>
 #include "EnemyBase.h"
-#include "../../Manager/SceneManager.h"
 #include "../../Utility/AsoUtility.h"
 
 namespace
@@ -78,7 +77,7 @@ void EnemyBase::AddKnockBack(VECTOR dir, float power)
 		return;
 	}
 
-	// 弱い攻撃はほとんどひるまない(カカロットの敵のように、殴られても行動を続ける)
+	// 弱い攻撃ではほとんどひるまない(殴られても行動を続ける)
 	armoredHit_ = false;
 
 	if (!isStunned_ && (IsSuperArmor() || (power < HEAVY_KNOCK && GetRand(99) >= FLINCH_CHANCE)))
@@ -110,7 +109,7 @@ bool EnemyBase::IsInvincible(void) const
 //------------------------------------------------------------
 void EnemyBase::AddStun(float amount)
 {
-	// スタン中・スタン直後・回避中・死亡中は、ゲージがたまらない
+	// スタン中・スタン明け・無敵中・死亡時は、ゲージが溜まらない
 	if (isDead_ || isStunned_ || stunResist_ > 0.0f || IsInvincible())
 	{
 		return;
@@ -125,7 +124,6 @@ void EnemyBase::AddStun(float amount)
 
 		isStunned_ = true;
 		stunTimer_ = STUN_TIME;
-		breakTime_ = 0.0f;
 
 		OnStunStart();
 	}
@@ -134,7 +132,6 @@ void EnemyBase::AddStun(float amount)
 bool EnemyBase::UpdateStunGauge(float deltaTime)
 {
 	stunBarTime_ += deltaTime;
-	breakTime_ += deltaTime;
 
 	if (stunResist_ > 0.0f)
 	{
@@ -207,7 +204,7 @@ float EnemyBase::GetStunRate(void) const
 // HPバー(HUD)
 //------------------------------------------------------------
 
-// 各敵は Init の最後に1回呼ぶ。maxHp はその時点の hp_ を渡すとよい
+// 各敵の Init の最後に1回呼ぶ。maxHp はその時点の hp_ を渡すとよい
 void EnemyBase::InitHud(const std::string& name, int maxHp)
 {
 	hud_.Init();
@@ -216,13 +213,13 @@ void EnemyBase::InitHud(const std::string& name, int maxHp)
 	hud_.SetMaxHp(maxHp);
 }
 
-// 各敵は Update で、isDead_ チェックの直後に呼ぶ
+// 各敵の Update で、isDead_ チェックの直後に呼ぶ
 void EnemyBase::UpdateHud(void)
 {
 	hud_.Update(hp_);
 }
 
-// 各敵は Draw の最後で呼ぶ(2D描画なので3D描画のあと)
+// 各敵の Draw の最後で呼ぶ(2D描画なので3D描画のあと)
 void EnemyBase::DrawHud(void)
 {
 	if (isDead_)
@@ -294,7 +291,7 @@ void EnemyBase::EndSyncWindow(void)
 	syncTimer_ = 0.0f;
 }
 
-// 受付開始時に 1.0、受付終了時に 0.0 になる残り時間の割合
+// 受付開始時は 1.0、受付終了時は 0.0 になる残り時間の割合
 float EnemyBase::GetSyncRate(void) const
 {
 	if (!isSyncReady_)

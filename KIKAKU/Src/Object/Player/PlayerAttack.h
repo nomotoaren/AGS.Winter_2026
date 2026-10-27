@@ -59,7 +59,6 @@ public:
 		int combo = 0;					// 進んだ後の段(2~8)
 		bool warp = false;				// 瞬間移動してほしい
 		VECTOR warpPos = { 0.0f, 0.0f, 0.0f };
-		bool setAfterImagePos = false;	// 瞬間移動前の位置を残像の位置として記録してほしい(4段目)
 		bool lookPitch = false;			// 敵を見るときに上下の傾きも付けてほしい(8段目)
 	};
 
@@ -72,7 +71,7 @@ public:
 	// 追撃
 	void StartChase(void);
 	ChaseResult UpdateChase(const Context& ctx);
-	void CancelChase(void);
+	void EndChase(void);					// 追撃をやめる(到着・中断・被弾など)
 
 	// コンボ
 	void StartAttack(void);				// 1段目から始める
@@ -100,9 +99,6 @@ private:
 
 	// 攻撃中の、敵への向きと吸い付き
 	void CalcFollow(const Context& ctx, ComboResult& result) const;
-
-	// 追撃を終える
-	void EndChase(void);
 
 	// 追撃
 	bool isChasing_;
