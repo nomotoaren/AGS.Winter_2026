@@ -1,8 +1,8 @@
 #include <cmath>
-#include "../../Manager/ResourceManager.h"
-#include "../../Manager/EffekseerEffect.h"
-#include "../../Utility/AsoUtility.h"
-#include "PlayerConfig.h"
+#include "../../../Manager/ResourceManager.h"
+#include "../../../Manager/EffekseerEffect.h"
+#include "../../../Utility/AsoUtility.h"
+#include "../definition/PlayerConfig.h"
 #include "PlayerKamehameha.h"
 
 namespace cfg = PlayerConfig;

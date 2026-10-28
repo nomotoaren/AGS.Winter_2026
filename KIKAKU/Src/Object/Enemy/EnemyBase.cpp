@@ -1,5 +1,9 @@
 #include <DxLib.h>
 #include "EnemyBase.h"
+#include "../Player/Player.h"
+#include "../../Manager/Camera.h"
+#include "../../Manager/EffekseerEffect.h"
+#include "../../Manager/SceneManager.h"
 #include "../../Utility/AsoUtility.h"
 
 namespace
@@ -8,10 +12,12 @@ namespace
 	constexpr float kEpsilon = 0.001f;
 }
 
-EnemyBase::EnemyBase(void)
+EnemyBase::EnemyBase(Player& player)
 	:
 	knockBackPow_(AsoUtility::VECTOR_ZERO),
+	player_(player),
 	hp_(1),
+	maxHp_(1),
 	isDead_(false),
 	hitRadius_(50.0f),
 	pendingDamage_(0),
@@ -28,6 +34,32 @@ EnemyBase::EnemyBase(void)
 
 EnemyBase::~EnemyBase(void)
 {
+}
+
+//------------------------------------------------------------
+// 設定
+//------------------------------------------------------------
+void EnemyBase::ApplyInfo(const EnemyData::Info& info)
+{
+	displayName_ = info.name;
+	hp_ = info.hp;
+	maxHp_ = info.hp;
+	hitRadius_ = info.hitRadius;
+	modelScale_ = info.modelScale;
+	damageRate_ = info.damageRate;
+}
+
+void EnemyBase::SetMaxHp(int hp)
+{
+	hp_ = hp;
+	maxHp_ = hp;
+}
+
+void EnemyBase::SetPosition(VECTOR pos)
+{
+	transform_.pos = pos;
+
+	transform_.Update();
 }
 
 //------------------------------------------------------------
@@ -253,6 +285,63 @@ void EnemyBase::ShowSkillName(const char* name)
 	skillName_ = name;
 	skillNameStartMs_ = GetNowCount();
 	hasSkillName_ = true;
+}
+
+//------------------------------------------------------------
+// プレイヤーへの攻撃
+//------------------------------------------------------------
+EnemyBase::HIT_RESULT EnemyBase::HitPlayer(const VECTOR& fromPos, int damage, float knockPower,
+	float guardDamage, float guardKnock)
+{
+	// 回避中は当たらない(ステップを始めた直後なら、ジャスト回避になる)
+	if (player_.IsDodging())
+	{
+		player_.TryJustDodge();
+		return HIT_RESULT::DODGED;
+	}
+
+	const VECTOR playerPos = player_.GetTransform().pos;
+
+	VECTOR hitDir = VSub(playerPos, fromPos);
+
+	if (VSize(hitDir) > kEpsilon)
+	{
+		hitDir = VNorm(hitDir);
+	}
+	else
+	{
+		hitDir = VGet(0.0f, 0.0f, 1.0f);
+	}
+
+	VECTOR effectPos = playerPos;
+	effectPos.y += 80.0f;
+
+	// ガード中は、ダメージなしでガード耐久値だけ減らす
+	if (player_.IsGuard())
+	{
+		player_.GuardDamage(guardDamage);
+		player_.AddKnockBack(hitDir, guardKnock);
+
+		EffekseerEffect::GetInstance()->PlayHitEffect(effectPos, 0.0f);
+
+		return HIT_RESULT::GUARDED;
+	}
+
+	player_.LookAtDamageEnemy(transform_.pos);
+	{
+		int scaled = (int)(damage * damageRate_);
+		if (scaled < 1) { scaled = 1; }
+
+		player_.Damage(scaled);
+	}
+	player_.AddKnockBack(hitDir, knockPower);
+
+	EffekseerEffect::GetInstance()->PlayHitEffect(effectPos, 0.0f);
+	mainCamera.StartShake(0.1f, 4.0f);
+
+	lastHitDir_ = hitDir;
+
+	return HIT_RESULT::DAMAGED;
 }
 
 //------------------------------------------------------------

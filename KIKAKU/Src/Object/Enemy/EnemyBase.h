@@ -1,8 +1,11 @@
 #pragma once
 #include <string>
 #include "../ActorBase.h"
-#include "EnemyHud.h"
-#include "EnemyStunBar.h"
+#include "../Enemy/definition/Enemyhud.h"
+#include "../Enemy/definition/EnemyStunBar.h"
+#include "../Enemy/definition/EnemyData.h"
+
+class Player;
 
 class EnemyBase : public ActorBase
 {
@@ -23,7 +26,15 @@ public:
 	static constexpr float ARMOR_KNOCK_RATE = 0.25f;	// ひるまないときの、飛ばされる強さの倍率
 	static constexpr int STUN_DAMAGE_RATE = 2;			// スタン中に受けるダメージの倍率
 
-	EnemyBase(void);
+	// プレイヤーに攻撃を当てた結果
+	enum class HIT_RESULT
+	{
+		DODGED,		// 回避された(ダメージなし)
+		GUARDED,	// ガードされた(ガード耐久値だけ減る)
+		DAMAGED		// ダメージが入った
+	};
+
+	EnemyBase(Player& player);
 	virtual ~EnemyBase(void);
 
 	void Init(void) override = 0;
@@ -32,6 +43,15 @@ public:
 
 	// ダメージ(スタン中は倍率がかかる)
 	virtual void Damage(int damage);
+
+	// 種類ごとのデータ(名前・HP・大きさなど)を反映する。Init の前に呼ぶ(EnemyFactory が呼ぶ)
+	void ApplyInfo(const EnemyData::Info& info);
+
+	// 敵のHPを決める(Init の前に呼ぶ。HPバーが最大HPを使うため)
+	void SetMaxHp(int hp);
+
+	// 位置を決める
+	virtual void SetPosition(VECTOR pos);
 
 	// 死亡判定
 	bool IsDead(void) const;
@@ -66,6 +86,35 @@ public:
 	// 攻撃中などで、弱い攻撃を受けても絶対にひるまない(スーパーアーマー)
 	virtual bool IsSuperArmor(void) const { return false; }
 
+	// ---- GameScene / 相殺処理(ClashSystem)から呼ばれる操作 ----
+	//   使わない敵は、何もしないこの初期実装のままでよい(呼ぶ側は敵の種類を調べなくてよい)
+
+	// プレイヤーの方を向く
+	virtual void LookAtPlayer(void) {}
+
+	// ガード
+	virtual bool IsGuard(void) const { return false; }
+	virtual void GuardDamage(float damage) { (void)damage; }
+	virtual void GuardBurst(void) {}
+
+	// 叩き落とし / 超必殺技で中断させる
+	virtual void StartSlamDown(void) {}
+	virtual void CancelAttacksForHeatUp(void) {}
+
+	// かめはめ波を受けている(dir: 押し出す向き)
+	virtual void SetKamehameHit(bool hit, VECTOR dir = { 0.0f, 0.0f, 0.0f }) { (void)hit; (void)dir; }
+
+	// 大きな気弾(相殺用)。撃っていなければ false
+	virtual bool GetBigBlast(VECTOR& pos, float& radius, int& damage) const { (void)pos; (void)radius; (void)damage; return false; }
+	virtual void SetBigBlastFrozen(bool frozen) { (void)frozen; }
+	virtual void KillBigBlast(void) {}
+	virtual void SetBigBlastPos(const VECTOR& pos) { (void)pos; }
+
+	// ビーム(相殺用)。撃っていなければ false
+	virtual bool GetBeam(VECTOR& origin, VECTOR& dir, float& radius, int& damage) const { (void)origin; (void)dir; (void)radius; (void)damage; return false; }
+	virtual void SetBeamClash(bool clash) { (void)clash; }
+	virtual void EndBeam(void) {}
+
 	// SYNC受付開始
 	void StartSyncWindow(void);
 
@@ -91,6 +140,13 @@ protected:
 	// 技の名前を画面に出す(技を出した瞬間に各敵が呼ぶ)
 	void ShowSkillName(const char* name);
 
+	// プレイヤーに攻撃を当てる(回避・ガード・ダメージの判定をまとめて行う。どの敵でも同じ処理)
+	//   fromPos: 攻撃の出どころ(押し出す向きを決める) / knockPower: ダメージ時に飛ばす強さ
+	//   guardDamage, guardKnock: ガードされたときの、ガード耐久値の減り方と飛ばす強さ
+	//   ダメージが入ったときは lastHitDir_ に当てた向きを残す
+	HIT_RESULT HitPlayer(const VECTOR& fromPos, int damage, float knockPower,
+		float guardDamage, float guardKnock);
+
 	// スタンゲージの更新(各敵の Update で毎フレーム呼ぶ)
 	//   戻り値: スタン中なら true
 	bool UpdateStunGauge(float deltaTime);
@@ -103,8 +159,26 @@ protected:
 	VECTOR knockBackPow_;
 	bool armoredHit_ = false;	// 今のノックバックは「ひるまない」弱い攻撃か
 
+	// プレイヤー(狙う相手・攻撃を当てる相手)
+	Player& player_;
+
 	// HP
 	int hp_;
+
+	// 最大HP(HPバーと、HPが半分以下の強化状態の判定に使う)
+	int maxHp_;
+
+	// HPバーに出す名前
+	std::string displayName_ = "ENEMY";
+
+	// モデルの大きさ
+	float modelScale_ = 1.0f;
+
+	// プレイヤーに与えるダメージの倍率(1.0 が基準。敵ごと・難易度ごとに変えられる)
+	float damageRate_ = 1.0f;
+
+	// 直前にプレイヤーへダメージを与えたときの、当てた向き
+	VECTOR lastHitDir_ = { 0.0f, 0.0f, 1.0f };
 
 	// 死亡しているか
 	bool isDead_;

@@ -1,6 +1,6 @@
 #include <algorithm>
 #include <cmath>
-#include "PlayerConfig.h"
+#include "../definition/PlayerConfig.h"
 #include "PlayerBarrage.h"
 
 namespace cfg = PlayerConfig;

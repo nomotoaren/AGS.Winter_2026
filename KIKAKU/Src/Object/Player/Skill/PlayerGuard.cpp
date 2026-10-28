@@ -1,4 +1,4 @@
-#include "PlayerConfig.h"
+#include "../definition/PlayerConfig.h"
 #include "PlayerGuard.h"
 
 namespace cfg = PlayerConfig;

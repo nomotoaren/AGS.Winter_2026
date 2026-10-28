@@ -6,7 +6,7 @@
 #include "../Manager/EffekseerEffect.h"
 #include "../Object/Player/Player.h"
 #include "../Object/Enemy/EnemyBase.h"
-#include "../Object/Enemy/MeleeEnemy.h"
+#include "../Object/Enemy/Melee/MeleeEnemy.h"
 #include "ClashSystem.h"
 
 namespace

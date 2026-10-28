@@ -1,5 +1,5 @@
 #include <cmath>
-#include "PlayerConfig.h"
+#include "../definition/PlayerConfig.h"
 #include "PlayerBoostChase.h"
 
 namespace cfg = PlayerConfig;

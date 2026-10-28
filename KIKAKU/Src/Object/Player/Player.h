@@ -7,15 +7,15 @@
 #include <DxLib.h>
 #include "../ActorBase.h"
 #include "../KiBlast.h"
-#include "PlayerHud.h"
-#include "PlayerConfig.h"
-#include "PlayerKamehameha.h"
+#include "Skill/PlayerHud.h"
+#include "definition/PlayerConfig.h"
+#include "Skill/PlayerKamehameha.h"
 #include "PlayerTransform.h"
-#include "PlayerBoostChase.h"
-#include "PlayerGuard.h"
-#include "PlayerAttack.h"
-#include "PlayerFinishBlast.h"
-#include "PlayerBarrage.h"
+#include "Skill/PlayerBoostChase.h"
+#include "Skill/PlayerGuard.h"
+#include "Skill/PlayerAttack.h"
+#include "Skill/PlayerFinishBlast.h"
+#include "Skill/PlayerBarrage.h"
 #include "../../Manager/ResourceManager.h"
 
 class AnimationController;

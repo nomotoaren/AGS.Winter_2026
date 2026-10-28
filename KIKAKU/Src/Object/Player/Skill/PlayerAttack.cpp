@@ -1,6 +1,6 @@
 #include <cfloat>
 #include <cmath>
-#include "PlayerConfig.h"
+#include "../definition/PlayerConfig.h"
 #include "PlayerAttack.h"
 
 namespace cfg = PlayerConfig;

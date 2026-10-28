@@ -95,7 +95,7 @@ void TitleScene::Update(void)
 		{
 			// ゲームスタート(SPACE / ENTER / ○ でも始まる)
 			isDecided_ = true;
-			SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::GAME);
+			SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::STAGE_SELECT);
 		}
 		else if (result == 1)
 		{

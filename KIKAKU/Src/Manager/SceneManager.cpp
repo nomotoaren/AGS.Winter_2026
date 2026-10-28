@@ -4,12 +4,14 @@
 #include "../Application.h"
 #include "../Common/Fader.h"
 #include "../Scene/TitleScene.h"
+#include "../Scene/StageSelectScene.h"
 #include "../Scene/GameScene.h"
 #include "Camera.h"
 #include "ResourceManager.h"
 #include "EffekseerEffect.h"
 #include "AppFlow.h"
 #include "SceneManager.h"
+#include "GameProgress.h"
 
 SceneManager* SceneManager::instance_ = nullptr;
 
@@ -51,6 +53,8 @@ void SceneManager::Init(void)
 
 	// 3DópÇÃê›íË
 	Init3D();
+
+	GameProgress::Load();
 
 	// èâä˙ÉVÅ[ÉìÇÃê›íË
 	DoChangeScene(SCENE_ID::TITLE);
@@ -264,6 +268,9 @@ void SceneManager::DoChangeScene(SCENE_ID sceneId)
 	{
 	case SCENE_ID::TITLE:
 		scene_ = std::make_unique<TitleScene>();
+		break;
+	case SCENE_ID::STAGE_SELECT:
+		scene_ = std::make_unique<StageSelectScene>();
 		break;
 	case SCENE_ID::GAME:
 		scene_ = std::make_unique<GameScene>();

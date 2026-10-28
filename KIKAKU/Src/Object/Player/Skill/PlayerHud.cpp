@@ -3,12 +3,12 @@
 #include <cstring>
 #include <algorithm>
 #include <DxLib.h>
-#include "../../Manager/SceneManager.h"
-#include "../../Manager/InputManager.h"
-#include "../../Manager/PadInput.h"
-#include "Player.h"
-#include "PlayerConfig.h"
-#include "../Common/HudDraw.h"
+#include "../../../Manager/SceneManager.h"
+#include "../../../Manager/InputManager.h"
+#include "../../../Manager/PadInput.h"
+#include "../Player.h"
+#include "../definition/PlayerConfig.h"
+#include "../../Common/HudDraw.h"
 #include "PlayerHud.h"
 
 using HudDraw::DrawStringRight;

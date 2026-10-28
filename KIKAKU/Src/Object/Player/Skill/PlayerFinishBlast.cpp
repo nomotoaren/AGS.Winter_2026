@@ -1,5 +1,5 @@
 #include <cmath>
-#include "PlayerConfig.h"
+#include "../definition/PlayerConfig.h"
 #include "PlayerFinishBlast.h"
 
 namespace cfg = PlayerConfig;

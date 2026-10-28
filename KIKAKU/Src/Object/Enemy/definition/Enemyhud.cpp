@@ -3,9 +3,9 @@
 #include <cstring>
 #include <algorithm>
 #include <DxLib.h>
-#include "../../Manager/SceneManager.h"
+#include "../../../Manager/SceneManager.h"
 #include "EnemyHudLayout.h"
-#include "../Common/HudDraw.h"
+#include "../../Common/HudDraw.h"
 #include "EnemyHud.h"
 
 using HudDraw::DrawStringRight;

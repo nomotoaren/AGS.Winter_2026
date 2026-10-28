@@ -1,10 +1,10 @@
 #pragma once
 #include <vector>
 #include <memory>
-#include "EnemyBase.h"
-#include "EnemyKiBlast.h"
-#include "EnemyAreaBlast.h"
-#include "../Common/AnimationController.h"
+#include "../EnemyBase.h"
+#include "../definition/EnemyKiBlast.h"
+#include "../definition/EnemyAreaBlast.h"
+#include "../../Common/AnimationController.h"
 
 class Player;
 
@@ -54,10 +54,7 @@ public:
 
 	void InitAnimation(void);
 
-	// 位置設定
-	void SetPosition(VECTOR pos);
-
-	void LookAtPlayer(void);
+	void LookAtPlayer(void) override;
 
 	// 攻撃
 	bool IsAttackHitTiming(void) const;
@@ -68,30 +65,30 @@ public:
 	int GetAttackCombo(void) const;
 
 	// ガード
-	bool IsGuard(void) const;
-	void GuardDamage(float damage);
-	void GuardBurst(void);
+	bool IsGuard(void) const override;
+	void GuardDamage(float damage) override;
+	void GuardBurst(void) override;
 
 	// 叩き落とし開始
-	void StartSlamDown(void);
+	void StartSlamDown(void) override;
 
 	// 大きな気弾(相殺勝負用)
-	bool GetBigBlast(VECTOR& pos, float& radius, int& damage) const;	// あれば true
-	void SetBigBlastFrozen(bool frozen);	// 止める/再開
-	void KillBigBlast(void);
-	void SetBigBlastPos(const VECTOR& pos);
-	void CancelAttacksForHeatUp(void);
+	bool GetBigBlast(VECTOR& pos, float& radius, int& damage) const override;	// あれば true
+	void SetBigBlastFrozen(bool frozen) override;	// 止める/再開
+	void KillBigBlast(void) override;
+	void SetBigBlastPos(const VECTOR& pos) override;
+	void CancelAttacksForHeatUp(void) override;
 
 	// ビーム(相殺勝負用)
-	bool GetBeam(VECTOR& origin, VECTOR& dir, float& radius, int& damage) const;	// 発射中なら true
-	void SetBeamClash(bool clash);	// ぶつかっている間は、止まって当たらない
-	void EndBeam(void);				// ビームを終わらせる(大きな隙ができる)
+	bool GetBeam(VECTOR& origin, VECTOR& dir, float& radius, int& damage) const override;	// 発射中なら true
+	void SetBeamClash(bool clash) override;	// ぶつかっている間は、止まって当たらない
+	void EndBeam(void) override;				// ビームを終わらせる(大きな隙ができる)
 
 	// ダウン中か
 	bool IsDown(void) const;
 
 	// かめはめ波を受けているか(dir: 押し出す向き)
-	void SetKamehameHit(bool hit, VECTOR dir = { 0.0f, 0.0f, 0.0f });
+	void SetKamehameHit(bool hit, VECTOR dir = { 0.0f, 0.0f, 0.0f }) override;
 
 	// 今かわしたか(1回読むと false に戻る。「DODGED!」の表示などに使える)
 	bool ConsumeDodged(void);
@@ -244,8 +241,6 @@ private:
 	// ふわふわ浮く動きの時間
 	float hoverTime_ = 0.0f;
 
-	Player& player_;
-
 	std::unique_ptr<AnimationController> animationController_;
 
 	Quaternion damageRot_;
@@ -296,9 +291,6 @@ private:
 	// ダウン中
 	bool isDown_;
 	float downTimer_;
-
-	// 最大HP
-	int maxHp_;
 
 	// 気弾
 	float kiCoolTimer_ = 0.0f;
@@ -362,7 +354,6 @@ private:
 
 	// 直前の攻撃がダメージとして入ったか(ガード・回避なら false)と、そのときの向き
 	bool lastHitDamaged_ = false;
-	VECTOR lastHitDir_ = { 0.0f, 0.0f, 1.0f };
 
 	// プレイヤーが攻撃を始めた瞬間を知るための、前のフレームのコンボ数
 	int prevPlayerCombo_ = 0;

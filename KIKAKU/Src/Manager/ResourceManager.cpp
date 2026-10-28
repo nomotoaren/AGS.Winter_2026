@@ -154,6 +154,24 @@ void ResourceManager::Init(void)
 
 	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "BREAKBR.png");
 	resourcesMap_.emplace(SRC::BREAKBR, std::move(res));
+
+	// ステージ選択
+	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "StageSelect/bg.png");
+	resourcesMap_.emplace(SRC::STAGE_BG, std::move(res));
+	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "StageSelect/card_normal.png");
+	resourcesMap_.emplace(SRC::STAGE_CARD_NORMAL, std::move(res));
+	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "StageSelect/card_selected.png");
+	resourcesMap_.emplace(SRC::STAGE_CARD_SELECTED, std::move(res));
+	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "StageSelect/card_locked.png");
+	resourcesMap_.emplace(SRC::STAGE_CARD_LOCKED, std::move(res));
+	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "StageSelect/button_normal.png");
+	resourcesMap_.emplace(SRC::STAGE_BUTTON_NORMAL, std::move(res));
+	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "StageSelect/button_selected.png");
+	resourcesMap_.emplace(SRC::STAGE_BUTTON_SELECTED, std::move(res));
+	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "StageSelect/panel_status.png");
+	resourcesMap_.emplace(SRC::STAGE_PANEL_STATUS, std::move(res));
+	res = std::make_unique<RES>(RES_T::IMG, PATH_IMG + "StageSelect/panel_detail.png");
+	resourcesMap_.emplace(SRC::STAGE_PANEL_DETAIL, std::move(res));
 }
 
 void ResourceManager::Release(void)

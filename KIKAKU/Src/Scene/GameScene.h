@@ -22,8 +22,8 @@ public:
 	// 敵を全部倒してから、ステージクリアになるまでの間(秒)
 	static constexpr float CLEAR_DELAY_TIME = 1.0f;
 
-	// ステージクリアになってから、タイトルへ戻るまでの時間(秒)
-	static constexpr float CLEAR_WAIT_TIME = 3.0f;
+	// ステージクリアになってから、ステージ選択へ戻るまでの時間(秒)
+	static constexpr float CLEAR_WAIT_TIME = 6.0f;
 
 	// ステージクリアになってから、ボタンで先へ進めるようになるまでの時間(秒)
 	static constexpr float CLEAR_SKIP_TIME = 1.0f;
@@ -115,6 +115,10 @@ private:
 	float clearTimer_;			// クリアになってからの経過時間
 	float gameOverTimer_;		// ゲームオーバーになってからの経過時間
 	bool isResultRequested_;	// 結果画面への切り替えを始めたか(何度も呼ばない)
+
+	// クリアでもらった経験値と、クリア前のレベル(クリア画面の表示用)
+	int gainedExp_ = 0;
+	int clearLevelBefore_ = 1;
 
 	// メニュー
 	MENU_ACTION confirmAction_;	// 「はい / いいえ」の確認中の内容(NONE なら通常のメニュー)

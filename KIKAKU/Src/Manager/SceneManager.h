@@ -3,7 +3,7 @@
 #include <chrono>
 #include <functional>
 
-// 推奨しませんが、どうしても使いたい方は
+// メインカメラの取得
 #define mainCamera SceneManager::GetInstance().GetCamera()
 
 class SceneBase;
@@ -20,6 +20,7 @@ public:
 	{
 		NONE,
 		TITLE,
+		STAGE_SELECT,
 		GAME,
 		GAME_OVER,		
 		GAME_CLEAR		

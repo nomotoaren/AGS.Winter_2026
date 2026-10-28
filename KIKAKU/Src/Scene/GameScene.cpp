@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cfloat>
 #include <vector>
+#include <cstdio>
 #include "../Application.h"
 #include "../Utility/AsoUtility.h"
 #include "../Utility/DamageCalc.h"
@@ -12,6 +13,8 @@
 #include "../Manager/EffekseerEffect.h"
 #include "../Manager/AppFlow.h"
 #include "../Manager/PlayRecord.h"
+#include "../Manager/GameProgress.h"
+#include "../Manager/StageData.h"
 #include "../Common/MenuUI.h"
 #include "../Object/Common/Capsule.h"
 #include "../Object/Common/Collider.h"
@@ -19,7 +22,8 @@
 #include "../Object/Stage.h"
 #include "../Object/Player/Player.h"
 #include "../Object/Enemy/EnemyBase.h"
-#include "../Object/Enemy/MeleeEnemy.h"
+#include "../Object/Enemy/Melee/MeleeEnemy.h"
+#include "../Object/Enemy/definition/EnemyFactory.h"
 #include "../Object/Enemy/BreakEffect.h"
 #include "../Object/Planet.h"
 #include "../Renderer/PixelMaterial.h"
@@ -342,10 +346,15 @@ void GameScene::InitPostEffects(void)
 
 void GameScene::MakeEnemies(void)
 {
-	auto enemy = std::make_unique<MeleeEnemy>(*player_);
-	enemy->Init();
+	const StageData::Info& info = StageData::Get(GameProgress::Get().selectedStage);
 
-	enemies_.push_back(std::move(enemy));
+	for (int i = 0; i < info.spawnCount; i++)
+	{
+		const StageData::Spawn& s = info.spawns[i];
+		const VECTOR pos = VGet(s.x, s.y, s.z);
+
+		enemies_.push_back(EnemyFactory::Create(s.type, *player_, s.hp, &pos));
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1204,7 +1213,7 @@ void GameScene::UpdateMeleeHit(void)
 		enemy->AddKnockBack(hitDir, knock);
 
 		EffekseerEffect::GetInstance()->PlayHitEffect(HitEffectPos(*enemy), 0.0f);
-		
+
 		if (isFinish)
 		{
 			ApplyHitImpact(0.10f, PlayerConfig::HitShake::FINISH_TIME, PlayerConfig::HitShake::FINISH_POWER);
@@ -1450,10 +1459,18 @@ void GameScene::UpdateKamehameHit(float dt)
 
 void GameScene::DealDamage(EnemyBase& enemy, int damage, float stun)
 {
-	enemy.Damage(damage);
+	// レベルが高いほど、与えるダメージが増える
+	int scaled = static_cast<int>(damage * GameProgress::AttackRate() + 0.5f);
+
+	if (damage > 0 && scaled < 1)
+	{
+		scaled = 1;
+	}
+
+	enemy.Damage(scaled);
 	enemy.AddStun(stun);
 
-	player_->AddDamagePopup(PopupPos(enemy), damage);
+	player_->AddDamagePopup(PopupPos(enemy), scaled);
 }
 
 void GameScene::StartHitStop(float time)
@@ -1586,6 +1603,15 @@ void GameScene::StartClear(void)
 	gameState_ = GAME_STATE::CLEAR;
 	PlayRecord::ClearTime() = playTime_;
 
+	// 経験値をもらって、クリアを記録して保存する
+	const int stage = GameProgress::Get().selectedStage;
+
+	gainedExp_ = StageData::Get(stage).expReward;
+	clearLevelBefore_ = GameProgress::Get().level;
+
+	GameProgress::OnStageCleared(stage, gainedExp_);
+	GameProgress::Save();
+
 	clearTimer_ = 0.0f;
 	isResultRequested_ = false;
 }
@@ -1615,7 +1641,7 @@ void GameScene::UpdateClear(float dt)
 	if (clearTimer_ >= CLEAR_WAIT_TIME || skip)
 	{
 		isResultRequested_ = true;
-		SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::TITLE);
+		SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::STAGE_SELECT);
 	}
 }
 
@@ -1654,16 +1680,42 @@ void GameScene::DrawClear(void)
 
 	DeleteFontToHandle(fontHandle);
 
+	// もらった経験値と、レベルアップ
+	{
+		const int level = GameProgress::Get().level;
+
+		char buf[96];
+
+		snprintf(buf, sizeof(buf), "EXP +%d", gainedExp_);
+
+		DrawString(
+			Application::SCREEN_SIZE_X / 2 - GetDrawStringWidth(buf, -1) / 2,
+			Application::SCREEN_SIZE_Y / 2 + 45,
+			buf,
+			GetColor(255, 255, 255));
+
+		if (level > clearLevelBefore_)
+		{
+			snprintf(buf, sizeof(buf), "LEVEL UP!   Lv %d -> Lv %d", clearLevelBefore_, level);
+
+			DrawString(
+				Application::SCREEN_SIZE_X / 2 - GetDrawStringWidth(buf, -1) / 2,
+				Application::SCREEN_SIZE_Y / 2 + 75,
+				buf,
+				GetColor(255, 230, 80));
+		}
+	}
+
 	// ボタンで進めるようになったら案内を出す
 	if (clearTimer_ >= CLEAR_SKIP_TIME)
 	{
-		const char* hint = "SPACE / A : TITLE";
+		const char* hint = "SPACE / A : STAGE SELECT";
 
 		const int hintWidth = GetDrawStringWidth(hint, -1);
 
 		DrawString(
 			Application::SCREEN_SIZE_X / 2 - hintWidth / 2,
-			Application::SCREEN_SIZE_Y / 2 + 70,
+			Application::SCREEN_SIZE_Y / 2 + 115,
 			hint,
 			GetColor(255, 255, 255));
 	}

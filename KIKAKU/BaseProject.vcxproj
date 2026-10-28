@@ -19,8 +19,17 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Src\Object\Player\PlayerBarrage.cpp" />
+    <ClCompile Include="Src\Object\Enemy\Melee\MeleeEnemy_AI.cpp" />
+    <ClCompile Include="Src\Object\Enemy\definition\EnemyFactory.cpp" />
+    <ClCompile Include="Src\Object\Enemy\Melee\MeleeEnemy_Draw.cpp" />
+    <ClCompile Include="Src\Object\Enemy\Melee\MeleeEnemy_Melee.cpp" />
+    <ClCompile Include="Src\Object\Enemy\Melee\MeleeEnemy_Special.cpp" />
+    <ClCompile Include="Src\Object\Player\Skill\PlayerBarrage.cpp" />
     <ClCompile Include="Src\Object\Common\Huddraw.cpp" />
+    <ClCompile Include="Src\Object\Player\Player_Attack.cpp" />
+    <ClCompile Include="Src\Object\Player\Player_Move.cpp" />
+    <ClCompile Include="Src\Object\Player\Player_Status.cpp" />
+    <ClCompile Include="Src\Object\Player\Player_Visual.cpp" />
     <ClCompile Include="Src\Utility\DamageCalc.cpp" />
     <ClCompile Include="Src\Manager\Playrecord.cpp" />
     <ClCompile Include="Src\Scene\ClashSystem.cpp" />
@@ -31,21 +40,21 @@
     <ClCompile Include="Src\Manager\AppFlow.cpp" />
     <ClCompile Include="Src\Common\MenuUI.cpp" />
     <ClCompile Include="Src\Object\Enemy\BreakEffect.cpp" />
-    <ClCompile Include="Src\Object\Player\PlayerFinishBlast.cpp" />
-    <ClCompile Include="Src\Object\Enemy\EnemyAreaBlast.cpp" />
-    <ClCompile Include="Src\Object\Enemy\EnemyKiBlast.cpp" />
-    <ClCompile Include="Src\Object\Enemy\EnemyStunBar.cpp" />
-    <ClCompile Include="Src\Object\Player\PlayerAttack.cpp" />
-    <ClCompile Include="Src\Object\Player\PlayerGuard.cpp" />
-    <ClCompile Include="Src\Object\Player\PlayerBoostChase.cpp" />
+    <ClCompile Include="Src\Object\Player\Skill\PlayerFinishBlast.cpp" />
+    <ClCompile Include="Src\Object\Enemy\definition\EnemyAreaBlast.cpp" />
+    <ClCompile Include="Src\Object\Enemy\definition\EnemyKiBlast.cpp" />
+    <ClCompile Include="Src\Object\Enemy\definition\EnemyStunBar.cpp" />
+    <ClCompile Include="Src\Object\Player\Skill\PlayerAttack.cpp" />
+    <ClCompile Include="Src\Object\Player\Skill\PlayerGuard.cpp" />
+    <ClCompile Include="Src\Object\Player\Skill\PlayerBoostChase.cpp" />
     <ClCompile Include="Src\Object\Player\PlayerTransform.cpp" />
-    <ClCompile Include="Src\Object\Player\PlayerKamehameha.cpp" />
+    <ClCompile Include="Src\Object\Player\Skill\PlayerKamehameha.cpp" />
     <ClCompile Include="Src\Manager\Padinput.cpp" />
-    <ClCompile Include="Src\Object\Enemy\Enemyhud.cpp" />
-    <ClCompile Include="Src\Object\Player\PlayerHud.cpp" />
+    <ClCompile Include="Src\Object\Enemy\definition\Enemyhud.cpp" />
+    <ClCompile Include="Src\Object\Player\Skill\PlayerHud.cpp" />
     <ClCompile Include="Src\Object\KiBlast.cpp" />
     <ClCompile Include="Src\Manager\EffekseerEffect.cpp" />
-    <ClCompile Include="Src\Object\Enemy\MeleeEnemy.cpp" />
+    <ClCompile Include="Src\Object\Enemy\Melee\MeleeEnemy.cpp" />
     <ClCompile Include="Src\Object\Enemy\EnemyBase.cpp" />
     <ClCompile Include="Src\Object\Metal.cpp" />
     <ClCompile Include="Src\Renderer\PixelRenderer.cpp" />
@@ -77,11 +86,18 @@
     <ClCompile Include="Src\Renderer\ModelMaterial.cpp" />
     <ClCompile Include="Src\Renderer\ModelRenderer.cpp" />
     <ClCompile Include="Src\Controller\TimeStopController.cpp" />
+    <ClCompile Include="Src\Scene\StageSelectScene.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Src\Object\Player\PlayerBarrage.h" />
+    <ClInclude Include="Src\Object\Enemy\definition\EnemyUtil.h" />
+    <ClInclude Include="Src\Object\Enemy\definition\EnemyFactory.h" />
+    <ClInclude Include="Src\Object\Enemy\definition\EnemyData.h" />
+    <ClInclude Include="Src\Manager\Gameprogress.h" />
+    <ClInclude Include="Src\Object\Enemy\Melee\MeleeEnemy_Internal.h" />
+    <ClInclude Include="Src\Object\Player\Skill\PlayerBarrage.h" />
     <ClInclude Include="Src\Object\Common\Huddraw.h" />
-    <ClInclude Include="Src\Object\Enemy\EnemyHudLayout.h" />
+    <ClInclude Include="Src\Object\Enemy\definition\EnemyHudLayout.h" />
+    <ClInclude Include="Src\Object\Player\Player_Internal.h" />
     <ClInclude Include="Src\Utility\DamageCalc.h" />
     <ClInclude Include="Src\Manager\Playrecord.h" />
     <ClInclude Include="Src\Scene\ClashSystem.h" />
@@ -92,22 +108,22 @@
     <ClInclude Include="Src\Manager\AppFlow.h" />
     <ClInclude Include="Src\Common\MenuUI.h" />
     <ClInclude Include="Src\Object\Enemy\BreakEffect.h" />
-    <ClInclude Include="Src\Object\Player\PlayerFinishBlast.h" />
-    <ClInclude Include="Src\Object\Enemy\EnemyAreaBlast.h" />
-    <ClInclude Include="Src\Object\Enemy\EnemyKiBlast.h" />
-    <ClInclude Include="Src\Object\Enemy\EnemyStunBar.h" />
-    <ClInclude Include="Src\Object\Player\PlayerAttack.h" />
-    <ClInclude Include="Src\Object\Player\PlayerGuard.h" />
-    <ClInclude Include="Src\Object\Player\PlayerBoostChase.h" />
+    <ClInclude Include="Src\Object\Player\Skill\PlayerFinishBlast.h" />
+    <ClInclude Include="Src\Object\Enemy\definition\EnemyAreaBlast.h" />
+    <ClInclude Include="Src\Object\Enemy\definition\EnemyKiBlast.h" />
+    <ClInclude Include="Src\Object\Enemy\definition\EnemyStunBar.h" />
+    <ClInclude Include="Src\Object\Player\Skill\PlayerAttack.h" />
+    <ClInclude Include="Src\Object\Player\Skill\PlayerGuard.h" />
+    <ClInclude Include="Src\Object\Player\Skill\PlayerBoostChase.h" />
     <ClInclude Include="Src\Object\Player\PlayerTransform.h" />
-    <ClInclude Include="Src\Object\Player\PlayerKamehameha.h" />
-    <ClInclude Include="Src\Object\Player\PlayerConfig.h" />
+    <ClInclude Include="Src\Object\Player\Skill\PlayerKamehameha.h" />
+    <ClInclude Include="Src\Object\Player\definition\PlayerConfig.h" />
     <ClInclude Include="Src\Manager\Padinput.h" />
-    <ClInclude Include="Src\Object\Enemy\Enemyhud.h" />
-    <ClInclude Include="Src\Object\Player\PlayerHud.h" />
+    <ClInclude Include="Src\Object\Enemy\definition\Enemyhud.h" />
+    <ClInclude Include="Src\Object\Player\Skill\PlayerHud.h" />
     <ClInclude Include="Src\Object\KiBlast.h" />
     <ClInclude Include="Src\Manager\EffekseerEffect.h" />
-    <ClInclude Include="Src\Object\Enemy\MeleeEnemy.h" />
+    <ClInclude Include="Src\Object\Enemy\Melee\MeleeEnemy.h" />
     <ClInclude Include="Src\Object\Enemy\EnemyBase.h" />
     <ClInclude Include="Src\Object\Metal.h" />
     <ClInclude Include="Src\Renderer\PixelRenderer.h" />
@@ -139,6 +155,8 @@
     <ClInclude Include="Src\Renderer\ModelMaterial.h" />
     <ClInclude Include="Src\Renderer\ModelRenderer.h" />
     <ClInclude Include="Src\Controller\TimeStopController.h" />
+    <ClInclude Include="Src\Manager\Stagedata.h" />
+    <ClInclude Include="Src\Scene\StageSelectScene.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Src\Shader\Common\Pixel\PixelShader2DHeader.hlsli" />

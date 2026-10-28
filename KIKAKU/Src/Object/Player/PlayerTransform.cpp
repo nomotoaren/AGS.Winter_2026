@@ -1,5 +1,5 @@
 #include "../../Manager/EffekseerEffect.h"
-#include "PlayerConfig.h"
+#include "definition/PlayerConfig.h"
 #include "PlayerTransform.h"
 
 namespace cfg = PlayerConfig;
