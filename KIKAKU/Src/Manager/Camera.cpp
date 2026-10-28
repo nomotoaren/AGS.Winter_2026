@@ -17,6 +17,21 @@ namespace
             ? 0.0f
             : SceneManager::GetInstance().GetDeltaTime();
     }
+
+    // 1ƒtƒŒ[ƒ€‚ ‚½‚è‚Ì—Ê‚ÉŠ|‚¯‚é”{—¦
+    //   (’Ç]‚Ì‘¬‚³‚Í 144fps ‚Ì1ƒtƒŒ[ƒ€•ª‚ÅŒˆ‚ß‚Ä‚ ‚é‚Ì‚ÅA60fps ‚È‚ç–ñ2.4”{‚É‚µ‚Ä“¯‚¶‘¬‚³‚É‚·‚é)
+    float CameraFrameScale(void)
+    {
+        float s = CameraDeltaTime() * 144.0f;
+
+        // ˆ——Ž‚¿‚µ‚½1ƒtƒŒ[ƒ€‚ÅA‹}‚É“®‚«‚·‚¬‚È‚¢‚æ‚¤‚É‚·‚é
+        if (s > 4.0f)
+        {
+            s = 4.0f;
+        }
+
+        return s;
+    }
 }
 
 Camera::Camera(void)
@@ -328,22 +343,25 @@ void Camera::ProcessRot(void)
 
     float movePow = 5.0f;
 
+    // ‰ñ‚·Šp“x(“x): 1ƒtƒŒ[ƒ€‚ ‚½‚è1“x ~ ƒtƒŒ[ƒ€‚Ì’·‚³
+    const float step = 1.0f * CameraFrameScale();
+
     // ƒJƒƒ‰‰ñ“]
     if (ins.IsNew(KEY_INPUT_RIGHT))
     {
         // ‰E‰ñ“]
-        angles_.y += AsoUtility::Deg2RadF(1.0f);
+        angles_.y += AsoUtility::Deg2RadF(step);
     }
     if (ins.IsNew(KEY_INPUT_LEFT))
     {
         // ¶‰ñ“]
-        angles_.y += AsoUtility::Deg2RadF(-1.0f);
+        angles_.y += AsoUtility::Deg2RadF(-step);
     }
 
     // ã‰ñ“]
     if (ins.IsNew(KEY_INPUT_UP))
     {
-        angles_.x += AsoUtility::Deg2RadF(1.0f);
+        angles_.x += AsoUtility::Deg2RadF(step);
         if (angles_.x > LIMIT_X_UP_RAD)
         {
             angles_.x = LIMIT_X_UP_RAD;
@@ -353,7 +371,7 @@ void Camera::ProcessRot(void)
     // ‰º‰ñ“]
     if (ins.IsNew(KEY_INPUT_DOWN))
     {
-        angles_.x += AsoUtility::Deg2RadF(-1.0f);
+        angles_.x += AsoUtility::Deg2RadF(-step);
         if (angles_.x < -LIMIT_X_DW_RAD)
         {
             angles_.x = -LIMIT_X_DW_RAD;
@@ -379,6 +397,9 @@ void Camera::SetBeforeDrawFollow(void)
     // ’ÊíFOLLOW‚Ì–Ú•WˆÊ’u‚ðŒvŽZ
     SyncFollow();
 
+    // ’Ç‚¢‚Â‚­Š„‡(ƒtƒŒ[ƒ€‚Ì’·‚³‚É‡‚í‚¹‚ÄAfps ‚ª•Ï‚í‚Á‚Ä‚à“¯‚¶‘¬‚³‚É‚·‚é)
+    const float smooth = 1.0f - powf(1.0f - FOLLOW_SMOOTH, CameraFrameScale());
+
     // ƒJƒƒ‰ˆÊ’u‚ðŠŠ‚ç‚©‚É’Ç]
     pos_ =
         VAdd(
@@ -388,7 +409,7 @@ void Camera::SetBeforeDrawFollow(void)
                     followTargetPos_,
                     pos_
                 ),
-                FOLLOW_SMOOTH
+                smooth
             )
         );
 
@@ -401,7 +422,7 @@ void Camera::SetBeforeDrawFollow(void)
                     followTargetLook_,
                     targetPos_
                 ),
-                FOLLOW_SMOOTH
+                smooth
             )
         );
 

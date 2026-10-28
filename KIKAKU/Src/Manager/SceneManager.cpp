@@ -161,6 +161,7 @@ void SceneManager::Draw(void)
 	SetDrawScreen(DX_SCREEN_BACK);
 	DrawGraph(0, 0, mainScreen_, true);
 
+	DrawFormatString(10, 10, GetColor(255, 255, 0), "FPS: %.1f", GetFPS());
 }
 
 void SceneManager::Destroy(void) const

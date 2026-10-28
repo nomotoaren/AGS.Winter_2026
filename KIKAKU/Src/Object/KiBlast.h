@@ -9,7 +9,7 @@ public:
 	~KiBlast(void);
 
 	void Update(void);
-	void Draw(void);
+	void Draw(void)const;
 
 	bool IsDead(void) const;
 

@@ -32,6 +32,21 @@ namespace
 		{ ResourceManager::SRC::EVPLAY_,  "Player/AnimationEV/", 0.8f, 0.8f, 2.0f },
 	};
 
+	// 1フレームあたりの移動量に掛ける倍率
+	//   (移動の速さは 144fps の1フレーム分で決めてあるので、60fps なら約2.4倍にして同じ速さにする)
+	float FrameScale(void)
+	{
+		float s = SceneManager::GetInstance().GetFrameScale();
+
+		// 処理落ちした1フレームで、壁をすり抜けるほど飛ばないようにする
+		if (s > 4.0f)
+		{
+			s = 4.0f;
+		}
+
+		return s;
+	}
+
 	// 移動キー(またはスティック)が押されているか
 	bool IsMoveKeyDown(InputManager& ins)
 	{
@@ -525,7 +540,9 @@ void Player::UpdateKnockBack(void)
 {
 	if (VSize(knockBackPow_) > Constants::KnockBackThreshold)
 	{
-		transform_.pos = VAdd(transform_.pos, knockBackPow_);
+		const float fs = FrameScale();
+
+		transform_.pos = VAdd(transform_.pos, VScale(knockBackPow_, fs));
 
 		// 地面より下には行かない
 		if (transform_.pos.y < Constants::MinHeight)
@@ -534,7 +551,8 @@ void Player::UpdateKnockBack(void)
 			knockBackPow_.y = 0.0f;
 		}
 
-		knockBackPow_ = VScale(knockBackPow_, Constants::KnockBackDamping);
+		// 減衰も、fps が変わっても同じ減り方になるようにする
+		knockBackPow_ = VScale(knockBackPow_, powf(Constants::KnockBackDamping, fs));
 	}
 	else
 	{
@@ -1336,17 +1354,22 @@ void Player::ProcessMove(void)
 	// 上下の移動
 	movePow_.y = verticalMove;
 
-	// 高さの範囲に収める
-	float nextY = transform_.pos.y + movePow_.y;
+	// 高さの範囲に収める(movePow_ は Collision で FrameScale 倍されるので、その分も見込む)
+	const float fs = FrameScale();
 
-	if (nextY < Constants::MinHeight)
+	if (fs > Constants::Epsilon)
 	{
-		movePow_.y = Constants::MinHeight - transform_.pos.y;
-	}
+		const float nextY = transform_.pos.y + movePow_.y * fs;
 
-	if (nextY > Constants::MaxHeight)
-	{
-		movePow_.y = Constants::MaxHeight - transform_.pos.y;
+		if (nextY < Constants::MinHeight)
+		{
+			movePow_.y = (Constants::MinHeight - transform_.pos.y) / fs;
+		}
+
+		if (nextY > Constants::MaxHeight)
+		{
+			movePow_.y = (Constants::MaxHeight - transform_.pos.y) / fs;
+		}
 	}
 }
 
@@ -1389,7 +1412,8 @@ void Player::ProcessJump(void)
 void Player::Collision(void)
 {
 	// 移動後の位置
-	movedPos_ = VAdd(transform_.pos, movePow_);
+	// (movePow_ は 144fps の1フレーム分の量。今のフレームの長さに合わせて掛ける)
+	movedPos_ = VAdd(transform_.pos, VScale(movePow_, FrameScale()));
 
 	CollisionCapsule();
 	CollisionGravity();
@@ -1592,7 +1616,19 @@ void Player::UpdateAttack(void)
 
 		if (result.hasFollow)
 		{
-			movePow_ = result.follow;
+			// 毎フレーム「残りの距離の rate だけ近づく」動き。
+			// fps が変わっても追いつく速さが同じになるよう、近づく割合を直す
+			const float fs = FrameScale();
+			const float rate = cfg::Attack::FOLLOW_RATE;
+
+			float k = 1.0f;
+
+			if (rate > 0.0001f && fs > 0.0001f)
+			{
+				k = (1.0f - powf(1.0f - rate, fs)) / rate / fs;
+			}
+
+			movePow_ = VScale(result.follow, k);
 		}
 
 		if (result.advance)
@@ -1939,8 +1975,21 @@ void Player::UpdateAttackChase(void)
 	switch (result.end)
 	{
 	case PlayerAttack::ChaseEnd::NONE:
-		movePow_ = result.move;
+	{
+		// 最高速で進んでいるときは、そのまま(Collision で fps に合わせて伸ばす)。
+		// 敵の手前に着く最後の1歩は、残りの距離ぶんだけ進めたいので、伸ばした分を戻す
+		const float fs = FrameScale();
+
+		if (VSize(result.move) >= cfg::Chase::SPEED - 0.001f || fs <= 0.0001f)
+		{
+			movePow_ = result.move;
+		}
+		else
+		{
+			movePow_ = VScale(result.move, 1.0f / fs);
+		}
 		break;
+	}
 
 	case PlayerAttack::ChaseEnd::CANCEL:
 		EndChase(false);
@@ -2239,7 +2288,20 @@ void Player::UpdateBoostChase(void)
 		SetLockOnPitch(result.faceDir);
 	}
 
-	movePow_ = result.move;
+	// 時間(dt)で決まった今のフレームの移動量。最高速に達しているときだけ、
+	// fps に合わせて伸ばす(それ以外は Collision で伸びる分を戻す)
+	{
+		const float fs = FrameScale();
+
+		if (VSize(result.move) >= cfg::Boost::MAX_SPEED - 0.001f || fs <= 0.0001f)
+		{
+			movePow_ = result.move;
+		}
+		else
+		{
+			movePow_ = VScale(result.move, 1.0f / fs);
+		}
+	}
 
 	// 一定間隔で残像を残す
 	if (result.leaveAfterImage)

@@ -22,6 +22,21 @@ namespace
 	constexpr float kMinHeight = 100.0f;
 	constexpr float kMaxHeight = 2000.0f;
 
+	// 1ƒtƒŒ[ƒ€‚ ‚½‚è‚ÌˆÚ“®—Ê‚ÉŠ|‚¯‚é”{—¦
+	//   (‚Á”ò‚Ñ‚È‚Ç‚Ì‘¬‚³‚Í 144fps ‚Ì1ƒtƒŒ[ƒ€•ª‚ÅŒˆ‚ß‚Ä‚ ‚é‚Ì‚ÅA60fps ‚È‚ç–ñ2.4”{‚É‚µ‚Ä“¯‚¶‘¬‚³‚É‚·‚é)
+	float FrameScale(void)
+	{
+		float s = SceneManager::GetInstance().GetFrameScale();
+
+		// ˆ——Ž‚¿‚µ‚½1ƒtƒŒ[ƒ€‚ÅA”ò‚Ñ‚·‚¬‚È‚¢‚æ‚¤‚É‚·‚é
+		if (s > 4.0f)
+		{
+			s = 4.0f;
+		}
+
+		return s;
+	}
+
 	// ‚©‚ß‚Í‚ß”g‚Å‰Ÿ‚³‚ê‚é‘¬‚³
 	constexpr float kKamehamePushStartSpeed = 3.0f;
 	constexpr float kKamehamePushAccel = 0.35f;
@@ -551,7 +566,9 @@ bool MeleeEnemy::UpdateKamehamePush(void)
 		return false;
 	}
 
-	kamehamePushSpeed_ += kKamehamePushAccel;
+	const float fs = FrameScale();
+
+	kamehamePushSpeed_ += kKamehamePushAccel * fs;
 
 	if (kamehamePushSpeed_ > kKamehamePushMaxSpeed)
 	{
@@ -559,7 +576,7 @@ bool MeleeEnemy::UpdateKamehamePush(void)
 	}
 
 	transform_.pos =
-		VAdd(transform_.pos, VScale(kamehamePushDir_, kamehamePushSpeed_));
+		VAdd(transform_.pos, VScale(kamehamePushDir_, kamehamePushSpeed_ * fs));
 
 	transform_.Update();
 	return true;
@@ -575,7 +592,9 @@ bool MeleeEnemy::UpdateKnockBack(void)
 		return false;
 	}
 
-	transform_.pos = VAdd(transform_.pos, knockBackPow_);
+	const float fs = FrameScale();
+
+	transform_.pos = VAdd(transform_.pos, VScale(knockBackPow_, fs));
 
 	// ‰ºŒÀ(’n–Ê)
 	if (transform_.pos.y <= kMinHeight)
@@ -607,7 +626,8 @@ bool MeleeEnemy::UpdateKnockBack(void)
 		knockBackPow_.y = 0.0f;
 	}
 
-	knockBackPow_ = VScale(knockBackPow_, kKnockBackDamping);
+	// Œ¸Š‚àAfps ‚ª•Ï‚í‚Á‚Ä‚à“¯‚¶Œ¸‚è•û‚É‚È‚é‚æ‚¤‚É‚·‚é
+	knockBackPow_ = VScale(knockBackPow_, powf(kKnockBackDamping, fs));
 
 	// ‚Ð‚é‚Ü‚È‚¢UŒ‚: ­‚µ‰Ÿ‚³‚ê‚é‚¾‚¯‚ÅAs“®‚Í’†’f‚µ‚È‚¢
 	if (armoredHit_)
@@ -740,12 +760,14 @@ bool MeleeEnemy::UpdateStunned(void)
 {
 	if (VSize(knockBackPow_) > kKnockBackThreshold)
 	{
-		transform_.pos = VAdd(transform_.pos, knockBackPow_);
+		const float fs = FrameScale();
+
+		transform_.pos = VAdd(transform_.pos, VScale(knockBackPow_, fs));
 
 		if (transform_.pos.y < kMinHeight) { transform_.pos.y = kMinHeight; }
 		if (transform_.pos.y > kMaxHeight) { transform_.pos.y = kMaxHeight; }
 
-		knockBackPow_ = VScale(knockBackPow_, kKnockBackDamping);
+		knockBackPow_ = VScale(knockBackPow_, powf(kKnockBackDamping, fs));
 	}
 	else
 	{

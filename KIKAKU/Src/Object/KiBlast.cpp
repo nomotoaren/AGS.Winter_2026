@@ -1,4 +1,23 @@
+#include "../Manager/SceneManager.h"
 #include "KiBlast.h"
+
+namespace
+{
+	// 1ƒtƒŒ[ƒ€‚ ‚½‚è‚ÌˆÚ“®—Ê‚ÉŠ|‚¯‚é”{—¦
+	//   (’e‚Ì‘¬‚³‚Í 144fps ‚Ì1ƒtƒŒ[ƒ€•ª‚ÅŒˆ‚ß‚Ä‚ ‚é‚Ì‚ÅA60fps ‚È‚ç–ñ2.4”{‚É‚µ‚Ä“¯‚¶‘¬‚³‚É‚·‚é)
+	float FrameScale(void)
+	{
+		float s = SceneManager::GetInstance().GetFrameScale();
+
+		// ˆ——Ž‚¿‚µ‚½1ƒtƒŒ[ƒ€‚ÅA”ò‚Ñ‚·‚¬‚È‚¢‚æ‚¤‚É‚·‚é
+		if (s > 4.0f)
+		{
+			s = 4.0f;
+		}
+
+		return s;
+	}
+}
 
 KiBlast::KiBlast(VECTOR pos, VECTOR dir)
 {
@@ -6,7 +25,9 @@ KiBlast::KiBlast(VECTOR pos, VECTOR dir)
 	dir_ = dir;
 
 	speed_ = 25.0f;
-	lifeTime_ = 3.0f;
+
+	// ”ò‚ñ‚Å‚¢‚éŽžŠÔ(•b)
+	lifeTime_ = 1.25f;
 
 	isDead_ = false;
 
@@ -32,12 +53,12 @@ void KiBlast::Update(void)
 			pos_,
 			VScale(
 				dir_,
-				speed_
+				speed_ * FrameScale()
 			)
 		);
 
 	lifeTime_ -=
-		1.0f / 60.0f;
+		SceneManager::GetInstance().GetDeltaTime();
 
 	if (lifeTime_ <= 0.0f)
 	{
@@ -45,7 +66,7 @@ void KiBlast::Update(void)
 	}
 }
 
-void KiBlast::Draw(void)
+void KiBlast::Draw(void)const
 {
 	if (isDead_)
 	{

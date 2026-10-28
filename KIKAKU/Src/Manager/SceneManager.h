@@ -48,6 +48,9 @@ public:
 	// デルタタイムの取得
 	float GetDeltaTime(void) const;
 
+	// SceneManager に足す
+	float GetFrameScale(void) const { return GetDeltaTime() * 144.0f; }
+
 	// 時間の流れる速さ
 	void SetTimeScale(float scale) { timeScale_ = scale; }
 

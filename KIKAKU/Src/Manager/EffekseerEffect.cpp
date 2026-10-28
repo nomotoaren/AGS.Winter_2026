@@ -503,6 +503,8 @@ void EffekseerEffect::PlayChargeEffect(
     bool useTransformColor
 )
 {
+   /* return;*/
+
     // 変身中は専用のエフェクトを使う(読み込めていなければ普通の気溜めで代用)
     const bool isTransform = useTransformColor && transformChargeEffectId_ != -1;
     const int effectId = isTransform ? transformChargeEffectId_ : chargeEffectId_;

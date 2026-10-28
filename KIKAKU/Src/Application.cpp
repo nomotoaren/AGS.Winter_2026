@@ -41,6 +41,8 @@ void Application::Init(void)
 	// DxLibの初期化
 	SetUseDirect3DVersion(DX_DIRECT3D_11);
 	isInitFail_ = false;
+	SetWaitVSyncFlag(FALSE);
+
 	if (DxLib_Init() == -1)
 	{
 		isInitFail_ = true;
@@ -84,6 +86,29 @@ void Application::Run(void)
 		EffekseerEffect::GetInstance()->Draw();
 
 		ScreenFlip();
+
+		// 60fps に固定する(1フレーム 1/60 秒 = 約16,667 マイクロ秒)
+		static LONGLONG nextFrame = GetNowHiPerformanceCount();
+		constexpr LONGLONG FRAME_US = 1000000 / 60;
+
+		nextFrame += FRAME_US;
+
+		// 大きく遅れたときは、遅れを取り戻そうとしない(カクつきを避ける)
+		const LONGLONG now = GetNowHiPerformanceCount();
+		if (now > nextFrame + FRAME_US * 3)
+		{
+			nextFrame = now;
+		}
+
+		// 残りが多いうちは眠って、最後の少しだけ待ち続けて合わせる
+		LONGLONG remain = nextFrame - GetNowHiPerformanceCount();
+		if (remain > 2000)
+		{
+			Sleep(static_cast<DWORD>((remain - 2000) / 1000));
+		}
+		while (GetNowHiPerformanceCount() < nextFrame)
+		{
+		}
 	}
 }
 
