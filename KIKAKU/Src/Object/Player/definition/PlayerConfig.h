@@ -133,10 +133,9 @@ namespace PlayerConfig
 		constexpr float ANIM_END_STEP = 70.0f;		// 終了モーションの最終フレーム
 	}
 
-	// かめはめ波のエフェクト(blue_laser.efkefc)
+	// かめはめ波のエフェクト
 	namespace Kamehame
 	{
-		constexpr bool USE_OLD_BEAM = false;		// true にすると、前のビームのモデルも一緒に描画(手元の気弾は常に描画)
 		constexpr float EFFECT_TIME_SCALE = 0.5f;	// エフェクトの再生速度の倍率。ビームが早く出すぎるなら小さく、遅いなら大きくする
 		constexpr float EFFECT_SCALE = 6.0f;		// 溜めの大きさ(手元の光の大きさ)
 		constexpr float BEAM_SCALE_XY = 10.0f;		// 発射後のビームの太さ

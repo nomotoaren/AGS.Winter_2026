@@ -1,12 +1,12 @@
 #include <DxLib.h>
-#include "../Manager/SceneManager.h"
-#include "../Manager/Camera.h"
-#include "../Manager/InputManager.h"
-#include "../Manager/PadInput.h"
-#include "../Manager/EffekseerEffect.h"
-#include "../Object/Player/Player.h"
-#include "../Object/Enemy/EnemyBase.h"
-#include "../Object/Enemy/Melee/MeleeEnemy.h"
+#include "../../Manager/SceneManager.h"
+#include "../../Manager/Camera/Camera.h"
+#include "../../Manager/InputManager.h"
+#include "../../Manager/PadInput.h"
+#include "../../Manager/EffekseerEffect.h"
+#include "../../Object/Player/Player.h"
+#include "../../Object/Enemy/EnemyBase.h"
+#include "../../Object/Enemy/Melee/MeleeEnemy.h"
 #include "ClashSystem.h"
 
 namespace

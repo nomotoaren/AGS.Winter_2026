@@ -1,7 +1,7 @@
 #include <DxLib.h>
 #include "EnemyBase.h"
 #include "../Player/Player.h"
-#include "../../Manager/Camera.h"
+#include "../../Manager/Camera/Camera.h"
 #include "../../Manager/EffekseerEffect.h"
 #include "../../Manager/SceneManager.h"
 #include "../../Utility/AsoUtility.h"

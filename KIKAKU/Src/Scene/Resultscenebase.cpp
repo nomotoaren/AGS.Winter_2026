@@ -1,7 +1,7 @@
 #include <DxLib.h>
 #include "../Application.h"
 #include "../Manager/SceneManager.h"
-#include "../Manager/Camera.h"
+#include "../Manager/Camera/Camera.h"
 #include "../Manager/PadInput.h"
 #include "../Common/MenuUI.h"
 #include "ResultSceneBase.h"

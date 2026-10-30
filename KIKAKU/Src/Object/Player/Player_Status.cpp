@@ -10,7 +10,7 @@
 #include "../../Manager/PadInput.h"
 #include "../../Manager/SceneManager.h"
 #include "../../Manager/ResourceManager.h"
-#include "../../Manager/Camera.h"
+#include "../../Manager/Camera/Camera.h"
 #include "../Common/AnimationController.h"
 #include "../Common/Capsule.h"
 #include "../Common/Collider.h"
@@ -102,6 +102,12 @@ void Player::UpdateHeatUp(void)
 // テンション・ヒートアップ・追撃・フィニッシュ気弾のタイマー
 void Player::UpdateTensionTimers(float deltaTime)
 {
+	// バニッシュアタックの後、カメラをゆっくり追従にする残り時間
+	if (vanishCalmTimer_ > 0.0f)
+	{
+		vanishCalmTimer_ -= deltaTime;
+	}
+
 	// ヒートアップ発動の演出
 	if (heatActivate_ > 0.0f)
 	{
@@ -264,11 +270,6 @@ void Player::UpdateGuard(void)
 	ctx.hold = ins.IsNew(KEY_INPUT_L) || PadInput::IsGuard();
 	ctx.burstTrg = ins.IsTrgDown(KEY_INPUT_B) || PadInput::IsBurstTrg();
 	ctx.vanishTrg = ins.IsTrgDown(KEY_INPUT_V) || PadInput::IsVanishTrg();
-
-	if (vanishCalmTimer_ > 0.0f)
-	{
-		vanishCalmTimer_ -= ctx.deltaTime;
-	}
 
 	if (guardHitTimer_ > 0.0f)
 	{

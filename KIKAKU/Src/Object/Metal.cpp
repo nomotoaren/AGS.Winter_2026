@@ -5,7 +5,7 @@
 #include "../Renderer/ModelMaterial.h"
 #include "../Renderer/ModelRenderer.h"
 #include "../Utility/AsoUtility.h"
-#include "../Manager/Camera.h"
+#include "../Manager/Camera/Camera.h"
 #include "../Manager/SceneManager.h"
 
 Metal::Metal(

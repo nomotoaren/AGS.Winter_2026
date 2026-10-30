@@ -10,7 +10,7 @@
 #include "../../Manager/PadInput.h"
 #include "../../Manager/SceneManager.h"
 #include "../../Manager/ResourceManager.h"
-#include "../../Manager/Camera.h"
+#include "../../Manager/Camera/Camera.h"
 #include "../Common/AnimationController.h"
 #include "../Common/Capsule.h"
 #include "../Common/Collider.h"
@@ -159,6 +159,7 @@ void Player::InitAnimation(const std::string& animDir)
 			animationController_->Add((int)type, full, speed);
 		};
 
+	// 待機モーション
 	add(ANIM_TYPE::IDLE, "Idle.mv1", 20.0f);
 
 	// 移動
@@ -194,6 +195,7 @@ void Player::InitAnimation(const std::string& animDir)
 	add(ANIM_TYPE::GUARD_BURST, "pawer.mv1", 100.0f);
 	add(ANIM_TYPE::GUARD_BREAK, "GuardBreak.mv1", 20.0f);
 
+	// 初期アニメーション
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
@@ -207,20 +209,9 @@ void Player::InitFrames(void)
 	hipsFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:Hips");
 
 	InitLegFrames();
-
-	// 脚のポーズの初期値
-	namespace lp = cfg::LegPose;
-	legTune_[TUNE_L_THIGH] = lp::L_THIGH;
-	legTune_[TUNE_L_KNEE] = lp::L_KNEE;
-	legTune_[TUNE_L_OPEN] = lp::L_OPEN;
-	legTune_[TUNE_R_THIGH] = lp::R_THIGH;
-	legTune_[TUNE_R_KNEE] = lp::R_KNEE;
-	legTune_[TUNE_R_OPEN] = lp::R_OPEN;
-	legTune_[TUNE_FOOT] = lp::FOOT;
-	legTune_[TUNE_LEAN] = lp::LEAN_RATE;
 }
 
-// 形態を切り替える(モデル・アニメ・フレームを作り直す)
+// 形態を切り替える(モデル、アニメ、フレームを作り直す)
 void Player::ApplyForm(FORM form)
 {
 	const FormData& data = kFormData[(int)form];
@@ -266,7 +257,7 @@ void Player::UpdateTransform(void)
 		!isCharging_ &&
 		!isChargeEnding_ &&
 		!boostChase_.IsActive() &&
-		((ins.IsNew(KEY_INPUT_H) &&	// H を押しながら G
+		((ins.IsNew(KEY_INPUT_H) &&	// Hを押しながらG
 			ins.IsTrgDown(KEY_INPUT_G)) ||
 			PadInput::IsTransformTrg()))	// パッド
 	{
@@ -349,9 +340,6 @@ void Player::Update(void)
 	// パッドの入力
 	PadInput::Update();
 
-	// 脚のポーズの調整(Debug ビルドのみ)
-	UpdateLegTune();
-
 	// HUD
 	hud_.Update(*this);
 
@@ -376,7 +364,7 @@ void Player::Update(void)
 		logicRot = playerRotY_.Mult(Quaternion::Euler({ lockOnPitch_, 0.0f, 0.0f }));
 	}
 
-	// 浮遊の見た目(傾き・上下ゆれ)
+	// 浮遊の見た目(傾き、上下ゆれ)
 	UpdateFloatLean();
 	ApplyVisualTransform(logicRot);
 
@@ -414,7 +402,6 @@ void Player::UpdateKnockBack(void)
 			knockBackPow_.y = 0.0f;
 		}
 
-		// 減衰も、fps が変わっても同じ減り方になるようにする
 		knockBackPow_ = VScale(knockBackPow_, powf(Constants::KnockBackDamping, fs));
 	}
 	else
@@ -477,7 +464,7 @@ void Player::UpdatePlay(void)
 
 	UpdateGuard();
 
-	// ガード・ガードブレイク・バースト中は動けない
+	// ガード、ガードブレイク・バースト中は動けない
 	if (guard_.IsBusy())
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;

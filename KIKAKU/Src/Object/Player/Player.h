@@ -7,7 +7,7 @@
 #include <DxLib.h>
 #include "../ActorBase.h"
 #include "../KiBlast.h"
-#include "Skill/PlayerHud.h"
+#include "definition/PlayerHud.h"
 #include "definition/PlayerConfig.h"
 #include "Skill/PlayerKamehameha.h"
 #include "PlayerTransform.h"
@@ -541,19 +541,6 @@ private:
 	float legPoseRate_ = 0.0f;		// 0:アニメのまま ~ 1:完全にポーズ
 	VECTOR legAxisSide_[LEG_MAX] = {};	// 各ボーンから見た「キャラの左右の軸」(脚を前後に振る軸)
 	VECTOR legAxisFront_[LEG_MAX] = {};	// 各ボーンから見た「キャラの前後の軸」(脚を横に開く軸)
-
-	// 脚のポーズの値(ゲーム中に調整できるよう変数で持つ。初期値は PlayerConfig::LegPose)
-	enum LEG_TUNE
-	{
-		TUNE_L_THIGH, TUNE_L_KNEE, TUNE_L_OPEN, TUNE_R_THIGH, TUNE_R_KNEE, TUNE_R_OPEN, TUNE_FOOT, TUNE_LEAN,
-		TUNE_MAX
-	};
-
-	float legTune_[TUNE_MAX] = {};
-	int legTuneSel_ = 0;			// 調整中の項目
-	bool isLegTune_ = false;		// 調整モード中か(F1)
-	void UpdateLegTune(void);		// 調整モードの入力(Debug ビルドのみ)
-	void DrawLegTune(void) const;	// 調整モードの表示(Debug ビルドのみ)
 
 	int hipsFrame_ = -1;
 	void CancelRootMotion(void);	// アニメの腰の水平移動を打ち消す

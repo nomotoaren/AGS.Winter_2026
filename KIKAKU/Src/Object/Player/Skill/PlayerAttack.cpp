@@ -2,18 +2,10 @@
 #include <cmath>
 #include "../definition/PlayerConfig.h"
 #include "PlayerAttack.h"
+#include "../PlayerMath.h"
 
+using namespace PlayerMath;
 namespace cfg = PlayerConfig;
-
-namespace
-{
-	constexpr float EPSILON = 0.001f;
-
-	VECTOR ToHorizontal(const VECTOR& v)
-	{
-		return VGet(v.x, 0.0f, v.z);
-	}
-}
 
 PlayerAttack::PlayerAttack(void)
 	:

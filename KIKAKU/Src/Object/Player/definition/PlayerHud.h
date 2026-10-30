@@ -36,6 +36,8 @@ public:
 
 private:
 
+	static constexpr float BASE_WIDTH = 1500.0f;	// 基準にする画面の横幅
+
 	struct DamagePopup
 	{
 		VECTOR pos;
@@ -50,7 +52,7 @@ private:
 	void DrawBattleHints(const Player& player) const;	// 追撃の案内・相殺勝負のゲージ
 	void DrawDamagePopups(void) const;
 
-	// 作ったフォントを消す(デストラクタと、Init のやり直し用)
+	// 作ったフォントを消す
 	void DeleteFonts(void);
 
 	int fontName_;
@@ -76,7 +78,6 @@ private:
 	float comboPop_;	// コンボが増えた瞬間の演出
 
 	int palette_;		// コマンド一覧のページ
-	bool tabHeld_;		// TABキーを押しているか
 
 	std::vector<DamagePopup> popups_;
 };

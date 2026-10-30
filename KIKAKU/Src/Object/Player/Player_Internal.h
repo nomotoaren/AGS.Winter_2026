@@ -107,17 +107,4 @@ namespace PlayerInternal
 
 		return -1;
 	}
-
-	// 脚のポーズの調整モード(Debug ビルドのみ)の項目名
-	inline const char* const kLegTuneName[] =
-	{
-		"L_THIGH   左太もも(+前 -後)",
-		"L_KNEE    左ひざ(曲げ)",
-		"L_OPEN    左脚の開き",
-		"R_THIGH   右太もも(+前 -後)",
-		"R_KNEE    右ひざ(曲げ)",
-		"R_OPEN    右脚の開き",
-		"FOOT      足首",
-		"LEAN_RATE 体の傾きの倍率",
-	};
 }

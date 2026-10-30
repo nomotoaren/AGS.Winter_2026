@@ -7,7 +7,7 @@
 #include "../Manager/InputManager.h"
 #include "../Manager/PadInput.h"
 #include "../Manager/AppFlow.h"
-#include "../Manager/Camera.h"
+#include "../Manager/Camera/Camera.h"
 #include "../Common/MenuUI.h"
 #include "../Object/Common/AnimationController.h"
 #include "../Object/SkyDome.h"

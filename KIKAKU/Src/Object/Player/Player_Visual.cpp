@@ -10,7 +10,7 @@
 #include "../../Manager/PadInput.h"
 #include "../../Manager/SceneManager.h"
 #include "../../Manager/ResourceManager.h"
-#include "../../Manager/Camera.h"
+#include "../../Manager/Camera/Camera.h"
 #include "../Common/AnimationController.h"
 #include "../Common/Capsule.h"
 #include "../Common/Collider.h"
@@ -35,8 +35,7 @@ void Player::InitLegFrames(void)
 	legFrames_[LEG_R_KNEE] = FindMixamoFrame(model, "RightLeg");
 	legFrames_[LEG_R_FOOT] = FindMixamoFrame(model, "RightFoot");
 
-	// 各ボーンから見た「キャラの左右の軸」と「キャラの前後の軸」を求めておく
-	//   (ボーンごとに向きが違うので、モデル空間の軸をボーンの空間へ変換する)
+	// ボーンからみた回転軸を求める
 	for (int i = 0; i < LEG_MAX; i++)
 	{
 		const int frame = legFrames_[i];
@@ -48,7 +47,7 @@ void Player::InitLegFrames(void)
 			continue;
 		}
 
-		// ボーンからモデルの空間への行列(親をたどって掛ける)
+		// ボーンからモデルのローカル座標系への変換行列を求める
 		MATRIX toModel = MV1GetFrameBaseLocalMatrix(model, frame);
 		for (int p = MV1GetFrameParent(model, frame); p >= 0; p = MV1GetFrameParent(model, p))
 		{
@@ -80,7 +79,7 @@ void Player::UpdateAfterImages(void)
 	{
 		it->timer -= scnMng_.GetDeltaTime();
 
-		// 多すぎるときは古いものから消す
+		// 残像を消す(残像が多すぎるとき)
 		const bool tooMany = (boostAfterImages_.size() > 6);
 
 		if (it->timer <= 0.0f || tooMany)
@@ -94,8 +93,7 @@ void Player::UpdateAfterImages(void)
 	}
 }
 
-// 浮遊の見た目: 移動の向きに体を傾ける
-//   当たり判定は動かさず、描画の行列だけ傾ける
+// 浮遊中の傾き(前後・左右)を更新する
 void Player::UpdateFloatLean(void)
 {
 	const float dt = scnMng_.GetDeltaTime();
@@ -104,43 +102,35 @@ void Player::UpdateFloatLean(void)
 	float targetPitch = 0.0f;
 	float targetRoll = 0.0f;
 
-	// 自分で動いているときだけ傾ける
-	if (IsFloatSelfMove())
-	{
-		const VECTOR forward = GetForward();
-		const VECTOR right = VGet(forward.z, 0.0f, -forward.x);	// 右
+	const VECTOR forward = GetForward();
+	const VECTOR right = VGet(forward.z, 0.0f, -forward.x);
 
-		const float f = VDot(movePow_, forward);	// 前がプラス、後ろがマイナス
-		const float s = VDot(movePow_, right);		// 右がプラス
-
-		targetPitch = f * cfg::Float::LEAN_PER_SPEED - movePow_.y * cfg::Float::VERTICAL_LEAN;
-		targetRoll = -s * cfg::Float::LEAN_PER_SPEED * cfg::Float::ROLL_SIGN;
-
-		targetPitch = std::clamp(targetPitch, -cfg::Float::MAX_PITCH, cfg::Float::MAX_PITCH);
-		targetRoll = std::clamp(targetRoll, -cfg::Float::MAX_ROLL, cfg::Float::MAX_ROLL);
-
-		// 脚のポーズの倍率で、傾きも調整する
-		targetPitch *= legTune_[TUNE_LEAN];
-		targetRoll *= legTune_[TUNE_LEAN];
-	}
-
-	// 回避ステップ中は、進む向きへ大きく倒す
 	float smooth = cfg::Float::LEAN_SMOOTH;
 
 	if (isDodge_)
 	{
-		const VECTOR forward = GetForward();
-		const VECTOR right = VGet(forward.z, 0.0f, -forward.x);
+		// 回避中は、回避方向に傾ける
+		const float forwardRate = VDot(dodgeDir_, forward);
+		const float sideRate = VDot(dodgeDir_, right);
 
-		const float f = VDot(dodgeDir_, forward);
-		const float s = VDot(dodgeDir_, right);
-
-		const float lean = cfg::Step::LEAN;
-
-		targetPitch = f * lean;
-		targetRoll = -s * lean * cfg::Float::ROLL_SIGN;
-
+		targetPitch = forwardRate * cfg::Step::LEAN;
+		targetRoll = -sideRate * cfg::Step::LEAN * cfg::Float::ROLL_SIGN;
 		smooth = cfg::Step::LEAN_SMOOTH;
+	}
+	else if (IsFloatSelfMove())
+	{
+		// 自分で動いているときだけ傾ける
+		const float forwardSpeed = VDot(movePow_, forward);
+		const float sideSpeed = VDot(movePow_, right);
+
+		targetPitch = forwardSpeed * cfg::Float::LEAN_PER_SPEED - movePow_.y * cfg::Float::VERTICAL_LEAN;
+		targetRoll = -sideSpeed * cfg::Float::LEAN_PER_SPEED * cfg::Float::ROLL_SIGN;
+
+		targetPitch = std::clamp(targetPitch, -cfg::Float::MAX_PITCH, cfg::Float::MAX_PITCH);
+		targetRoll = std::clamp(targetRoll, -cfg::Float::MAX_ROLL, cfg::Float::MAX_ROLL);
+
+		targetPitch *= cfg::LegPose::LEAN_RATE;
+		targetRoll *= cfg::LegPose::LEAN_RATE;
 	}
 
 	// 目標の傾きへ少しずつ近づける
@@ -151,7 +141,7 @@ void Player::UpdateFloatLean(void)
 	floatRoll_ += (targetRoll - floatRoll_) * k;
 }
 
-// 自分で移動している状態か(攻撃・回避などではない)
+// 自分で移動している状態か(移動だけほかの物はない)
 bool Player::IsFloatSelfMove(void) const
 {
 	return
@@ -162,58 +152,6 @@ bool Player::IsFloatSelfMove(void) const
 		!formChange_.IsActive() &&
 		!isCharging_ && !isChargeEnding_ &&
 		!isKiBlast_;
-}
-
-void Player::UpdateLegTune(void)
-{
-#ifdef _DEBUG
-	auto& ins = InputManager::GetInstance();
-
-	if (ins.IsTrgDown(KEY_INPUT_F1))
-	{
-		isLegTune_ = !isLegTune_;
-	}
-
-	if (!isLegTune_)
-	{
-		return;
-	}
-
-	if (ins.IsTrgDown(KEY_INPUT_F2)) { legTuneSel_ = (legTuneSel_ + TUNE_MAX - 1) % TUNE_MAX; }
-	if (ins.IsTrgDown(KEY_INPUT_F3)) { legTuneSel_ = (legTuneSel_ + 1) % TUNE_MAX; }
-
-	const bool fine = ins.IsNew(KEY_INPUT_LSHIFT);
-	float step = fine ? 1.0f : 5.0f;
-	if (legTuneSel_ == TUNE_LEAN) { step = fine ? 0.05f : 0.25f; }
-
-	if (ins.IsTrgDown(KEY_INPUT_F5)) { legTune_[legTuneSel_] -= step; }
-	if (ins.IsTrgDown(KEY_INPUT_F6)) { legTune_[legTuneSel_] += step; }
-
-	if (legTune_[TUNE_LEAN] < 0.0f) { legTune_[TUNE_LEAN] = 0.0f; }
-#endif
-}
-
-void Player::DrawLegTune(void) const
-{
-#ifdef _DEBUG
-	if (!isLegTune_)
-	{
-		return;
-	}
-
-	const int x = 20;
-	int y = 20;
-
-	DrawString(x, y, "[脚の調整] F2/F3:項目  F5/F6:値(-/+)  LSHIFT:細かく  F1:閉じる", GetColor(255, 255, 0));
-	y += 22;
-
-	for (int i = 0; i < TUNE_MAX; i++)
-	{
-		const unsigned int color = (i == legTuneSel_) ? GetColor(255, 120, 60) : GetColor(255, 255, 255);
-		DrawFormatString(x, y, color, "%s %-26s : %.2f", (i == legTuneSel_) ? ">" : " ", kLegTuneName[i], legTune_[i]);
-		y += 20;
-	}
-#endif
 }
 
 void Player::CancelRootMotion(void)
@@ -330,17 +268,17 @@ void Player::UpdateLegPose(void)
 
 	// 左脚
 	//   太ももを前へ上げ、膝を深く曲げる
-	const float openL = legTune_[TUNE_L_OPEN] * lp::OPEN_SIGN;
-	const float openR = -legTune_[TUNE_R_OPEN] * lp::OPEN_SIGN;
+	const float openL = lp::L_OPEN * lp::OPEN_SIGN;
+	const float openR = -lp::R_OPEN * lp::OPEN_SIGN;
 
-	apply(legFrames_[LEG_L_UP], MMult(swing(LEG_L_UP, legTune_[TUNE_L_THIGH] + sway), spreadRot(LEG_L_UP, spread + openL)));
-	apply(legFrames_[LEG_L_KNEE], swing(LEG_L_KNEE, -(legTune_[TUNE_L_KNEE] - sway)));
-	apply(legFrames_[LEG_L_FOOT], swing(LEG_L_FOOT, -legTune_[TUNE_FOOT]));
+	apply(legFrames_[LEG_L_UP], MMult(swing(LEG_L_UP, lp::L_THIGH + sway), spreadRot(LEG_L_UP, spread + openL)));
+	apply(legFrames_[LEG_L_KNEE], swing(LEG_L_KNEE, -(lp::L_KNEE - sway)));
+	apply(legFrames_[LEG_L_FOOT], swing(LEG_L_FOOT, -lp::FOOT));
 
 	// 右脚
-	apply(legFrames_[LEG_R_UP], MMult(swing(LEG_R_UP, legTune_[TUNE_R_THIGH] - sway), spreadRot(LEG_R_UP, spread + openR)));
-	apply(legFrames_[LEG_R_KNEE], swing(LEG_R_KNEE, -(legTune_[TUNE_R_KNEE] + sway)));
-	apply(legFrames_[LEG_R_FOOT], swing(LEG_R_FOOT, -legTune_[TUNE_FOOT]));
+	apply(legFrames_[LEG_R_UP], MMult(swing(LEG_R_UP, lp::R_THIGH - sway), spreadRot(LEG_R_UP, spread + openR)));
+	apply(legFrames_[LEG_R_KNEE], swing(LEG_R_KNEE, -lp::R_KNEE + sway));
+	apply(legFrames_[LEG_R_FOOT], swing(LEG_R_FOOT, -lp::FOOT));
 }
 
 // 見た目の向き・位置を transform_ に反映する
@@ -418,8 +356,6 @@ void Player::Draw(void)
 	DrawHeatAura();
 	DrawKiBlast();
 	DrawKamehame();
-
-	DrawLegTune();
 }
 
 float Player::GetHeatActivateElapsed(void) const

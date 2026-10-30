@@ -35,11 +35,17 @@ PlayerKamehameha::PlayerKamehameha(void)
 
 PlayerKamehameha::~PlayerKamehameha(void)
 {
-	// Init で作ったライトを消す(消さないと、シーンを作り直すたびにライトが増えていく)
+	// Init で作ったライトを消す(…)
 	if (lightHandle_ != -1)
 	{
 		DeleteLightHandle(lightHandle_);
 		lightHandle_ = -1;
+	}
+
+	if (chargeModel_ != -1)
+	{
+		MV1DeleteModel(chargeModel_);
+		chargeModel_ = -1;
 	}
 }
 
@@ -47,9 +53,6 @@ void PlayerKamehameha::Init(const VECTOR& playerPos)
 {
 	chargeModel_ =
 		ResourceManager::GetInstance().LoadModelDuplicate(ResourceManager::SRC::CHARGE);
-
-	beamModel_ =
-		ResourceManager::GetInstance().LoadModelDuplicate(ResourceManager::SRC::KAMEHAMEHA);
 
 	// 発光ライト
 	lightHandle_ = CreatePointLightHandle(playerPos, 700.0f, 0.0f, 0.003f, 0.0f);
@@ -237,25 +240,6 @@ void PlayerKamehameha::Draw(const Context& ctx)
 
 		DrawChargeModel(chargePos, 0.1f * (1.0f - t), 5.0f);
 	}
-
-	// ビーム本体はエフェクトで出すので、前のモデルは使わない
-	if (!cfg::Kamehame::USE_OLD_BEAM)
-	{
-		return;
-	}
-
-	// ビーム本体(発射時に固定した dir_ を使う)
-	const VECTOR forward = dir_;
-
-	MV1SetPosition(beamModel_, VAdd(chargePos, VScale(forward, 20.0f)));
-
-	const float rotY = atan2f(forward.x, forward.z);
-	const float horizontal = sqrtf(forward.x * forward.x + forward.z * forward.z);
-	const float rotX = -atan2f(forward.y, horizontal);	// 上下が逆なら符号を反転
-
-	MV1SetRotationXYZ(beamModel_, { rotX, rotY, 0.0f });
-	MV1SetScale(beamModel_, { 0.5f, 0.5f, 1.0f });	// ビームサイズ
-	MV1DrawModel(beamModel_);
 }
 
 void PlayerKamehameha::DrawChargeModel(const VECTOR& pos, float scale, float rotSpeed) const

@@ -1,7 +1,7 @@
 #pragma once
 #include <DxLib.h>
 #include <vector>
-#include "../Common/Quaternion.h"
+#include "../../Common/Quaternion.h"
 class Transform;
 
 class Camera

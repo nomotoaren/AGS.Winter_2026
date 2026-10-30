@@ -34,7 +34,6 @@ public:
 		ATTACK02,
 		ATTACK03,
 		ATTACK04,
-		KAMEHAME,		// –¢Žg—p(”Ô†‚ð•Ï‚¦‚È‚¢‚½‚ß‚ÉŽc‚µ‚Ä‚¢‚é)
 		DAMAGE,
 		GUARD,
 		GUARD_BREAK

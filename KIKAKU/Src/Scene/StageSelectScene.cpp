@@ -4,7 +4,7 @@
 #include <string>
 #include "../Application.h"
 #include "../Manager/SceneManager.h"
-#include "../Manager/Camera.h"
+#include "../Manager/Camera/Camera.h"
 #include "../Manager/ResourceManager.h"
 #include "../Manager/InputManager.h"
 #include "../Manager/PadInput.h"
