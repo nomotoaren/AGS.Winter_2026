@@ -14,7 +14,6 @@ namespace CameraInternal
     }
 
     // 1フレームあたりの量に掛ける倍率
-    //   (追従の速さは 144fps の1フレーム分で決めてあるので、60fps なら約2.4倍にして同じ速さにする)
     inline float CameraFrameScale(void)
     {
         float s = CameraDeltaTime() * 144.0f;

@@ -93,7 +93,6 @@
     <ClCompile Include="Src\Utility\AsoUtility.cpp" />
     <ClCompile Include="Src\Renderer\ModelMaterial.cpp" />
     <ClCompile Include="Src\Renderer\ModelRenderer.cpp" />
-    <ClCompile Include="Src\Controller\TimeStopController.cpp" />
     <ClCompile Include="Src\Scene\StageSelectScene.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -162,7 +161,6 @@
     <ClInclude Include="Src\Utility\AsoUtility.h" />
     <ClInclude Include="Src\Renderer\ModelMaterial.h" />
     <ClInclude Include="Src\Renderer\ModelRenderer.h" />
-    <ClInclude Include="Src\Controller\TimeStopController.h" />
     <ClInclude Include="Src\Manager\Stagedata.h" />
     <ClInclude Include="Src\Scene\StageSelectScene.h" />
   </ItemGroup>

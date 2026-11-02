@@ -87,20 +87,19 @@ void Application::Run(void)
 
 		ScreenFlip();
 
-		// 60fps に固定する(1フレーム 1/60 秒 = 約16,667 マイクロ秒)
+		// 60fps に固定する
 		static LONGLONG nextFrame = GetNowHiPerformanceCount();
 		constexpr LONGLONG FRAME_US = 1000000 / 60;
 
 		nextFrame += FRAME_US;
 
-		// 大きく遅れたときは、遅れを取り戻そうとしない(カクつきを避ける)
+
 		const LONGLONG now = GetNowHiPerformanceCount();
 		if (now > nextFrame + FRAME_US * 3)
 		{
 			nextFrame = now;
 		}
 
-		// 残りが多いうちは眠って、最後の少しだけ待ち続けて合わせる
 		LONGLONG remain = nextFrame - GetNowHiPerformanceCount();
 		if (remain > 2000)
 		{
