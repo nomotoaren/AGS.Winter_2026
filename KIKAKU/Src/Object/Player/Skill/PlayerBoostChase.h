@@ -59,7 +59,7 @@ private:
 	VECTOR dir_;			// 進行方向(毎フレーム敵へ曲げていく)
 	float side_;			// 膨らむ側(+1:右 -1:左。毎回入れ替える)
 	float cooldown_;		// 再使用までの待ち時間
-	VECTOR lastHDir_ = { 0.0f, 0.0f, 1.0f };	// 最後に分かっている「敵への水平方向」(真上・真下に敵がいるとき用)
+	VECTOR lastHDir_ = { 0.0f, 0.0f, 1.0f };	// 最後に分かっている「敵への水平方向」
 	float duration_ = 0.3f;		// 敵の懐に着くまでにかける時間(開始時の距離で決まる)
 	float afterImageTimer_;	// 次の残像までの時間
 };

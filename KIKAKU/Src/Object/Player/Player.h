@@ -73,7 +73,7 @@ public:
 		END
 	};
 
-	// 形態(Player.cpp の kFormData から参照するので public)
+	// 形態
 	enum class FORM
 	{
 		BASE,
@@ -262,6 +262,8 @@ public:
 	bool IsGuard(void) const;
 	void GuardDamage(float damage);
 	bool IsGuardBreak(void) const;
+	float GetGuardRate(void) const;
+	float GetGuardBreakRate(void) const;
 	bool IsGuardBurst(void) const;
 	bool IsGuardBurstTrigger(void) const;
 
@@ -311,7 +313,7 @@ private:
 		static constexpr float KiBlastEndTime = 0.45f;
 
 		// かめはめ波の狙う位置
-		static constexpr float EnemyCenterHeight = 100.0f;	// 敵の足元から中心までの高さ
+		static constexpr float EnemyCenterHeight = 120.0f;	// 敵の足元から中心までの高さ
 
 		// 汎用比較
 		static constexpr float Epsilon = 0.001f;
@@ -362,7 +364,7 @@ private:
 	// 丸影
 	int imgShadow_;
 
-	// 近接攻撃(追撃・コンボの状態は PlayerAttack に任せる)
+	// 近接攻撃
 	PlayerAttack attack_;
 	PlayerAttack::Context MakeAttackContext(void) const;
 
@@ -390,7 +392,7 @@ private:
 	float damageTimer_;
 
 	// ガード中
-	PlayerGuard guard_;		// ガード(状態と耐久値は PlayerGuard に任せる)
+	PlayerGuard guard_;
 
 	// 死亡
 	bool isDead_;
@@ -416,9 +418,10 @@ private:
 	// 浮遊の見た目(当たり判定には影響しない)
 	void UpdateFloatLean(void);
 	void ApplyVisualTransform(const Quaternion& logicRot);
-	bool IsFloatSelfMove(void) const;			// 自分で移動している状態か(攻撃・回避などではない)
+	// 自分で移動している状態か
+	bool IsFloatSelfMove(void) const;			
 
-	// 浮遊移動中の脚のポーズ(アニメの上から脚のボーンだけ寄せる)
+	// 浮遊移動中の脚のポーズ
 	void InitLegFrames(void);
 	void UpdateLegPose(void);
 
@@ -458,7 +461,7 @@ private:
 	void AdvanceCombo(void);
 	void LeaveAfterImage(void);
 	void AddBoostAfterImage(void);		// 高速移動の残像を1枚残す
-	void MoveAndFace(const VECTOR& pos, const VECTOR& targetPos);	// pos へ移動して targetPos を向く
+	void MoveAndFace(const VECTOR& pos, const VECTOR& targetPos);	// posへ移動してtargetPosを向く
 	bool IsBeforeGold(void) const;		// ヒートアップ発動の演出中で、まだ金色になる前か
 	void UpdateKiBlast(void);
 	void UpdateBarrage(void);
@@ -495,7 +498,7 @@ private:
 	float attackEndTimer_;
 
 	// かめはめ波
-	PlayerKamehameha kamehame_;		// かめはめ波(流れは PlayerKamehameha に任せる)
+	PlayerKamehameha kamehame_;		// かめはめ波
 	PlayerKamehameha::Context MakeKamehameContext(void) const;
 	int rightHandFrame_;
 
@@ -518,7 +521,7 @@ private:
 	bool isLockOn_;
 	float lockOnPitch_;
 
-	PlayerBoostChase boostChase_;	// 高速接近(軌道の計算は PlayerBoostChase に任せる)
+	PlayerBoostChase boostChase_;	// 高速接近
 
 	// 回避
 	bool isDodge_;
@@ -526,7 +529,7 @@ private:
 	VECTOR dodgeDir_;
 
 	// 浮遊の見た目
-	float floatPitch_ = 0.0f;		// 前後の傾き(前傾がプラス)
+	float floatPitch_ = 0.0f;		// 前後の傾き
 	float floatRoll_ = 0.0f;		// 左右の傾き
 	float floatBobTime_ = 0.0f;		// 上下ゆれの時間
 

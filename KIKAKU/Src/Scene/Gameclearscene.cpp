@@ -93,7 +93,7 @@ void GameClearScene::DrawBackground(void) const
 
 std::string GameClearScene::GetHeadingText(void) const
 {
-	return "GAME CLEAR";
+	return "ゲームクリア！";
 }
 
 unsigned int GameClearScene::GetHeadingColor(void) const

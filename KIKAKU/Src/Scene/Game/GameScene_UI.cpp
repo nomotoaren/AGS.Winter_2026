@@ -32,10 +32,7 @@
 
 using namespace GameSceneInternal;
 
-//-----------------------------------------------------------------------------
 // 描画
-//-----------------------------------------------------------------------------
-
 void GameScene::Draw(void)
 {
 	// 背景
@@ -77,7 +74,7 @@ void GameScene::Draw(void)
 	DrawPostPass(*vineRenderer_);
 }
 
-void GameScene::DrawPostPass(PixelRenderer& renderer)
+void GameScene::DrawPostPass(PixelRenderer& renderer)const
 {
 	const int mainScreen = SceneManager::GetInstance().GetMainScreen();
 
@@ -92,7 +89,7 @@ void GameScene::DrawPostPass(PixelRenderer& renderer)
 }
 
 // 連続エネルギー弾の狙いの枠(HUDと同じく、一番手前に描く)
-void GameScene::DrawBarrageReticle(void)
+void GameScene::DrawBarrageReticle(void)const
 {
 	if (!player_ || !player_->IsBarrageActive())
 	{
@@ -173,7 +170,7 @@ void GameScene::UpdateClear(float dt)
 	}
 }
 
-void GameScene::DrawClear(void)
+void GameScene::DrawClear(void)const
 {
 	// 0.0 ～ 1.0 (最初の0.5秒で出てくる)
 	float rate = clearTimer_ / 0.5f;
@@ -224,7 +221,7 @@ void GameScene::DrawClear(void)
 
 		if (level > clearLevelBefore_)
 		{
-			snprintf(buf, sizeof(buf), "LEVEL UP!   Lv %d -> Lv %d", clearLevelBefore_, level);
+			snprintf(buf, sizeof(buf), "レベルアップ!  Lv %d → Lv %d", clearLevelBefore_, level);
 
 			DrawString(
 				Application::SCREEN_SIZE_X / 2 - GetDrawStringWidth(buf, -1) / 2,
@@ -237,7 +234,7 @@ void GameScene::DrawClear(void)
 	// ボタンで進めるようになったら案内を出す
 	if (clearTimer_ >= CLEAR_SKIP_TIME)
 	{
-		const char* hint = "SPACE / A : STAGE SELECT";
+		const char* hint = "スペース OR A : ステージ選択";
 
 		const int hintWidth = GetDrawStringWidth(hint, -1);
 
@@ -264,10 +261,7 @@ void GameScene::DrawClear(void)
 	}
 }
 
-//-----------------------------------------------------------------------------
 // ポーズ
-//-----------------------------------------------------------------------------
-
 void GameScene::StartPause(void)
 {
 	gameState_ = GAME_STATE::PAUSE;
@@ -393,10 +387,7 @@ void GameScene::ExecuteAction(MENU_ACTION action)
 	}
 }
 
-//-----------------------------------------------------------------------------
 // ゲームオーバー
-//-----------------------------------------------------------------------------
-
 void GameScene::StartGameOver(void)
 {
 	gameState_ = GAME_STATE::GAME_OVER;
@@ -420,10 +411,7 @@ void GameScene::UpdateGameOver(void)
 	}
 }
 
-//-----------------------------------------------------------------------------
 // ポーズ / ゲームオーバーの画面(一番手前に描く)
-//-----------------------------------------------------------------------------
-
 void GameScene::DrawMenuOverlay(void)
 {
 	if (!menu_)

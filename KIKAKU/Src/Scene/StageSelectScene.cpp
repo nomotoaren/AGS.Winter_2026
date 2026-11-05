@@ -38,7 +38,7 @@ namespace
 	constexpr float kDetailY = 300.0f;
 	constexpr float kDetailW = 700.0f;
 
-	// --- 色(GetColor は DxLib の初期化後でないと正しい値を返さないので、関数にしてある) ---
+	// 色
 	unsigned int kOrange(void) { return GetColor(255, 194, 51); }
 	unsigned int kWhite(void) { return GetColor(255, 255, 255); }
 	unsigned int kGray(void) { return GetColor(160, 166, 190); }

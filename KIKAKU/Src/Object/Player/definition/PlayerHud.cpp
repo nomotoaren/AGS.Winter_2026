@@ -448,6 +448,9 @@ void PlayerHud::Draw(const Player& player)
 
 	// 気の数値
 	{
+		// ガードゲージ
+		DrawGuardGauge(player, kiX, barY - 78.0f * s, kiW, kiH, s);
+
 		std::snprintf(buf, sizeof(buf), "%d", (int)ki);
 
 		SetDrawBlendMode(DX_BLENDMODE_ALPHA, 150);
@@ -458,6 +461,8 @@ void PlayerHud::Draw(const Player& player)
 		DrawStringRight((int)textRight, (int)(kiY + kiH + 2.0f * s),
 			buf, GetColor(170, 225, 255), fontNum_);
 	}
+
+
 
 	// ---- テンションゲージ(アイコンの右側の三日月。満タン+気力MAXで長押しするとヒートアップ) ----
 	{

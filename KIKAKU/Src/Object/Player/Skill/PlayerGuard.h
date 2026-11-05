@@ -1,61 +1,63 @@
-#pragma once
+ï»¿#pragma once
 
-// ƒvƒŒƒCƒ„[‚ÌƒK[ƒh
-//   ƒK[ƒh / ƒK[ƒhƒuƒŒƒCƒN / ƒK[ƒhƒo[ƒXƒg ‚ÆAƒK[ƒh‘Ï‹v’l‚Ì‰ñ•œ‚ğ‚Ü‚Æ‚ß‚Ä‚Â
-//   Player ‚Í“ü—Í‚Æun‚ß‚ç‚ê‚éó‘Ô‚©v‚ğ“n‚µA•Ô‚Á‚Ä‚«‚½o—ˆ–‚É‡‚í‚¹‚ÄƒAƒjƒ‚ğÄ¶‚·‚é‚¾‚¯
+// ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ã‚¬ãƒ¼ãƒ‰
+//   ã‚¬ãƒ¼ãƒ‰ / ã‚¬ãƒ¼ãƒ‰ãƒ–ãƒ¬ã‚¤ã‚¯ / ã‚¬ãƒ¼ãƒ‰ãƒãƒ¼ã‚¹ãƒˆ ã¨ã€ã‚¬ãƒ¼ãƒ‰è€ä¹…å€¤ã®å›å¾©ã‚’ã¾ã¨ã‚ã¦æŒã¤
+//   Player ã¯å…¥åŠ›ã¨ã€Œå§‹ã‚ã‚‰ã‚Œã‚‹çŠ¶æ…‹ã‹ã€ã‚’æ¸¡ã—ã€è¿”ã£ã¦ããŸå‡ºæ¥äº‹ã«åˆã‚ã›ã¦ã‚¢ãƒ‹ãƒ¡ã‚’å†ç”Ÿã™ã‚‹ã ã‘
 class PlayerGuard
 {
 public:
 
-	// Player ‚©‚ç–ˆƒtƒŒ[ƒ€“n‚µ‚Ä‚à‚ç‚¤î•ñ
+	// Player ã‹ã‚‰æ¯ãƒ•ãƒ¬ãƒ¼ãƒ æ¸¡ã—ã¦ã‚‚ã‚‰ã†æƒ…å ±
 	struct Context
 	{
-		float deltaTime;		// 1ƒtƒŒ[ƒ€‚ÌŠÔ(•b)
-		bool canStart;			// ƒK[ƒh‚ğn‚ß‚ç‚ê‚éó‘Ô‚©(UŒ‚’†‚È‚Ç‚Í false)
-		bool hold;				// ƒK[ƒh‚Ì“ü—Í‚ğ‰Ÿ‚µ‚Ä‚¢‚é‚©
-		bool burstTrg;			// ƒo[ƒXƒg‚Ì“ü—Í‚ğ‰Ÿ‚µ‚½‚©
-		bool vanishTrg = false;	// ƒoƒjƒbƒVƒ…ƒAƒ^ƒbƒN‚Ì“ü—Í‚ğ‰Ÿ‚µ‚½‚©
+		float deltaTime;		// 1ãƒ•ãƒ¬ãƒ¼ãƒ ã®æ™‚é–“(ç§’)
+		bool canStart;			// ã‚¬ãƒ¼ãƒ‰ã‚’å§‹ã‚ã‚‰ã‚Œã‚‹çŠ¶æ…‹ã‹(æ”»æ’ƒä¸­ãªã©ã¯ false)
+		bool hold;				// ã‚¬ãƒ¼ãƒ‰ã®å…¥åŠ›ã‚’æŠ¼ã—ã¦ã„ã‚‹ã‹
+		bool burstTrg;			// ãƒãƒ¼ã‚¹ãƒˆã®å…¥åŠ›ã‚’æŠ¼ã—ãŸã‹
+		bool vanishTrg = false;	// ãƒãƒ‹ãƒƒã‚·ãƒ¥ã‚¢ã‚¿ãƒƒã‚¯ã®å…¥åŠ›ã‚’æŠ¼ã—ãŸã‹
 	};
 
-	// Update() ‚ÌŒ‹‰Ê(‚±‚ÌƒtƒŒ[ƒ€‚É‹N‚«‚½o—ˆ–)
+	// Update() ã®çµæœ(ã“ã®ãƒ•ãƒ¬ãƒ¼ãƒ ã«èµ·ããŸå‡ºæ¥äº‹)
 	struct Result
 	{
-		bool started = false;			// ƒK[ƒh‚ğn‚ß‚½
-		bool released = false;			// ƒK[ƒh‚ğ‚â‚ß‚½
-		bool breakEnded = false;		// ƒK[ƒhƒuƒŒƒCƒN‚ªI‚í‚Á‚½
-		bool burstEnded = false;		// ƒo[ƒXƒg‚ªI‚í‚Á‚½
-		bool burstRequested = false;	// ƒo[ƒXƒg‚ğo‚µ‚½‚¢(‹C‚ª‘«‚è‚é‚©Šm”F‚µ‚Ä StartBurst() ‚ğŒÄ‚Ô)
-		bool vanishRequested = false;	// ƒoƒjƒbƒVƒ…ƒAƒ^ƒbƒN‚ğo‚µ‚½‚¢(‹C‚ª‘«‚è‚é‚©Šm”F‚µ‚Ä StartVanish() ‚ğŒÄ‚Ô)
+		bool started = false;			// ã‚¬ãƒ¼ãƒ‰ã‚’å§‹ã‚ãŸ
+		bool released = false;			// ã‚¬ãƒ¼ãƒ‰ã‚’ã‚„ã‚ãŸ
+		bool breakEnded = false;		// ã‚¬ãƒ¼ãƒ‰ãƒ–ãƒ¬ã‚¤ã‚¯ãŒçµ‚ã‚ã£ãŸ
+		bool burstEnded = false;		// ãƒãƒ¼ã‚¹ãƒˆãŒçµ‚ã‚ã£ãŸ
+		bool burstRequested = false;	// ãƒãƒ¼ã‚¹ãƒˆã‚’å‡ºã—ãŸã„(æ°—ãŒè¶³ã‚Šã‚‹ã‹ç¢ºèªã—ã¦ StartBurst() ã‚’å‘¼ã¶)
+		bool vanishRequested = false;	// ãƒãƒ‹ãƒƒã‚·ãƒ¥ã‚¢ã‚¿ãƒƒã‚¯ã‚’å‡ºã—ãŸã„(æ°—ãŒè¶³ã‚Šã‚‹ã‹ç¢ºèªã—ã¦ StartVanish() ã‚’å‘¼ã¶)
 	};
 
 	PlayerGuard(void);
 	~PlayerGuard(void) = default;
 
-	// 1ƒtƒŒ[ƒ€XV‚·‚é
+	// 1ãƒ•ãƒ¬ãƒ¼ãƒ æ›´æ–°ã™ã‚‹
 	Result Update(const Context& ctx);
 
-	// ƒo[ƒXƒg‚ğo‚·(‹C‚ÌÁ”ï‚Í Player ‘¤‚ÅÏ‚Ü‚¹‚Ä‚¨‚­)
+	// ãƒãƒ¼ã‚¹ãƒˆã‚’å‡ºã™(æ°—ã®æ¶ˆè²»ã¯ Player å´ã§æ¸ˆã¾ã›ã¦ãŠã)
 	void StartBurst(void);
 
-	// ƒoƒjƒbƒVƒ…ƒAƒ^ƒbƒN‚ğo‚·(‹C‚ÌÁ”ï‚Í Player ‘¤‚ÅÏ‚Ü‚¹‚Ä‚¨‚­Bƒo[ƒXƒg‚Ìó‘Ô‚ğ—¬—p‚µ‚Ä“®‚¯‚È‚­‚·‚é)
+	// ãƒãƒ‹ãƒƒã‚·ãƒ¥ã‚¢ã‚¿ãƒƒã‚¯ã‚’å‡ºã™(æ°—ã®æ¶ˆè²»ã¯ Player å´ã§æ¸ˆã¾ã›ã¦ãŠãã€‚ãƒãƒ¼ã‚¹ãƒˆã®çŠ¶æ…‹ã‚’æµç”¨ã—ã¦å‹•ã‘ãªãã™ã‚‹)
 	void StartVanish(void);
 
-	// ƒK[ƒh’†‚ÉUŒ‚‚ğó‚¯‚½
-	//   –ß‚è’l: ƒK[ƒhƒuƒŒƒCƒN‚µ‚½‚ç true
+	// ã‚¬ãƒ¼ãƒ‰ä¸­ã«æ”»æ’ƒã‚’å—ã‘ãŸ
+	//   æˆ»ã‚Šå€¤: ã‚¬ãƒ¼ãƒ‰ãƒ–ãƒ¬ã‚¤ã‚¯ã—ãŸã‚‰ true
 	bool Damage(float damage);
 
-	// ó‘Ô
+	// çŠ¶æ…‹
 	bool IsGuard(void) const { return isGuard_; }
 	bool IsBreak(void) const { return isBreak_; }
 	bool IsBurst(void) const { return isBurst_; }
-	bool IsBurstTrigger(void) const { return burstTrigger_; }	// ƒo[ƒXƒg‚ğo‚µ‚½ƒtƒŒ[ƒ€‚¾‚¯ true
+	bool IsBurstTrigger(void) const { return burstTrigger_; }	// ãƒãƒ¼ã‚¹ãƒˆã‚’å‡ºã—ãŸãƒ•ãƒ¬ãƒ¼ãƒ ã ã‘ true
 	bool IsBusy(void) const { return isGuard_ || isBreak_ || isBurst_; }
+	float GetHpRate(void) const;		// è€ä¹…å€¤ã®å‰²åˆ(0ã€œ1)
+	float GetBreakRate(void) const;		// ã‚¬ãƒ¼ãƒ‰ãƒ–ãƒ¬ã‚¤ã‚¯ã®æ®‹ã‚Šæ™‚é–“ã®å‰²åˆ(1â†’0)
 
 private:
 
 	bool isGuard_;
-	float hp_;					// ƒK[ƒh‘Ï‹v’l
-	float recoverTimer_;		// ‘Ï‹v’l‚ª‰ñ•œ‚µn‚ß‚é‚Ü‚Å‚ÌŠÔ
+	float hp_;					// ã‚¬ãƒ¼ãƒ‰è€ä¹…å€¤
+	float recoverTimer_;		// è€ä¹…å€¤ãŒå›å¾©ã—å§‹ã‚ã‚‹ã¾ã§ã®æ™‚é–“
 
 	bool isBreak_;
 	float breakTimer_;

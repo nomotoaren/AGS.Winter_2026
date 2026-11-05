@@ -282,6 +282,9 @@
     <ClCompile Include="Src\Manager\Camera\Camera_Kamehame.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="Src\Object\Player\definition\PlayerHud_Guard.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Common\Fader.h">

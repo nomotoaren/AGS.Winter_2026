@@ -144,3 +144,13 @@ bool PlayerGuard::Damage(float damage)
 
 	return false;
 }
+
+float PlayerGuard::GetHpRate(void) const
+{
+	return hp_ / cfg::Guard::MAX_HP;
+}
+
+float PlayerGuard::GetBreakRate(void) const
+{
+	return breakTimer_ / cfg::Guard::BREAK_TIME;
+}

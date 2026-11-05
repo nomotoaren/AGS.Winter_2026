@@ -4,7 +4,7 @@
 #include "MeleeEnemy.h"
 #include "../../../Application.h"
 #include "../../Player/Player.h"
-#include "../../../Manager/Camera.h"
+#include "../../../Manager/Camera/Camera.h"
 #include "../../../Manager/EffekseerEffect.h"
 #include "../../../Manager/ResourceManager.h"
 #include "../../../Manager/SceneManager.h"

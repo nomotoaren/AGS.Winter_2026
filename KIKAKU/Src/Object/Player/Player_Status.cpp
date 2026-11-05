@@ -357,6 +357,10 @@ bool Player::IsGuardBurst(void) const { return guard_.IsBurst(); }
 
 bool Player::IsGuardBurstTrigger(void) const { return guard_.IsBurstTrigger(); }
 
+float Player::GetGuardRate(void) const { return guard_.GetHpRate(); }
+
+float Player::GetGuardBreakRate(void) const { return guard_.GetBreakRate(); }
+
 // ƒ_ƒ[ƒW
 void Player::Damage(int damage)
 {

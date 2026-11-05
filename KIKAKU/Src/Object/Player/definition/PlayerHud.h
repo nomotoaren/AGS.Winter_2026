@@ -50,7 +50,9 @@ private:
 	void DrawCombo(void) const;
 	void DrawCommandPanel(const Player& player) const;
 	void DrawBattleHints(const Player& player) const;	// 追撃の案内・相殺勝負のゲージ
+	void DrawGuardGauge(const Player& player, float x, float y, float w, float h, float s) const;
 	void DrawDamagePopups(void) const;
+
 
 	// 作ったフォントを消す
 	void DeleteFonts(void);

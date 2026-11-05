@@ -136,10 +136,7 @@ private:
 	EnemyBase* lockOnTarget_;
 	bool isLockOn_;
 
-	//------------------------------------------------------------
 	// 技の途中経過(以前は関数内の static だったもの)
-	//------------------------------------------------------------
-
 	// バニッシュアタック
 	EnemyBase* vanishTarget_;
 	float vanishTimer_;
@@ -165,21 +162,15 @@ private:
 	// かめはめ波のダメージ間隔
 	float kamehameDamageTimer_;
 
-	//------------------------------------------------------------
 	// 初期化
-	//------------------------------------------------------------
-
 	void MakeEnemies(void);
 	void InitPostEffects(void);
 	void ResetState(void);
 
-	//------------------------------------------------------------
 	// 毎フレームの更新(PLAY 中)
-	//------------------------------------------------------------
-
 	void UpdatePlay(float dt);
 
-	// ポーズ・ゲームオーバー・クリアへ移るか調べる。移ったら true(その場で Update を打ち切る)
+	// ポーズ・ゲームオーバー・クリアへ移るか調べる。移ったら true
 	bool CheckStateChange(float dt);
 
 	// ヒットストップ中なら true(その間はゲームを止める)
@@ -216,10 +207,7 @@ private:
 	void UpdateFinishBlastHit(void);
 	void UpdateKamehameHit(float dt);
 
-	//------------------------------------------------------------
 	// 共通の部品
-	//------------------------------------------------------------
-
 	// ロックオン中の敵(いなければ、範囲内で一番近い敵)。いなければ nullptr
 	EnemyBase* PickTarget(float maxRange) const;
 
@@ -235,13 +223,10 @@ private:
 
 	bool IsAllEnemiesDead(void) const;
 
-	//------------------------------------------------------------
 	// クリア / ポーズ / ゲームオーバー
-	//------------------------------------------------------------
-
 	void StartClear(void);
 	void UpdateClear(float dt);
-	void DrawClear(void);
+	void DrawClear(void)const;
 
 	void StartPause(void);
 	void EndPause(void);
@@ -254,13 +239,10 @@ private:
 
 	void DrawMenuOverlay(void);
 
-	//------------------------------------------------------------
 	// 描画
-	//------------------------------------------------------------
-
 	// ポストエフェクトを1枚かける
-	void DrawPostPass(PixelRenderer& renderer);
+	void DrawPostPass(PixelRenderer& renderer)const;
 
 	// 連続エネルギー弾の狙いの枠
-	void DrawBarrageReticle(void);
+	void DrawBarrageReticle(void)const;
 };

@@ -71,8 +71,7 @@ bool Player::GetMoveBasis(VECTOR& forward, VECTOR& right)
 	{
 		const VECTOR toTarget = ToHorizontal(VSub(attackTargetPos_, transform_.pos));
 
-		// 敵が近すぎると向きが定まらないので、
-		//   そのときはカメラ基準にする
+		// 敵が近すぎると向きが定まらないので、そのときはカメラ基準にする
 		if (VSize(toTarget) > cfg::Move::LOCK_BASIS_MIN_DISTANCE)
 		{
 			forward = VNorm(toTarget);
@@ -155,7 +154,7 @@ void Player::ProcessMove(void)
 	{
 		const bool isRun = ins.IsNew(KEY_INPUT_RSHIFT) || isDash;
 
-		// 速さ(ダッシュ / 走り / 歩き)に、形態とヒートアップの倍率をかける
+		// Moveに、形態とヒートアップの倍率をかける
 		const float speed = (isDash ? cfg::Move::DASH_SPEED : (isRun ? SPEED_RUN : SPEED_MOVE))
 			* kFormData[(int)form_].speedRate
 			* (heatUp_ ? cfg::HeatUp::SPEED_RATE : 1.0f);
@@ -183,7 +182,7 @@ void Player::ProcessMove(void)
 	// 上下の移動
 	movePow_.y = verticalMove;
 
-	// 高さの範囲に収める(movePow_ は Collision で FrameScale 倍されるので、その分も見込む)
+	// 高さの範囲に収める
 	const float fs = FrameScale();
 
 	if (fs > Constants::Epsilon)
@@ -241,7 +240,6 @@ void Player::ProcessJump(void)
 void Player::Collision(void)
 {
 	// 移動後の位置
-	// (movePow_ は 144fps の1フレーム分の量。今のフレームの長さに合わせて掛ける)
 	movedPos_ = VAdd(transform_.pos, VScale(movePow_, FrameScale()));
 
 	CollisionCapsule();
@@ -701,10 +699,7 @@ bool Player::TryJustDodge(void)
 	return true;
 }
 
-//----------------------------------------------------------------------
 // テンションゲージ / ヒートアップ
-//----------------------------------------------------------------------
-
 void Player::DashStepTo(const VECTOR& pos, const VECTOR& targetPos)
 {
 	// 3回に1回だけ残像を残す
@@ -768,7 +763,7 @@ void Player::LookAtTarget(VECTOR targetPos)
 	FaceHorizontal(dir);
 }
 
-// 攻撃してきた敵の方を向く(ダメージ中の向き)
+// 攻撃してきた敵の方を向く
 void Player::LookAtDamageEnemy(VECTOR enemyPos)
 {
 	if (!FaceHorizontal(VSub(enemyPos, transform_.pos)))

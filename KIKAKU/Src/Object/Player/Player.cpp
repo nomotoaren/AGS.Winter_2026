@@ -148,7 +148,7 @@ void Player::InitAnimation(const std::string& animDir)
 
 	// 形態のフォルダに無いアニメは、通常形態のものを使う
 	auto add = [&](ANIM_TYPE type, const char* file, float speed)
-		{
+	{
 			std::string full = path + file;
 
 			if (!std::filesystem::exists(full))
@@ -157,7 +157,7 @@ void Player::InitAnimation(const std::string& animDir)
 			}
 
 			animationController_->Add((int)type, full, speed);
-		};
+	};
 
 	// 待機モーション
 	add(ANIM_TYPE::IDLE, "Idle.mv1", 20.0f);
@@ -244,7 +244,7 @@ void Player::ApplyForm(FORM form)
 }
 
 // 変身(H+G / L2+R2+□)
-//   気が足りれば変身、変身中なら元に戻る
+// 気が足りれば変身、変身中なら元に戻る
 void Player::UpdateTransform(void)
 {
 	auto& ins = InputManager::GetInstance();
@@ -263,7 +263,7 @@ void Player::UpdateTransform(void)
 	{
 		const FORM next = (form_ == FORM::BASE) ? FORM::SUPER : FORM::BASE;
 
-		// 元に戻るときは気を使わない
+		// 元に戻るときは気を消費しない
 		if (next == FORM::BASE || UseKi(cfg::Transform::KI_COST))
 		{
 			nextForm_ = next;
@@ -327,7 +327,8 @@ int Player::GetAttackDamage(int baseDamage) const
 	// ジャスト回避のあとは、ダメージが上がる
 	const float justRate = (justBuffTimer_ > 0.0f) ? cfg::JustDodge::DAMAGE_RATE : 1.0f;
 
-	// ダメージの計算(クリティカルもここで決まる)
+	// ダメージの計算
+	// クリティカル判定も同時に行う
 	const DamageCalc::Result result =
 		DamageCalc::Roll(baseDamage * GetAttackRate() * justRate);
 
@@ -343,7 +344,7 @@ void Player::Update(void)
 	// HUD
 	hud_.Update(*this);
 
-	// テンション・ヒートアップ・追撃などのタイマー
+	// テンション、ヒートアップ、追撃などのタイマー
 	UpdateTensionTimers(scnMng_.GetDeltaTime());
 
 	UpdateKnockBack();
@@ -432,7 +433,8 @@ bool Player::UpdateDamage(void)
 	UpdateFloatLean();
 	ApplyVisualTransform(damageRot_);
 	animationController_->Update();
-	UpdateLegPose();					// ダメージ中はポーズを外していく
+	// ダメージ中はポーズを外していく
+	UpdateLegPose();
 	return true;
 }
 
@@ -464,7 +466,7 @@ void Player::UpdatePlay(void)
 
 	UpdateGuard();
 
-	// ガード、ガードブレイク・バースト中は動けない
+	// ガード、ガードブレイク、バースト中は動けない
 	if (guard_.IsBusy())
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
@@ -474,7 +476,7 @@ void Player::UpdatePlay(void)
 	// 変身
 	UpdateTransform();
 
-	// 変身中は他のことをしない
+	// 変身中はほかの処理をできないようにする
 	if (formChange_.IsActive())
 	{
 		Collision();
@@ -492,6 +494,18 @@ void Player::UpdatePlay(void)
 		return;
 	}
 
+	UpdateBarrage();
+
+	// 連続気弾中は、ほかの行動をすべて受け付けない
+	if (barrage_.IsActive())
+	{
+		movePow_ = AsoUtility::VECTOR_ZERO;
+		jumpPow_ = AsoUtility::VECTOR_ZERO;
+		Collision();
+		transform_.quaRot = playerRotY_;
+		return;
+	}
+
 	// 気溜め
 	UpdateKiCharge();
 
@@ -501,7 +515,6 @@ void Player::UpdatePlay(void)
 		return;
 	}
 
-	UpdateBarrage();
 	UpdateKiBlast();
 	UpdateAttack();
 	UpdateKamehame();

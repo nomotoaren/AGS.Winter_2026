@@ -99,9 +99,7 @@ ClashSystem::RESULT ClashSystem::Update(
 	return UpdateActive(dt, player);
 }
 
-//------------------------------------------------------------
 // 勝負の開始
-//------------------------------------------------------------
 void ClashSystem::TryStart(Player& player, std::vector<std::unique_ptr<EnemyBase>>& enemies)
 {
 	// かめはめ波のビームが出ていなければ、ぶつからない
