@@ -12,7 +12,7 @@ namespace GameProgress
 	constexpr int STAGE_MAX = 3;
 
 	// ƒŒƒxƒ‹‚ÌãŒÀ
-	constexpr int LEVEL_MAX = 1000;
+	constexpr int LEVEL_MAX = 10;
 
 	// ƒŒƒxƒ‹‚ª1ã‚ª‚é‚²‚Æ‚ÉAUŒ‚—Í‚ª‘‚¦‚éŠ„‡(0.10 = 10%)
 	constexpr float ATTACK_RATE_PER_LEVEL = 0.10f;
