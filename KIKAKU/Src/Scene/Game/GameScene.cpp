@@ -6,6 +6,7 @@
 #include "../../Application.h"
 #include "../../Utility/AsoUtility.h"
 #include "../../Utility/DamageCalc.h"
+#include "../../Utility/MemLog.h"
 #include "../../Manager/SceneManager.h"
 #include "../../Manager/Camera/Camera.h"
 #include "../../Manager/InputManager.h"
@@ -75,14 +76,20 @@ GameScene::GameScene(void)
 
 GameScene::~GameScene(void)
 {
+	LogMem("GameScene dtor start");
+
 	DeleteGraph(postEffectScreen_);
 
 	// シーンを抜けるときは、エフェクト停止を必ず解除しておく
 	AppFlow::SetEffectFreeze(false);
+
+	LogMem("GameScene dtor end");
 }
 
 void GameScene::Init(void)
 {
+	LogMem("Init start");
+
 	// HUD(自分・敵のHPバーなど)は、エフェクトや弾より手前に出す
 	SceneManager::GetInstance().SetOverlayDraw([this]()
 		{
@@ -118,22 +125,27 @@ void GameScene::Init(void)
 	// プレイヤー
 	player_ = std::make_unique<Player>();
 	player_->Init();
+	LogMem("after player");
 
 	// ステージ
 	stage_ = std::make_unique<Stage>(*player_);
 	stage_->Init();
 	stage_->ChangeStage(Stage::NAME::MAIN_PLANET);
+	LogMem("after stage");
 
 	// スカイドーム
 	skyDome_ = std::make_unique<SkyDome>(player_->GetTransform());
 	skyDome_->Init();
+	LogMem("after skydome");
 
 	mainCamera.SetFollow(&player_->GetTransform());
 	mainCamera.ChangeMode(Camera::MODE::FOLLOW);
 
 	InitPostEffects();
+	LogMem("after posteffect");
 
 	MakeEnemies();
+	LogMem("after enemies");
 
 	SetGlobalAmbientLight(GetColorF(1.0f, 1.0f, 1.0f, 1.0f));
 }
@@ -339,10 +351,14 @@ void GameScene::UpdatePlay(float dt)
 {
 	// 技パレットを開いている間(Tab 長押し / パッドのパレット)はスローモーション
 	{
+		// 技を選ぶ間だけスローにする。かめはめ波・連続気弾が始まったら、パレットを押したままでも通常の速さ
 		const bool palette =
 			InputManager::GetInstance().IsNew(KEY_INPUT_TAB) || PadInput::IsSpecialPalette();
 
-		SceneManager::GetInstance().SetTimeScale(palette ? PALETTE_SLOW_RATE : 1.0f);
+		const bool usingSkill = player_->IsKamehame() || player_->IsBarrageActive();
+
+		SceneManager::GetInstance().SetTimeScale(
+			(palette && !usingSkill) ? PALETTE_SLOW_RATE : 1.0f);
 	}
 
 	skyDome_->Update();

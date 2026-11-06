@@ -294,13 +294,17 @@ void MeleeEnemy::UpdateAreaBlasts(float deltaTime)
 		areaBlasts_.end());
 }
 
-//----------------------------------------------------------------------
-// ガード崩し(投げ)
-//----------------------------------------------------------------------
-
-// ビームの出る位置(胸の前)
+// ビームの出る位置
 VECTOR MeleeEnemy::GetBeamOrigin(void) const
 {
+	if (leftHandFrame_ != -1 && rightHandFrame_ != -1)
+	{
+		const VECTOR left = MV1GetFramePosition(transform_.modelId, leftHandFrame_);
+		const VECTOR right = MV1GetFramePosition(transform_.modelId, rightHandFrame_);
+
+		return VScale(VAdd(left, right), 0.5f);
+	}
+
 	return VAdd(GetChestPos(), VScale(transform_.quaRot.GetForward(), kBeamBallOffset));
 }
 
@@ -312,8 +316,6 @@ bool MeleeEnemy::UpdateBeam(float deltaTime, const VECTOR& playerPos)
 		return false;
 	}
 
-	animationController_->Play((int)ANIM_TYPE::IDLE);
-
 	// 相殺勝負中は、ビームも時間も止める
 	if (beamClash_ && aiState_ == AI_STATE::BEAM_FIRE)
 	{
@@ -324,6 +326,12 @@ bool MeleeEnemy::UpdateBeam(float deltaTime, const VECTOR& playerPos)
 	aiTimer_ += deltaTime;
 
 	const VECTOR playerCenter = VAdd(playerPos, VGet(0.0f, kPlayerCenterHeight, 0.0f));
+
+	// ビームの出どころは、毎フレーム両手の間に合わせる
+	if (beamLocked_ || aiState_ == AI_STATE::BEAM_FIRE)
+	{
+		beamOrigin_ = GetBeamOrigin();
+	}
 
 	if (aiState_ == AI_STATE::BEAM_CHARGE)
 	{
@@ -598,7 +606,7 @@ bool MeleeEnemy::UpdateSlam(float deltaTime, const VECTOR& playerPos)
 				slamDir_ = (VSize(dir) > kEpsilon) ? VNorm(dir) : VGet(0.0f, -1.0f, 0.0f);
 
 				SetAIState(AI_STATE::SLAM_DIVE);
-				animationController_->Play((int)ANIM_TYPE::FAST_RUN);
+				animationController_->Play((int)ANIM_TYPE::ATTACK06, false);
 			}
 		}
 

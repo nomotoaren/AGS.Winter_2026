@@ -49,4 +49,13 @@ private:
 	// 決定済みか(フェード中に何度も決定しないため)
 	bool isDecided_;
 
+	// 遊んだ形跡があるか(あれば「つづきから / はじめから」を出す)
+	bool hasProgress_;
+
+	// 「はじめから」の確認中か
+	bool isConfirming_;
+
+	// メインのメニューを開く(cursor: 最初にカーソルを置く項目)
+	void OpenMainMenu(int cursor);
+
 };

@@ -1,6 +1,6 @@
-#pragma once
-// MeleeEnemy ‚Ì .cpp(MeleeEnemy.cpp / MeleeEnemy_Melee.cpp / MeleeEnemy_Special.cpp / MeleeEnemy_AI.cpp / MeleeEnemy_Draw.cpp)‚Å
-// ‹¤’Ê‚Ég‚¤’è”‚Æ¬‚³‚È•”•iBMeleeEnemy.cpp ‚ª’·‚­‚È‚è‚·‚¬‚½‚Ì‚ÅAƒtƒ@ƒCƒ‹‚ğ•ª‚¯‚é‚Æ‚«‚É‚±‚±‚Ö‚Ü‚Æ‚ß‚½
+ï»¿#pragma once
+// MeleeEnemy ã® .cpp(MeleeEnemy.cpp / MeleeEnemy_Melee.cpp / MeleeEnemy_Special.cpp / MeleeEnemy_AI.cpp / MeleeEnemy_Draw.cpp)ã§
+// å…±é€šã«ä½¿ã†å®šæ•°ã¨å°ã•ãªéƒ¨å“ã€‚MeleeEnemy.cpp ãŒé•·ããªã‚Šã™ããŸã®ã§ã€ãƒ•ã‚¡ã‚¤ãƒ«ã‚’åˆ†ã‘ã‚‹ã¨ãã«ã“ã“ã¸ã¾ã¨ã‚ãŸ
 #include <cmath>
 #include <cstddef>
 #include <algorithm>
@@ -11,194 +11,199 @@
 
 namespace MeleeEnemyInternal
 {
-	// ‹¤’Ê‚Ì•”•i(EnemyUtil)‚àA‚±‚Ì–¼‘O‹óŠÔ‚©‚çg‚¦‚é‚æ‚¤‚É‚·‚é
+	// å…±é€šã®éƒ¨å“(EnemyUtil)ã‚‚ã€ã“ã®åå‰ç©ºé–“ã‹ã‚‰ä½¿ãˆã‚‹ã‚ˆã†ã«ã™ã‚‹
 	using namespace EnemyUtil;
 
-	// ‚‚³‚Ì”ÍˆÍ
+	// é«˜ã•ã®ç¯„å›²
 	constexpr float kMinHeight = 100.0f;
 	constexpr float kMaxHeight = 2000.0f;
 
-	// ‚©‚ß‚Í‚ß”g‚Å‰Ÿ‚³‚ê‚é‘¬‚³
+	// ã‹ã‚ã¯ã‚æ³¢ã§æŠ¼ã•ã‚Œã‚‹é€Ÿã•
 	constexpr float kKamehamePushStartSpeed = 3.0f;
 	constexpr float kKamehamePushAccel = 0.35f;
 	constexpr float kKamehamePushMaxSpeed = 12.0f;
 
-	// ƒmƒbƒNƒoƒbƒN
+	// ãƒãƒƒã‚¯ãƒãƒƒã‚¯
 	constexpr float kKnockBackThreshold = 0.1f;
 	constexpr float kKnockBackDamping = 0.85f;
 	constexpr float kKnockBackDamageTime = 0.18f;
 
-	// ƒ_ƒEƒ“
+	// ãƒ€ã‚¦ãƒ³
 	constexpr float kDownTime = 1.0f;
 
-	// ƒK[ƒh
+	// ã‚¬ãƒ¼ãƒ‰
 	constexpr float kGuardMaxHp = 100.0f;
 	constexpr float kGuardTime = 0.8f;
 	constexpr float kGuardBreakTime = 2.0f;
 	constexpr float kGuardCoolTime = 2.0f;
-	constexpr float kGuardBreakStun = 35.0f;		// ƒK[ƒh‚ğŠ„‚ç‚ê‚½‚Æ‚«‚É—­‚Ü‚éƒXƒ^ƒ“ƒQ[ƒW
+	constexpr float kGuardBreakStun = 35.0f;		// ã‚¬ãƒ¼ãƒ‰ã‚’å‰²ã‚‰ã‚ŒãŸã¨ãã«æºœã¾ã‚‹ã‚¹ã‚¿ãƒ³ã‚²ãƒ¼ã‚¸
 
-	// ƒvƒŒƒCƒ„[‚ÌUŒ‚‚Ö‚Ì”½‰(UŒ‚‚ªn‚Ü‚Á‚½uŠÔ‚ÉA1‰ñ‚¾‚¯Œˆ‚ß‚é)
-	constexpr float kReactDistance = 220.0f;		// ‚±‚Ì‹——£ˆÈ“à‚ÅUŒ‚‚³‚ê‚½‚ç”½‰‚·‚é
-	constexpr int   kDodgeChance = 25;				// ‚©‚í‚·Šm—¦(%)
-	constexpr int   kGuardChance = 0;				// ƒK[ƒh‚·‚éŠm—¦(%)B‚±‚Ì“G‚ÍƒK[ƒh‚µ‚È‚¢‚Ì‚Å 0
-	constexpr float kDodgeCoolTime = 5.0f;			// ‰ñ”ğ‚Ì˜A”­‚ğ–h‚®ŠÔ(•b)
-	constexpr float kDodgeBehindDistance = 110.0f;	// ‰ñ”ğ‚ÅAƒvƒŒƒCƒ„[‚Ì”wŒã‚Ì‚±‚Ì‹——£‚ÖˆÚ“®‚·‚é
-	constexpr float kDodgeInvincibleTime = 0.35f;	// ‰ñ”ğ‚Ì’¼Œã‚ÉAUŒ‚‚ğó‚¯‚È‚¢ŠÔ(•b)
+	// ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®æ”»æ’ƒã¸ã®åå¿œ(æ”»æ’ƒãŒå§‹ã¾ã£ãŸç¬é–“ã«ã€1å›ã ã‘æ±ºã‚ã‚‹)
+	constexpr float kReactDistance = 220.0f;		// ã“ã®è·é›¢ä»¥å†…ã§æ”»æ’ƒã•ã‚ŒãŸã‚‰åå¿œã™ã‚‹
+	constexpr int   kDodgeChance = 25;				// ã‹ã‚ã™ç¢ºç‡(%)
+	constexpr int   kGuardChance = 0;				// ã‚¬ãƒ¼ãƒ‰ã™ã‚‹ç¢ºç‡(%)ã€‚ã“ã®æ•µã¯ã‚¬ãƒ¼ãƒ‰ã—ãªã„ã®ã§ 0
+	constexpr float kDodgeCoolTime = 5.0f;			// å›é¿ã®é€£ç™ºã‚’é˜²ãæ™‚é–“(ç§’)
+	constexpr float kDodgeBehindDistance = 110.0f;	// å›é¿ã§ã€ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®èƒŒå¾Œã®ã“ã®è·é›¢ã¸ç§»å‹•ã™ã‚‹
+	constexpr float kDodgeInvincibleTime = 0.35f;	// å›é¿ã®ç›´å¾Œã«ã€æ”»æ’ƒã‚’å—ã‘ãªã„æ™‚é–“(ç§’)
 
-	// ‹ßÚUŒ‚
+	// è¿‘æ¥æ”»æ’ƒ
 	constexpr int   kMaxCombo = 4;
-	constexpr int   kFollowComboMax = 3;			// 1~3’i–Ú‚ÍƒvƒŒƒCƒ„[‚É•t‚¢‚Ä‚¢‚­
+	constexpr int   kFollowComboMax = 3;			// 1~3æ®µç›®ã¯ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«ä»˜ã„ã¦ã„ã
 	constexpr float kComboInterval = 0.55f;
 	constexpr float kAttackDistance = 90.0f;
 	constexpr float kAttackFollowRate = 0.25f;
-	constexpr float kLookPitchRate = 0.35f;			// Œ©ã‚°EŒ©‰º‚ë‚µ‚ÌÅ‘å”ä—¦
-	constexpr float kMeleeHitRange = 140.0f;		// ‹ßÚUŒ‚‚ª“–‚½‚é…•½‹——£
-	constexpr float kMeleeHitHeight = 150.0f;		// ‹ßÚUŒ‚‚ª“–‚½‚é‚‚³‚Ì·
+	constexpr float kLookPitchRate = 0.35f;			// è¦‹ä¸Šã’ãƒ»è¦‹ä¸‹ã‚ã—ã®æœ€å¤§æ¯”ç‡
+	constexpr float kMeleeHitRange = 140.0f;		// è¿‘æ¥æ”»æ’ƒãŒå½“ãŸã‚‹æ°´å¹³è·é›¢
+	constexpr float kMeleeHitHeight = 150.0f;		// è¿‘æ¥æ”»æ’ƒãŒå½“ãŸã‚‹é«˜ã•ã®å·®
 	constexpr int   kComboDamage = 10;
-	constexpr int   kFinisherDamage = 30;			// 4’i–Ú
+	constexpr int   kFinisherDamage = 30;			// 4æ®µç›®
 
-	// ‹C’e
-	constexpr float kKiChargeTime = 0.8f;			// ‹C‚ğ—­‚ß‚éŠÔ(•b)B‚±‚ÌŠÔ‚É”ğ‚¯‚éE‹ß‚Ã‚¯‚é
-	constexpr float kKiSpeed = 10.0f;				// ‹C’e‚Ì‘¬‚³(1/60•b‚ ‚½‚è)
+	// æ°—å¼¾
+	constexpr float kKiChargeTime = 0.8f;			// æ°—ã‚’æºœã‚ã‚‹æ™‚é–“(ç§’)ã€‚ã“ã®é–“ã«é¿ã‘ã‚‹ãƒ»è¿‘ã¥ã‘ã‚‹
+	constexpr float kKiSpeed = 10.0f;				// æ°—å¼¾ã®é€Ÿã•(1/60ç§’ã‚ãŸã‚Š)
 	constexpr float kKiRadius = 18.0f;
-	constexpr float kKiLife = 4.0f;					// ‹C’e‚ªÁ‚¦‚é‚Ü‚Å‚ÌŠÔ(•b)
-	constexpr float kKiCoolTime = 6.0f;				// Ÿ‚É‹C’e‚ğŒ‚‚Ä‚é‚Ü‚Å‚ÌŠÔ(•b)
+	constexpr float kKiLife = 4.0f;					// æ°—å¼¾ãŒæ¶ˆãˆã‚‹ã¾ã§ã®æ™‚é–“(ç§’)
+	constexpr float kKiCoolTime = 6.0f;				// æ¬¡ã«æ°—å¼¾ã‚’æ’ƒã¦ã‚‹ã¾ã§ã®æ™‚é–“(ç§’)
 	constexpr int   kKiDamage = 30;
-	constexpr float kBlastHitMargin = 35.0f;		// ƒvƒŒƒCƒ„[‚Ì‘Ì‚Ì‘å‚«‚³(‹C’e‚Æ‚Ì“–‚½‚è”»’è‚É‘«‚·)
-	constexpr float kPlayerCenterHeight = 70.0f;	// ƒvƒŒƒCƒ„[‚Ì‘«Œ³‚©‚ç‘Ì‚Ì’†S‚Ü‚Å‚Ì‚‚³
-	constexpr float kChestHeight = 90.0f;			// “G‚Ì‘«Œ³‚©‚ç‹¹‚Ü‚Å‚Ì‚‚³
+	constexpr float kBlastHitMargin = 35.0f;		// ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ä½“ã®å¤§ãã•(æ°—å¼¾ã¨ã®å½“ãŸã‚Šåˆ¤å®šã«è¶³ã™)
+	constexpr float kPlayerCenterHeight = 70.0f;	// ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®è¶³å…ƒã‹ã‚‰ä½“ã®ä¸­å¿ƒã¾ã§ã®é«˜ã•
+	constexpr float kChestHeight = 90.0f;			// æ•µã®è¶³å…ƒã‹ã‚‰èƒ¸ã¾ã§ã®é«˜ã•
 
-	// “Ëi
-	constexpr float kRushReadyTime = 1.3f;			// \‚¦‚Ä—­‚ß‚éŠÔ(•b)B‰£‚Á‚Ä‚à‚Ğ‚é‚Ü‚¸A‚±‚ÌŠÔ‚É”ğ‚¯‚é
-	constexpr float kRushSpeed = 22.0f;				// “Ëi‚Ì‘¬‚³(1/60•b‚ ‚½‚è)
-	constexpr float kRushTime = 0.6f;				// “Ëi‚·‚éÅ‘åŠÔ(•b)
-	constexpr float kRushHitRange = 90.0f;			// ƒvƒŒƒCƒ„[‚É“–‚½‚é‹——£
+	// çªé€²
+	constexpr float kRushReadyTime = 1.3f;			// æ§‹ãˆã¦æºœã‚ã‚‹æ™‚é–“(ç§’)ã€‚æ®´ã£ã¦ã‚‚ã²ã‚‹ã¾ãšã€ã“ã®é–“ã«é¿ã‘ã‚‹
+	constexpr float kRushSpeed = 22.0f;				// çªé€²ã®é€Ÿã•(1/60ç§’ã‚ãŸã‚Š)
+	constexpr float kRushTime = 0.6f;				// çªé€²ã™ã‚‹æœ€å¤§æ™‚é–“(ç§’)
+	constexpr float kRushHitRange = 90.0f;			// ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã«å½“ãŸã‚‹è·é›¢
 	constexpr float kRushCoolTime = 9.0f;
 	constexpr int   kRushDamage = 50;
 
-	// ‹——£‚É‚æ‚és“®‚Ì‘I‚Ñ•û
-	constexpr float kNearDistance = 400.0f;			// ‚±‚ê‚æ‚è‹ß‚¢: ‹ßÚŠñ‚è
-	constexpr float kFarDistance = 650.0f;			// ‚±‚ê‚æ‚è‰“‚¢: ‚‘¬Ú‹ß‚©‹C’e
+	// è·é›¢ã«ã‚ˆã‚‹è¡Œå‹•ã®é¸ã³æ–¹
+	constexpr float kNearDistance = 400.0f;			// ã“ã‚Œã‚ˆã‚Šè¿‘ã„: è¿‘æ¥å¯„ã‚Š
+	constexpr float kFarDistance = 650.0f;			// ã“ã‚Œã‚ˆã‚Šé ã„: é«˜é€Ÿæ¥è¿‘ã‹æ°—å¼¾
 
 	// AI
 	constexpr float kWaitTime = 1.2f;
 	constexpr float kSideMoveTime = 1.3f;
 	constexpr float kArriveDistance = 10.0f;
 	constexpr float kBoostStopDistance = 110.0f;
-	constexpr float kAttackApproachSpeed = 8.0f;	// ‹ßÚUŒ‚‚Ö‹ß‚Ã‚­‘¬‚³(1/60•b‚ ‚½‚è)
-	constexpr float kAttackStartSlack = 60.0f;		// UŒ‚ˆÊ’u‚Ì‚±‚Ì‹——£‚Ü‚Å‹ß‚Ã‚¯‚Î‰£‚èn‚ß‚é(Š®‘S‚É’…‚­‚Ü‚Å‘Ò‚½‚È‚¢)
-	constexpr float kAttackGiveUpTime = 1.6f;		// ‚±‚ê‚¾‚¯’Ç‚Á‚Ä‚à“Í‚©‚È‚¯‚ê‚ÎA’ú‚ß‚Ä•Ê‚Ìs“®‚Ö
-	constexpr float kAttackGiveUpCool = 2.5f;		// ’ú‚ß‚½‚ ‚ÆA‹ßÚUŒ‚‚ğ‘I‚Î‚È‚¢ŠÔ(•b)
-	constexpr float kRecoverTime = 0.4f;			// ‹C’eE“Ëi‚Ì‚ ‚Æ‚ÌŒ„(•b)
+	constexpr float kAttackApproachSpeed = 8.0f;	// è¿‘æ¥æ”»æ’ƒã¸è¿‘ã¥ãé€Ÿã•(1/60ç§’ã‚ãŸã‚Š)
+	constexpr float kAttackStartSlack = 60.0f;		// æ”»æ’ƒä½ç½®ã®ã“ã®è·é›¢ã¾ã§è¿‘ã¥ã‘ã°æ®´ã‚Šå§‹ã‚ã‚‹(å®Œå…¨ã«ç€ãã¾ã§å¾…ãŸãªã„)
+	constexpr float kAttackGiveUpTime = 1.6f;		// ã“ã‚Œã ã‘è¿½ã£ã¦ã‚‚å±Šã‹ãªã‘ã‚Œã°ã€è«¦ã‚ã¦åˆ¥ã®è¡Œå‹•ã¸
+	constexpr float kAttackGiveUpCool = 2.5f;		// è«¦ã‚ãŸã‚ã¨ã€è¿‘æ¥æ”»æ’ƒã‚’é¸ã°ãªã„æ™‚é–“(ç§’)
+	constexpr float kRecoverTime = 0.4f;			// æ°—å¼¾ãƒ»çªé€²ã®ã‚ã¨ã®éš™(ç§’)
 
-	// ‹ó’†‚Å‚Ìù‰ñ(ƒvƒŒƒCƒ„[‚Ìü‚è‚ğA‹——£‚ğ•Ï‚¦‚È‚ª‚ç‰ñ‚é)
-	constexpr float kOrbitAngularSpeed = 0.9f;		// 1•b‚É‰ñ‚éŠp“x(ƒ‰ƒWƒAƒ“)
-	constexpr float kOrbitMaxSpeed = 4.5f;			// 1/60•b‚ ‚½‚è‚ÌÅ‘åˆÚ“®—Ê
+	// ç©ºä¸­ã§ã®æ—‹å›(ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®å‘¨ã‚Šã‚’ã€è·é›¢ã‚’å¤‰ãˆãªãŒã‚‰å›ã‚‹)
+	constexpr float kOrbitAngularSpeed = 0.9f;		// 1ç§’ã«å›ã‚‹è§’åº¦(ãƒ©ã‚¸ã‚¢ãƒ³)
+	constexpr float kOrbitMaxSpeed = 4.5f;			// 1/60ç§’ã‚ãŸã‚Šã®æœ€å¤§ç§»å‹•é‡
 	constexpr float kOrbitMinRadius = 140.0f;
-	constexpr int   kOrbitRadiusRange = 100;		// ”¼Œa‚Í kOrbitMinRadius ~ +‚±‚Ì’l
-	constexpr float kOrbitHeightMin = -80.0f;		// ƒvƒŒƒCƒ„[‚Æ‚Ì‚‚³‚Ì·‚ÌÅ¬
-	constexpr int   kOrbitHeightRange = 300;		// ‚‚³‚Ì·‚Í kOrbitHeightMin ~ +‚±‚Ì’l
+	constexpr int   kOrbitRadiusRange = 100;		// åŠå¾„ã¯ kOrbitMinRadius ~ +ã“ã®å€¤
+	constexpr float kOrbitHeightMin = -80.0f;		// ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¨ã®é«˜ã•ã®å·®ã®æœ€å°
+	constexpr int   kOrbitHeightRange = 300;		// é«˜ã•ã®å·®ã¯ kOrbitHeightMin ~ +ã“ã®å€¤
 	constexpr float kOrbitRadiusLerp = 0.05f;
 	constexpr float kOrbitHeightLerp = 0.04f;
-	constexpr float kWaitDrift = 0.35f;				// —lqŒ©‚ÌŠÔ‚ÍAù‰ñ‚ğ‚±‚Ì”{—¦‚Å‚ä‚Á‚­‚ès‚¤
-	constexpr float kHoverBobAmp = 25.0f;			// —lqŒ©‚ÌŠÔ‚Ìã‰º‚Ì‚Ó‚í‚Ó‚í
+	constexpr float kWaitDrift = 0.35f;				// æ§˜å­è¦‹ã®é–“ã¯ã€æ—‹å›ã‚’ã“ã®å€ç‡ã§ã‚†ã£ãã‚Šè¡Œã†
+	constexpr float kHoverBobAmp = 25.0f;			// æ§˜å­è¦‹ã®é–“ã®ä¸Šä¸‹ã®ãµã‚ãµã‚
 	constexpr float kHoverBobSpeed = 2.0f;
 	constexpr float kWaitMinRadius = 140.0f;
 	constexpr float kWaitMaxRadius = 240.0f;
 
-	// ’ÇŒ‚(‚«”ò‚Î‚µ‚½‘Šè‚Ìæ‚Ö‰ñ‚è‚ñ‚ÅA’@‚«—‚Æ‚·)
-	constexpr int   kChaseChance = 70;				// ’ÇŒ‚‚É“ü‚éŠm—¦(%)
+	// è¿½æ’ƒ(å¹ãé£›ã°ã—ãŸç›¸æ‰‹ã®å…ˆã¸å›ã‚Šè¾¼ã‚“ã§ã€å©ãè½ã¨ã™)
+	constexpr int   kChaseChance = 70;				// è¿½æ’ƒã«å…¥ã‚‹ç¢ºç‡(%)
 	constexpr float kChaseCoolTime = 7.0f;
-	constexpr float kChaseStartDelay = 0.1f;		// —lqŒ©‚É–ß‚Á‚Ä‚©‚ç’ÇŒ‚‚É“ü‚é‚Ü‚Å
-	constexpr float kChasePendingLimit = 2.0f;		// ’ÇŒ‚‚Ì—\’è‚ªc‚éŠÔ
-	constexpr float kChaseVanishTime = 0.35f;		// p‚ğÁ‚µ‚Ä‚¢‚éŠÔ
-	constexpr float kChaseAppearDistance = 130.0f;	// ‚«”ò‚ÔŒü‚«‚ÌæA‚±‚Ì‹——£‚ÉŒ»‚ê‚é
-	constexpr float kChaseAppearHeight = 70.0f;		// ƒvƒŒƒCƒ„[‚æ‚èã‚ÉŒ»‚ê‚é‚‚³
-	constexpr float kChaseWindupTime = 0.4f;		// Œ»‚ê‚Ä‚©‚ç’@‚«—‚Æ‚·‚Ü‚Å(ƒK[ƒhE‰ñ”ğ‚Å‚«‚é)
+	constexpr float kChaseStartDelay = 0.1f;		// æ§˜å­è¦‹ã«æˆ»ã£ã¦ã‹ã‚‰è¿½æ’ƒã«å…¥ã‚‹ã¾ã§
+	constexpr float kChasePendingLimit = 2.0f;		// è¿½æ’ƒã®äºˆå®šãŒæ®‹ã‚‹æ™‚é–“
+	constexpr float kChaseVanishTime = 0.35f;		// å§¿ã‚’æ¶ˆã—ã¦ã„ã‚‹æ™‚é–“
+	constexpr float kChaseAppearDistance = 130.0f;	// å¹ãé£›ã¶å‘ãã®å…ˆã€ã“ã®è·é›¢ã«ç¾ã‚Œã‚‹
+	constexpr float kChaseAppearHeight = 70.0f;		// ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚ˆã‚Šä¸Šã«ç¾ã‚Œã‚‹é«˜ã•
+	constexpr float kChaseWindupTime = 0.4f;		// ç¾ã‚Œã¦ã‹ã‚‰å©ãè½ã¨ã™ã¾ã§(ã‚¬ãƒ¼ãƒ‰ãƒ»å›é¿ã§ãã‚‹)
 	constexpr float kChaseRecoverTime = 0.7f;
 	constexpr float kSmashRange = 190.0f;
-	constexpr float kSmashFromHeight = 150.0f;		// ã‚©‚ç’@‚­‚Ì‚ÅA‚«”ò‚ÔŒü‚«‚Í‰º‚É‚È‚é
+	constexpr float kSmashFromHeight = 150.0f;		// ä¸Šã‹ã‚‰å©ãã®ã§ã€å¹ãé£›ã¶å‘ãã¯ä¸‹ã«ãªã‚‹
 	constexpr int   kSmashDamage = 20;
 
-	// ƒK[ƒh•ö‚µ(“Š‚°)
-	constexpr float kGuardWatchRange = 450.0f;		// ‚±‚Ì‹——£ˆÈ“à‚ÅƒK[ƒh‚³‚ê‘±‚¯‚é‚Æ‘_‚¤
-	constexpr float kGuardWatchTrigger = 1.2f;		// ‚±‚Ì•b”ƒK[ƒh‚³‚ê‚½‚çA“Š‚°‚É—ˆ‚é
+	// ã‚¬ãƒ¼ãƒ‰å´©ã—(æŠ•ã’)
+	constexpr float kGuardWatchRange = 450.0f;		// ã“ã®è·é›¢ä»¥å†…ã§ã‚¬ãƒ¼ãƒ‰ã•ã‚Œç¶šã‘ã‚‹ã¨ç‹™ã†
+	constexpr float kGuardWatchTrigger = 1.2f;		// ã“ã®ç§’æ•°ã‚¬ãƒ¼ãƒ‰ã•ã‚ŒãŸã‚‰ã€æŠ•ã’ã«æ¥ã‚‹
 	constexpr float kGrabCoolTime = 9.0f;
-	constexpr float kGrabReadyTime = 0.6f;			// \‚¦‚ÄÚ‹ß‚·‚éŠÔ(‚±‚±‚Å”ğ‚¯‚ç‚ê‚é)
+	constexpr float kGrabReadyTime = 0.6f;			// æ§‹ãˆã¦æ¥è¿‘ã™ã‚‹æ™‚é–“(ã“ã“ã§é¿ã‘ã‚‰ã‚Œã‚‹)
 	constexpr float kGrabApproachSpeed = 8.0f;
 	constexpr float kGrabHitRange = 150.0f;
 	constexpr int   kGrabDamage = 30;
 	constexpr float kGrabKnock = 45.0f;
 	constexpr float kGrabRecover = 0.6f;
-	constexpr float kGrabMissRecover = 1.0f;		// ŠO‚µ‚½‚Æ‚«‚Ì‘å‚«‚ÈŒ„
+	constexpr float kGrabMissRecover = 1.0f;		// å¤–ã—ãŸã¨ãã®å¤§ããªéš™
 
-	// ”ÍˆÍ‘å‹Z
-	constexpr float kBigChargeTime = 1.3f;			// —­‚ßB‚±‚±‚Å‰£‚ê‚Î’†’f‚Å‚«‚é
-	// ”½Œ‚(‰£‚ç‚ê‘±‚¯‚½‚Æ‚«AƒvƒŒƒCƒ„[‚ğ‚«”ò‚Î‚·)
-	constexpr int   kBurstHits = 7;					// ‚±‚Ì‰ñ”‰£‚ç‚ê‚½‚ç”½Œ‚
-	constexpr float kBurstWindow = 2.5f;			// ‰£‚ç‚ê‚½‰ñ”‚ğ”‚¦‚éŠÔ
-	constexpr float kBurstRange = 320.0f;			// ”½Œ‚‚ª“Í‚­‹——£
+	// ç¯„å›²å¤§æŠ€
+	constexpr float kBigChargeTime = 1.3f;			// æºœã‚ã€‚ã“ã“ã§æ®´ã‚Œã°ä¸­æ–­ã§ãã‚‹
+	// åæ’ƒ(æ®´ã‚‰ã‚Œç¶šã‘ãŸã¨ãã€ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’å¹ãé£›ã°ã™)
+	constexpr int   kBurstHits = 7;					// ã“ã®å›æ•°æ®´ã‚‰ã‚ŒãŸã‚‰åæ’ƒ
+	constexpr float kBurstWindow = 2.5f;			// æ®´ã‚‰ã‚ŒãŸå›æ•°ã‚’æ•°ãˆã‚‹æ™‚é–“
+	constexpr float kBurstRange = 320.0f;			// åæ’ƒãŒå±Šãè·é›¢
 	constexpr float kBurstCoolTime = 5.0f;
 	constexpr float kBurstFxTime = 1.2f;
 	constexpr int   kBurstDamage = 8;
-	constexpr float kBurstKnock = 90.0f;			// ‚«”ò‚Î‚·‹­‚³(–ñ450‚Ì‹——£B•Ç‚ğ“Ë‚«”²‚¯‚È‚¢’ö“x)
-	constexpr float kBurstStun = 0.8f;				// ‚«”ò‚Î‚³‚ê‚½‚ ‚ÆAƒvƒŒƒCƒ„[‚ª“®‚¯‚È‚¢ŠÔ(•b)
+	constexpr float kBurstKnock = 90.0f;			// å¹ãé£›ã°ã™å¼·ã•(ç´„450ã®è·é›¢ã€‚å£ã‚’çªãæŠœã‘ãªã„ç¨‹åº¦)
+	constexpr float kBurstStun = 0.8f;				// å¹ãé£›ã°ã•ã‚ŒãŸã‚ã¨ã€ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ãŒå‹•ã‘ãªã„æ™‚é–“(ç§’)
 
-	// “G‚Ì‹C(Œ©‚¦‚È‚¢)
+	// æ•µã®æ°—(è¦‹ãˆãªã„)
 	constexpr float kEnemyKiMax = 100.0f;
-	constexpr float kEnemyKiRegen = 7.0f;			// 1•b‚ ‚½‚è‚Ì‰ñ•œ—Ê
+	constexpr float kEnemyKiRegen = 7.0f;			// 1ç§’ã‚ãŸã‚Šã®å›å¾©é‡
 
 	constexpr float kBigCoolTime = 12.0f;
 	constexpr float kBigRadius = 190.0f;
-	constexpr float kBigWarnTime = 1.2f;			// Œx‚ªo‚Ä‚©‚ç”š”­‚·‚é‚Ü‚Å
-	constexpr float kBigStagger = 0.3f;				// •¡”o‚·‚Æ‚«‚ÌAŠÔ‚Ì‚¸‚ê
-	constexpr float kBigSpread = 260.0f;			// •¡”o‚·‚Æ‚«‚ÌAˆÊ’u‚Ì‚¸‚ê
+	constexpr float kBigWarnTime = 1.2f;			// è­¦å‘ŠãŒå‡ºã¦ã‹ã‚‰çˆ†ç™ºã™ã‚‹ã¾ã§
+	constexpr float kBigStagger = 0.3f;				// è¤‡æ•°å‡ºã™ã¨ãã®ã€æ™‚é–“ã®ãšã‚Œ
+	constexpr float kBigSpread = 260.0f;			// è¤‡æ•°å‡ºã™ã¨ãã®ã€ä½ç½®ã®ãšã‚Œ
 	constexpr int   kBigDamage = 60;
 	constexpr float kBigRecoverTime = 0.9f;
-	constexpr float kBigRiseSpeed = 0.6f;			// —­‚ß‚Ä‚¢‚éŠÔ‚É•‚‚«ã‚ª‚é(1/60•b‚ ‚½‚è)
+	constexpr float kBigRiseSpeed = 0.6f;			// æºœã‚ã¦ã„ã‚‹é–“ã«æµ®ãä¸ŠãŒã‚‹(1/60ç§’ã‚ãŸã‚Š)
 
-	// ‹É‘¾ƒr[ƒ€
-	constexpr float kBeamChargeTime = 1.8f;			// —­‚ß‚Ì’·‚³(‰£‚ê‚Î’†’f‚Å‚«‚é)
-	constexpr float kBeamLockTime = 1.1f;			// —­‚ßn‚ß‚Ä‚©‚ç‚±‚ÌŠÔ‚ÅA‘_‚¢‚ğŒÅ’è‚·‚é
-	constexpr float kBeamFireTime = 2.2f;			// ”­Ë‚µ‚Ä‚¢‚éŠÔ(•b)
+	// æ¥µå¤ªãƒ“ãƒ¼ãƒ 
+	constexpr float kBeamChargeTime = 1.8f;			// æºœã‚ã®é•·ã•(æ®´ã‚Œã°ä¸­æ–­ã§ãã‚‹)
+	constexpr float kBeamLockTime = 1.1f;			// æºœã‚å§‹ã‚ã¦ã‹ã‚‰ã“ã®æ™‚é–“ã§ã€ç‹™ã„ã‚’å›ºå®šã™ã‚‹
+	constexpr float kBeamFireTime = 2.2f;			// ç™ºå°„ã—ã¦ã„ã‚‹æ™‚é–“(ç§’)
 	constexpr float kBeamCoolTime = 14.0f;
-	constexpr float kBeamRadius = 110.0f;			// ƒr[ƒ€‚Ì‘¾‚³(“–‚½‚è”»’è)
+	constexpr float kBeamRadius = 110.0f;			// ãƒ“ãƒ¼ãƒ ã®å¤ªã•(å½“ãŸã‚Šåˆ¤å®š)
 	constexpr float kBeamLength = 3000.0f;
-	constexpr float kBeamHitMargin = 35.0f;			// ƒvƒŒƒCƒ„[‚Ì‘Ì‚Ì‘å‚«‚³
-	constexpr float kBeamBallOffset = 70.0f;		// —­‚ß‚é‹…‚ÌˆÊ’u(‹¹‚Ì‘O)
-	constexpr float kBeamGrowTime = 0.12f;			// ”­Ë‚µ‚Ä‚©‚çƒr[ƒ€‚ªL‚Ñ‚«‚é‚Ü‚Å
-	constexpr float kBeamFadeTime = 0.2f;			// ”­Ë‚ÌI‚í‚è‚É×‚­‚È‚éŠÔ
+	constexpr float kBeamHitMargin = 35.0f;			// ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã®ä½“ã®å¤§ãã•
+	constexpr float kBeamBallOffset = 70.0f;		// æºœã‚ã‚‹çƒã®ä½ç½®(èƒ¸ã®å‰)
+	constexpr float kBeamGrowTime = 0.12f;			// ç™ºå°„ã—ã¦ã‹ã‚‰ãƒ“ãƒ¼ãƒ ãŒä¼¸ã³ãã‚‹ã¾ã§
+	constexpr float kBeamFadeTime = 0.2f;			// ç™ºå°„ã®çµ‚ã‚ã‚Šã«ç´°ããªã‚‹æ™‚é–“
 	constexpr int   kBeamDamage = 40;
-	constexpr float kBeamTickTime = 0.45f;			// “–‚½‚è‘±‚¯‚½‚Æ‚«‚ÌAƒ_ƒ[ƒW‚ÌŠÔŠu
-	constexpr float kBeamTrackRate = 1.2f;			// ”­Ë’†‚ÉA‘_‚¢‚ªƒvƒŒƒCƒ„[‚ğ’Ç‚¤‹­‚³(‘å‚«‚¢‚Ù‚Ç’Ç‚¤)
+	constexpr float kBeamTickTime = 0.45f;			// å½“ãŸã‚Šç¶šã‘ãŸã¨ãã®ã€ãƒ€ãƒ¡ãƒ¼ã‚¸ã®é–“éš”
+	constexpr float kBeamTrackRate = 1.2f;			// ç™ºå°„ä¸­ã«ã€ç‹™ã„ãŒãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’è¿½ã†å¼·ã•(å¤§ãã„ã»ã©è¿½ã†)
 	constexpr float kBeamKnock = 30.0f;
-	constexpr float kBeamRecoverTime = 1.0f;		// Œ‚‚Á‚½‚ ‚Æ‚Ì‘å‚«‚ÈŒ„
+	constexpr float kBeamRecoverTime = 1.0f;		// æ’ƒã£ãŸã‚ã¨ã®å¤§ããªéš™
 
-	// ‹Z‚Ì–¼‘O(‰æ–Ê‰Eã‚É‘Ñ‚Åo‚·)
-	constexpr const char* kNameBeam = "ƒMƒƒƒŠƒbƒN–C";
-	constexpr const char* kNameBarrage = "˜A‘±ƒGƒlƒ‹ƒM[’e";
-	constexpr const char* kNameBarrageBig = "ƒrƒbƒOƒoƒ“ƒAƒ^ƒbƒN";
-	constexpr const char* kNameBigBlast = "ƒMƒKƒ“ƒeƒBƒbƒNƒ{ƒ€";
-	constexpr const char* kNameSlam = "ƒƒeƒIƒ_ƒCƒu";
+	// ã‚®ãƒ£ãƒªãƒƒã‚¯ç ²ã®ã‚¢ãƒ‹ãƒ¡: 0ã€œLoopEnd ã‚’å†ç”Ÿã—ãŸã‚ã¨ã€LoopStartã€œLoopEnd ã‚’å¾€å¾©ã™ã‚‹
+	constexpr float kBeamAnimLoopStart = 40.0f;
+	constexpr float kBeamAnimLoopEnd = 45.0f;
+	constexpr float kBeamAnimLoopSpeed = 20.0f;
 
-	// ‹C’e‚Ì˜AË
-	constexpr float kBarrageChargeTime = 1.0f;		// Ô‚¢ƒI[ƒ‰‚ğ‚Ü‚Æ‚Á‚Ä‹C‚ğ—­‚ß‚éŠÔ(‚±‚ÌŠÔAã‚Ö¸‚é)
-	constexpr float kBarrageInterval = 0.035f;		// 1”­‚²‚Æ‚ÌŠÔŠu(1•b‚É–ñ28”­)
-	constexpr int   kBarrageCount = 50;				// ’Ç”ö‚·‚é‹C’e‚Ì”
-	constexpr int   kBarrageCountEnraged = 70;		// HP‚ª”¼•ªˆÈ‰º‚Ì‚Æ‚«
-	constexpr float kBarrageSpeed = 24.0f;			// 1/60•b‚ ‚½‚è(’P”­‚Ì‹C’e‚æ‚è­‚µ’x‚¢)
-	constexpr float kBarrageSpread = 280.0f;			// ‘_‚¢‚Ì‚Î‚ç‚Â‚«(L‚­U‚ç‚·)
-	constexpr int   kBarrageDirectChance = 25;		// ƒvƒŒƒCƒ„[‚ğ’¼Ú‘_‚¤’e‚ÌŠ„‡(%)
-	constexpr float kBarrageDirectSpread = 40.0f;	// ’¼Ú‘_‚¤’e‚Ì‚Î‚ç‚Â‚«
-	constexpr float kBarrageOriginSpread = 160.0f;	// ’e‚ªo‚éˆÊ’u‚Ì‚Î‚ç‚Â‚«(“G‚Ìü‚è‚Ì‰_‚©‚ço‚é)
-	constexpr float kBarrageRiseSpeed = 180.0f;		// —­‚ß‚Ä‚¢‚éŠÔ‚É¸‚é‘¬‚³(1•b‚ ‚½‚è)
-	constexpr float kBarrageHomingTurn = 3.0f;		// ’Ç”ö‚Å‹È‚ª‚é‹­‚³(1•b‚ ‚½‚è)
-	constexpr float kBarrageHomingDelay = 0.35f;	// •úËó‚É”ò‚ñ‚Å‚©‚ç‹È‚ª‚èn‚ß‚é‚Ü‚Å‚ÌŠÔ(•b)
-	constexpr float kBarrageHomingTime = 2.0f;		// ’Ç”ö‚·‚éŠÔ(•b)B‰ß‚¬‚½‚ç’¼i‚·‚é‚Ì‚Å”ğ‚¯‚ç‚ê‚é
+	// æŠ€ã®åå‰(ç”»é¢å³ä¸Šã«å¸¯ã§å‡ºã™)
+	constexpr const char* kNameBeam = "ã‚®ãƒ£ãƒªãƒƒã‚¯ç ²";
+	constexpr const char* kNameBarrage = "é€£ç¶šã‚¨ãƒãƒ«ã‚®ãƒ¼å¼¾";
+	constexpr const char* kNameBarrageBig = "ãƒ“ãƒƒã‚°ãƒãƒ³ã‚¢ã‚¿ãƒƒã‚¯";
+	constexpr const char* kNameBigBlast = "ã‚®ã‚¬ãƒ³ãƒ†ã‚£ãƒƒã‚¯ãƒœãƒ ";
+	constexpr const char* kNameSlam = "ãƒ¡ãƒ†ã‚ªãƒ€ã‚¤ãƒ–";
 
-	// ˜AË‚Ì‚ ‚Æ‚ÌA‘å‚«‚È‹C’e
-	constexpr float kBarrageBigChargeTime = 1.2f;	// ‘å‚«‚È‹C’e‚ğ—­‚ß‚éŠÔ(•b)B‚±‚ÌŠÔ‚É‹ß‚Ã‚¢‚Ä‰£‚ê‚é
+	// æ°—å¼¾ã®é€£å°„
+	constexpr float kBarrageChargeTime = 1.0f;		// èµ¤ã„ã‚ªãƒ¼ãƒ©ã‚’ã¾ã¨ã£ã¦æ°—ã‚’æºœã‚ã‚‹æ™‚é–“(ã“ã®é–“ã€ä¸Šã¸æ˜‡ã‚‹)
+	constexpr float kBarrageInterval = 0.035f;		// 1ç™ºã”ã¨ã®é–“éš”(1ç§’ã«ç´„28ç™º)
+	constexpr int   kBarrageCount = 50;				// è¿½å°¾ã™ã‚‹æ°—å¼¾ã®æ•°
+	constexpr int   kBarrageCountEnraged = 70;		// HPãŒåŠåˆ†ä»¥ä¸‹ã®ã¨ã
+	constexpr float kBarrageSpeed = 24.0f;			// 1/60ç§’ã‚ãŸã‚Š(å˜ç™ºã®æ°—å¼¾ã‚ˆã‚Šå°‘ã—é…ã„)
+	constexpr float kBarrageSpread = 280.0f;			// ç‹™ã„ã®ã°ã‚‰ã¤ã(åºƒãæ•£ã‚‰ã™)
+	constexpr int   kBarrageDirectChance = 25;		// ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’ç›´æ¥ç‹™ã†å¼¾ã®å‰²åˆ(%)
+	constexpr float kBarrageDirectSpread = 40.0f;	// ç›´æ¥ç‹™ã†å¼¾ã®ã°ã‚‰ã¤ã
+	constexpr float kBarrageOriginSpread = 160.0f;	// å¼¾ãŒå‡ºã‚‹ä½ç½®ã®ã°ã‚‰ã¤ã(æ•µã®å‘¨ã‚Šã®é›²ã‹ã‚‰å‡ºã‚‹)
+	constexpr float kBarrageRiseSpeed = 180.0f;		// æºœã‚ã¦ã„ã‚‹é–“ã«æ˜‡ã‚‹é€Ÿã•(1ç§’ã‚ãŸã‚Š)
+	constexpr float kBarrageHomingTurn = 3.0f;		// è¿½å°¾ã§æ›²ãŒã‚‹å¼·ã•(1ç§’ã‚ãŸã‚Š)
+	constexpr float kBarrageHomingDelay = 0.35f;	// æ”¾å°„çŠ¶ã«é£›ã‚“ã§ã‹ã‚‰æ›²ãŒã‚Šå§‹ã‚ã‚‹ã¾ã§ã®æ™‚é–“(ç§’)
+	constexpr float kBarrageHomingTime = 2.0f;		// è¿½å°¾ã™ã‚‹æ™‚é–“(ç§’)ã€‚éããŸã‚‰ç›´é€²ã™ã‚‹ã®ã§é¿ã‘ã‚‰ã‚Œã‚‹
+
+	// é€£å°„ã®ã‚ã¨ã®ã€å¤§ããªæ°—å¼¾
+	constexpr float kBarrageBigChargeTime = 1.2f;	// å¤§ããªæ°—å¼¾ã‚’æºœã‚ã‚‹æ™‚é–“(ç§’)ã€‚ã“ã®é–“ã«è¿‘ã¥ã„ã¦æ®´ã‚Œã‚‹
 	constexpr float kBarrageBigRadius = 55.0f;
 	constexpr float kBarrageBigSpeed = 8.0f;
 	constexpr int   kBarrageBigDamage = 40;
@@ -208,39 +213,39 @@ namespace MeleeEnemyInternal
 	constexpr float kBarrageCoolTime = 12.0f;
 	constexpr float kBarrageRecoverTime = 1.0f;
 
-	// ‹}~‰º(ã¸ ¨ ‘_‚¢‚ğŒÅ’è ¨ ‹}~‰º)
-	constexpr float kSlamHeight = 420.0f;			// ƒvƒŒƒCƒ„[‚æ‚èã‚Öã‚ª‚é‚‚³
-	constexpr float kSlamRiseSpeed = 8.0f;			// 1/60•b‚ ‚½‚è
-	constexpr float kSlamChargeTime = 0.9f;			// ã¸‚µ‚Ä—­‚ß‚éŠÔ
-	constexpr float kSlamLockTime = 0.4f;			// ‘_‚¢‚ğŒÅ’è‚µ‚Ä‚©‚ç~‰º‚·‚é‚Ü‚Å‚ÌŠÔ(‚±‚±‚Å”ğ‚¯‚é)
-	constexpr float kSlamDiveSpeed = 40.0f;			// 1/60•b‚ ‚½‚è
+	// æ€¥é™ä¸‹(ä¸Šæ˜‡ â†’ ç‹™ã„ã‚’å›ºå®š â†’ æ€¥é™ä¸‹)
+	constexpr float kSlamHeight = 420.0f;			// ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚ˆã‚Šä¸Šã¸ä¸ŠãŒã‚‹é«˜ã•
+	constexpr float kSlamRiseSpeed = 8.0f;			// 1/60ç§’ã‚ãŸã‚Š
+	constexpr float kSlamChargeTime = 0.9f;			// ä¸Šæ˜‡ã—ã¦æºœã‚ã‚‹æ™‚é–“
+	constexpr float kSlamLockTime = 0.4f;			// ç‹™ã„ã‚’å›ºå®šã—ã¦ã‹ã‚‰é™ä¸‹ã™ã‚‹ã¾ã§ã®æ™‚é–“(ã“ã“ã§é¿ã‘ã‚‹)
+	constexpr float kSlamDiveSpeed = 40.0f;			// 1/60ç§’ã‚ãŸã‚Š
 	constexpr float kSlamDiveMaxTime = 0.7f;
-	constexpr float kSlamHitRange = 110.0f;			// ~‰º’†‚É’¼Ú“–‚½‚é‹——£
-	constexpr float kSlamArrive = 70.0f;			// ‘_‚Á‚½êŠ‚Ö’…‚¢‚½‚Æ‚İ‚È‚·‹——£
-	constexpr int   kSlamDamage = 40;				// ’¼Ú“–‚½‚Á‚½‚Æ‚«
-	constexpr float kSlamImpactRadius = 220.0f;		// ÕŒ‚”g‚Ì”¼Œa
-	constexpr int   kSlamImpactDamage = 30;			// ÕŒ‚”g(’¼Ú“–‚½‚Á‚½‚Æ‚«‚Í“ü‚ç‚È‚¢)
+	constexpr float kSlamHitRange = 110.0f;			// é™ä¸‹ä¸­ã«ç›´æ¥å½“ãŸã‚‹è·é›¢
+	constexpr float kSlamArrive = 70.0f;			// ç‹™ã£ãŸå ´æ‰€ã¸ç€ã„ãŸã¨ã¿ãªã™è·é›¢
+	constexpr int   kSlamDamage = 40;				// ç›´æ¥å½“ãŸã£ãŸã¨ã
+	constexpr float kSlamImpactRadius = 220.0f;		// è¡æ’ƒæ³¢ã®åŠå¾„
+	constexpr int   kSlamImpactDamage = 30;			// è¡æ’ƒæ³¢(ç›´æ¥å½“ãŸã£ãŸã¨ãã¯å…¥ã‚‰ãªã„)
 	constexpr float kSlamCoolTime = 13.0f;
 	constexpr float kSlamRecoverTime = 1.0f;
 
-	// ‚‘¬ˆÚ“®‚Ì‹OÕ
+	// é«˜é€Ÿç§»å‹•ã®è»Œè·¡
 	constexpr float kTrailLife = 0.35f;
-	constexpr float kTrailCut = 300.0f;				// ‚±‚êˆÈã—£‚ê‚½‚çA‚Â‚È‚ª‚È‚¢
+	constexpr float kTrailCut = 300.0f;				// ã“ã‚Œä»¥ä¸Šé›¢ã‚ŒãŸã‚‰ã€ã¤ãªãŒãªã„
 	constexpr size_t kTrailMax = 40;
 
-	// s“®‚Ìí—Ş(DecideAction ‚Ì’†‚¾‚¯‚Åg‚¤)
+	// è¡Œå‹•ã®ç¨®é¡(DecideAction ã®ä¸­ã ã‘ã§ä½¿ã†)
 	enum ACTION
 	{
-		ACT_ATTACK,		// ‹ß‚Ã‚¢‚Ä‹ßÚUŒ‚
-		ACT_SIDE,		// ‰¡ˆÚ“®
-		ACT_KI,			// ‹C’e
-		ACT_RUSH,		// “Ëi
-		ACT_BOOST,		// ‚‘¬Ú‹ß
-		ACT_GRAB,		// “Š‚°(ƒK[ƒh•s”\)
-		ACT_BIG,		// ”ÍˆÍ‘å‹Z
-		ACT_BEAM,		// ‹É‘¾ƒr[ƒ€
-		ACT_BARRAGE,	// ‹C’e‚Ì˜AË
-		ACT_SLAM,		// ‹}~‰º
+		ACT_ATTACK,		// è¿‘ã¥ã„ã¦è¿‘æ¥æ”»æ’ƒ
+		ACT_SIDE,		// æ¨ªç§»å‹•
+		ACT_KI,			// æ°—å¼¾
+		ACT_RUSH,		// çªé€²
+		ACT_BOOST,		// é«˜é€Ÿæ¥è¿‘
+		ACT_GRAB,		// æŠ•ã’(ã‚¬ãƒ¼ãƒ‰ä¸èƒ½)
+		ACT_BIG,		// ç¯„å›²å¤§æŠ€
+		ACT_BEAM,		// æ¥µå¤ªãƒ“ãƒ¼ãƒ 
+		ACT_BARRAGE,	// æ°—å¼¾ã®é€£å°„
+		ACT_SLAM,		// æ€¥é™ä¸‹
 		ACT_MAX
 	};
 }

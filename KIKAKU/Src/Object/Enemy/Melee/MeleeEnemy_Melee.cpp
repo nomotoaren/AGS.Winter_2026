@@ -283,7 +283,7 @@ bool MeleeEnemy::UpdateRush(float deltaTime, const VECTOR& playerPos)
 			aiState_ = AI_STATE::RUSH;
 			aiTimer_ = 0.0f;
 
-			animationController_->Play((int)ANIM_TYPE::FAST_RUN);
+			animationController_->Play((int)ANIM_TYPE::ATTACK06, false);
 		}
 
 		transform_.Update();
@@ -489,7 +489,7 @@ bool MeleeEnemy::UpdateChase(float deltaTime, const VECTOR& playerPos)
 			SetAIState(AI_STATE::CHASE_APPEAR);
 
 			LookAtPlayerWithPitchLimit(playerPos);
-			animationController_->Play((int)ANIM_TYPE::ATTACK03, false);
+			animationController_->Play((int)ANIM_TYPE::ATTACK05, false);
 		}
 	}
 	else

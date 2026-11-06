@@ -1,285 +1,205 @@
 ﻿0:ChangeWindowMode実行 
-6:ウインドウモードフラグが立てられました
-6:ＤＸライブラリの初期化処理開始
-6:	システムの情報を出力します
-6:		ＤＸライブラリ Ver3.24f
+1:ウインドウモードフラグが立てられました
+3:ＤＸライブラリの初期化処理開始
+4:	システムの情報を出力します
+5:		ＤＸライブラリ Ver3.24f
 6:		論理プロセッサの数 : 16
-6:		ＯＳ  Windows11 ( Build 26300  )
-115:		現時点のＣＰＵ動作速度：大体2.70GHz
-115:		ＭＭＸ命令を使用します
-115:		ＳＳＥ命令が使用可能です
-116:		ＳＳＥ２命令が使用可能です
-116:		ＣＰＵベンダ：GenuineIntel
-119:		ＣＰＵ名：12th Gen Intel(R) Core(TM) i7-12650H
-120:	ＣＯＭの初期化... 成功
-135:	非同期読み込み処理の初期化...成功
-136:	ファイルアクセス処理の初期化...成功
-138:	メモリ総量:32471.50MB  空きメモリ領域:16315.63MB 
-138:	タイマーの精度を検査します
-139:	精度結果 更新回数 マルチメディアタイマー：0  パフォーマンスカウンター：60
-140:	 パフォーマンスカウンターを使用します タイマー精度 : 10000.000000 KHz 
-141:	 
-141:	ソフトの二重起動検査... 二重起動はされていませんでした
-143:	ウインドウクラスを登録します... 登録に成功しました
-144:	ウインドウモード起動用のウインドウを作成します
-144:	ディスプレイ情報のセットアップ開始
-146:		モニターの数：1  ディスプレイデバイスの数：8
-146:		No.0  モニター名：\\.\DISPLAY1　1920x1080　32bit　144Hz  96x96dpi
-160:	ディスプレイ情報のセットアップ完了
-160:	ウインドウ矩形 ( 432, 169 )-( 1472, 848 )
-165:	ウインドウの作成に成功しました
-166:	ウインドウを表示します
-194:	ＩＭＥを無効にしました
-195:	ウインドウスタイルをウインドウモード用に変更します... 完了
-227:	XInput DLL の読み込み中... 成功
-231:	DirectInput関係初期化処理
-232:		DirectInput8 の取得を試みます...成功
-337:			引き続き初期化処理... 初期化成功
-344:		ジョイパッドの初期化... 
-344:			XInput 対応コントローラーのチェックを開始します
-344:				XInput 対応コントローラー No.0 をチェック
-349:				XInput 対応コントローラー No.0 の接続を確認しました
-350:				XInput 対応コントローラー No.0 を入力ナンバー 0 で登録します
-351:				XInput 対応コントローラー No.1 をチェック
-352:				XInput 対応コントローラー No.1 の接続は確認できませんでした
-352:				XInput 対応コントローラー No.2 をチェック
-354:				XInput 対応コントローラー No.2 の接続は確認できませんでした
-354:				XInput 対応コントローラー No.3 をチェック
-355:				XInput 対応コントローラー No.3 の接続は確認できませんでした
-356:			XInput 対応コントローラーのチェック完了
-356:			DirectInput 対応ジョイパッドの列挙を開始します
-370:				DirectInput 対応入力装置を検出しました
-370:						Device Product GUID  : 02ff045e,0000,0000,00,00,50,49,44,56,49,44
-371:						Device Instance GUID : 3711d6b0,6e24,11f1,80,02,44,45,53,54,00,00
-372:					DirectInputDevice8 の作成... 成功
-373:					DirectInputDevice の情報を取得します... 成功
-375:						Device Product Name  : Controller (Xbox One For Windows)
-375:						Device Instance Name : Controller (Xbox One For Windows)
-378:					検出した DirectInput 対応入力装置が Xbox360コントローラーか確認... 不一致
-380:					検出した DirectInput 対応入力装置が XboxOneコントローラーか確認... 一致
-382:				検出した DirectInput 対応入力装置の初期化を中断します
-393:			DirectInput 対応ジョイパッドの列挙終了
-393:		ジョイパッドの初期化は正常に終了しました
-395:		マウスデバイスの初期化... 初期化成功
-402:		キーボードデバイスの初期化... 初期化成功
-410:	DirectInput 関連の初期化は正常に終了しました
-414:	WASAPI の初期化を行います
-418:		デバイス名 : スピーカー (Realtek(R) Audio)
-466:		デフォルト遅延時間 : 10.000 ms
-467:		最小遅延時間       : 3.000 ms
-468:		遅延時間           : 10.000 ms
-469:		チャンネル数  　   : 2 ch
-470:		量子化ビット深度   : 32 bit
-471:		有効ビット深度　   : 32 bit
-479:		サンプリングレート : 48000 Hz
-481:		データ形式         : 浮動小数点型
-958:		動作モード         : 共有モード
-959:	WASAPI の初期化は正常に終了しました
-964:	d3d11.dll の読み込み.... 成功
-970:	dxgi.dll の読み込み.... 成功
-976:	API CreateDXGIFactory2 のアドレスを取得します.... 成功
-977:	IDXGIFactory2 を作成します.... 成功
-993:	API CreateDXGIFactory6 のアドレスを取得します.... 成功
-995:	IDXGIAdapter を列挙
-996:		Adapter No.0 Desc:NVIDIA GeForce RTX 4060 Laptop GPU  VRAM:7956MB
-997:		Adapter No.1 Desc:Intel(R) UHD Graphics  VRAM:128MB
-998:			Output Device No.0 Name:\\.\DISPLAY1 ( 0, 0 )-( 1920, 1080 )
-999:		Adapter No.2 Desc:Microsoft Basic Render Driver  VRAM:0MB
-1000:	API D3D11CreateDevice のアドレスを取得します.... 成功
-1006:	IDXGIAdapter を取得します.... 成功
-1010:	IDXGIAdapter1 を取得します.... 成功
-1012:	IDXGIAdapter2 を取得します.... 成功
-1015:	IDXGIAdapter3 を取得します.... 成功
-1017:	IDXGIAdapter4 を取得します.... 成功
-1019:	Direct3D 11 FeatureLevel 11_0 以上を対象とします
-1020:	ID3D11Device オブジェクトを取得します.... 成功
-1099:	IDXGIDevice1 を取得します.... 成功
-1101:	IDXGIDevice1->SetMaximunFrameLatency( 1 ); を実行しました
-1102:	[ウインドウモード 1024x640 ( 448, 207 )-( 1472, 847 )]
-1102:	IDXGISwapChain2 を作成します.... 成功
-1106:	IDXGIFactory2->CreateSwapChainForHwnd の戻り値：0x00000000
-1107:	IDXGIOutput を取得します.... 成功
-1109:	Graphics Device:Intel(R) UHD Graphics
-1109:	画面のフォーマットは DXGI_FORMAT_R8G8B8A8_UNORM です
-1110:	16bit Zバッファフォーマットは DXGI_FORMAT_D16_UNORM です
-1111:	24bit Zバッファフォーマットは DXGI_FORMAT_D24_UNORM_S8_UINT です
-1112:	32bit Zバッファフォーマットは DXGI_FORMAT_D32_FLOAT です
-1113:	16bit カラーフォーマットは DXGI_FORMAT_B5G6R5_UNORM です
-1114:	32bit カラーフォーマットは DXGI_FORMAT_B8G8R8X8_UNORM です
-1114:	アルファ付き 16bit カラーフォーマットは DXGI_FORMAT_B4G4R4A4_UNORM です
-1115:	アルファ付き 32bit カラーフォーマットは DXGI_FORMAT_R8G8B8A8_UNORM です
-1116:	アルファテスト用 16bit カラーフォーマットは DXGI_FORMAT_B5G5R5A1_UNORM です
-1117:	アルファテスト用 32bit カラーフォーマットは DXGI_FORMAT_R8G8B8A8_UNORM です
-1118:	ＤＸＴ１テクスチャフォーマットは DXGI_FORMAT_BC1_UNORM です
-1119:	ＤＸＴ２テクスチャフォーマットは使えません
-1120:	ＤＸＴ３テクスチャフォーマットは DXGI_FORMAT_BC2_UNORM です
-1120:	ＤＸＴ４テクスチャフォーマットは使えません
-1121:	ＤＸＴ５テクスチャフォーマットは DXGI_FORMAT_BC3_UNORM です
-1122:	BC7_UNORM テクスチャフォーマットは DXGI_FORMAT_BC7_UNORM です
-1123:	BC7_UNORM_SRGB テクスチャフォーマットは DXGI_FORMAT_BC7_UNORM_SRGB です
-1124:	ABGR 整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16B16A16_UNORM です
-1124:	ABGR 浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16B16A16_FLOAT です
-1125:	ABGR 浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32G32B32A32_FLOAT です
-1126:	１チャンネル整数 8 ビット型カラーフォーマットは DXGI_FORMAT_R8_UNORM です
-1127:	１チャンネル整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16_UNORM です
-1128:	１チャンネル浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16_FLOAT です
-1129:	１チャンネル浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32_FLOAT です
-1130:	２チャンネル整数 8 ビット型カラーフォーマットは DXGI_FORMAT_R8G8_UNORM です
-1130:	２チャンネル整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16_UNORM です
-1131:	２チャンネル浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16_FLOAT です
-1132:	２チャンネル浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32G32_FLOAT です
-1133:	描画用 16bit カラーフォーマットは DXGI_FORMAT_B5G6R5_UNORM です
-1134:	描画用 32bit カラーフォーマットは DXGI_FORMAT_B8G8R8X8_UNORM です
-1135:	描画用アルファ付き 32bit カラーフォーマットは DXGI_FORMAT_R8G8B8A8_UNORM です
-1136:	描画用 ABGR 整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16B16A16_UNORM です
-1137:	描画用 ABGR 浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16B16A16_FLOAT です
-1138:	描画用 ABGR 浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32G32B32A32_FLOAT です
-1139:	描画用１チャンネル整数 8 ビット型カラーフォーマットは DXGI_FORMAT_R8_UNORM です
-1142:	描画用１チャンネル整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16_UNORM です
-1143:	描画用１チャンネル浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16_FLOAT です
-1145:	描画用１チャンネル浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32_FLOAT です
-1146:	描画用２チャンネル整数 8 ビット型カラーフォーマットは DXGI_FORMAT_R8G8_UNORM です
-1147:	描画用２チャンネル整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16_UNORM です
-1148:	描画用２チャンネル浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16_FLOAT です
-1149:	描画用２チャンネル浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32G32_FLOAT です
-1150:	使用する機能レベル:D3D_FEATURE_LEVEL_11_1
-1151:	同時にレンダリングできるバッファの数:8
-1152:	最大テクスチャサイズ　幅:16384 高さ:16384
-1153:	標準描画用の頂点バッファの作成.... 成功
-1154:	シェーダーコード関係の初期化.... 成功
-1175:	各種シェーダー用定数バッファの作成.... 成功
-1178:	各種 ID3D11InputLayout の作成.... 成功
-1192:	画像の単純転送処理の初期化... 成功
-1194:	深度バッファを作成します.... 成功
-1197:	フォントの初期化を行います
-1199:	フォントの初期化は正常に終了しました
-1210:	文字コードバッファの初期化を行います... 完了しました
-1213:ＤＸライブラリの初期化処理終了
-3031:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Player\Run.mv1
-3032:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Player\Run.mv1
-4445:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-7761:定数バッファ用の ID3D11Buffer の作成に失敗しました
+7:		ＯＳ  Windows11 ( Build 26300  )
+109:		現時点のＣＰＵ動作速度：大体2.69GHz
+109:		ＭＭＸ命令を使用します
+110:		ＳＳＥ命令が使用可能です
+110:		ＳＳＥ２命令が使用可能です
+111:		ＣＰＵベンダ：GenuineIntel
+114:		ＣＰＵ名：12th Gen Intel(R) Core(TM) i7-12650H
+114:	ＣＯＭの初期化... 成功
+126:	非同期読み込み処理の初期化...成功
+128:	ファイルアクセス処理の初期化...成功
+130:	メモリ総量:32471.50MB  空きメモリ領域:15473.72MB 
+131:	タイマーの精度を検査します
+131:	精度結果 更新回数 マルチメディアタイマー：0  パフォーマンスカウンター：60
+132:	 パフォーマンスカウンターを使用します タイマー精度 : 10000.000000 KHz 
+134:	 
+134:	ソフトの二重起動検査... 二重起動はされていませんでした
+135:	ウインドウクラスを登録します... 登録に成功しました
+137:	ウインドウモード起動用のウインドウを作成します
+137:	ディスプレイ情報のセットアップ開始
+139:		モニターの数：1  ディスプレイデバイスの数：8
+139:		No.0  モニター名：\\.\DISPLAY1　1920x1080　32bit　144Hz  96x96dpi
+143:	ディスプレイ情報のセットアップ完了
+144:	ウインドウ矩形 ( 432, 169 )-( 1472, 848 )
+147:	ウインドウの作成に成功しました
+147:	ウインドウを表示します
+166:	ＩＭＥを無効にしました
+167:	ウインドウスタイルをウインドウモード用に変更します... 完了
+193:	XInput DLL の読み込み中... 成功
+197:	DirectInput関係初期化処理
+198:		DirectInput8 の取得を試みます...成功
+288:			引き続き初期化処理... 初期化成功
+298:		ジョイパッドの初期化... 
+299:			XInput 対応コントローラーのチェックを開始します
+301:				XInput 対応コントローラー No.0 をチェック
+304:				XInput 対応コントローラー No.0 の接続を確認しました
+305:				XInput 対応コントローラー No.0 を入力ナンバー 0 で登録します
+306:				XInput 対応コントローラー No.1 をチェック
+307:				XInput 対応コントローラー No.1 の接続は確認できませんでした
+308:				XInput 対応コントローラー No.2 をチェック
+309:				XInput 対応コントローラー No.2 の接続は確認できませんでした
+309:				XInput 対応コントローラー No.3 をチェック
+310:				XInput 対応コントローラー No.3 の接続は確認できませんでした
+310:			XInput 対応コントローラーのチェック完了
+311:			DirectInput 対応ジョイパッドの列挙を開始します
+329:				DirectInput 対応入力装置を検出しました
+330:						Device Product GUID  : 02ff045e,0000,0000,00,00,50,49,44,56,49,44
+330:						Device Instance GUID : 3711d6b0,6e24,11f1,80,02,44,45,53,54,00,00
+331:					DirectInputDevice8 の作成... 成功
+332:					DirectInputDevice の情報を取得します... 成功
+333:						Device Product Name  : Controller (Xbox One For Windows)
+334:						Device Instance Name : Controller (Xbox One For Windows)
+336:					検出した DirectInput 対応入力装置が Xbox360コントローラーか確認... 不一致
+338:					検出した DirectInput 対応入力装置が XboxOneコントローラーか確認... 一致
+340:				検出した DirectInput 対応入力装置の初期化を中断します
+351:			DirectInput 対応ジョイパッドの列挙終了
+351:		ジョイパッドの初期化は正常に終了しました
+353:		マウスデバイスの初期化... 初期化成功
+355:		キーボードデバイスの初期化... 初期化成功
+359:	DirectInput 関連の初期化は正常に終了しました
+363:	WASAPI の初期化を行います
+366:		デバイス名 : スピーカー (Realtek(R) Audio)
+370:		デフォルト遅延時間 : 10.000 ms
+370:		最小遅延時間       : 3.000 ms
+373:		遅延時間           : 10.000 ms
+374:		チャンネル数  　   : 2 ch
+375:		量子化ビット深度   : 32 bit
+377:		有効ビット深度　   : 32 bit
+378:		サンプリングレート : 48000 Hz
+379:		データ形式         : 浮動小数点型
+471:		動作モード         : 共有モード
+471:	WASAPI の初期化は正常に終了しました
+476:	d3d11.dll の読み込み.... 成功
+485:	dxgi.dll の読み込み.... 成功
+492:	API CreateDXGIFactory2 のアドレスを取得します.... 成功
+494:	IDXGIFactory2 を作成します.... 成功
+509:	API CreateDXGIFactory6 のアドレスを取得します.... 成功
+512:	IDXGIAdapter を列挙
+514:		Adapter No.0 Desc:NVIDIA GeForce RTX 4060 Laptop GPU  VRAM:7956MB
+515:		Adapter No.1 Desc:Intel(R) UHD Graphics  VRAM:128MB
+516:			Output Device No.0 Name:\\.\DISPLAY1 ( 0, 0 )-( 1920, 1080 )
+517:		Adapter No.2 Desc:Microsoft Basic Render Driver  VRAM:0MB
+518:	API D3D11CreateDevice のアドレスを取得します.... 成功
+520:	IDXGIAdapter を取得します.... 成功
+521:	IDXGIAdapter1 を取得します.... 成功
+524:	IDXGIAdapter2 を取得します.... 成功
+526:	IDXGIAdapter3 を取得します.... 成功
+528:	IDXGIAdapter4 を取得します.... 成功
+531:	Direct3D 11 FeatureLevel 11_0 以上を対象とします
+532:	ID3D11Device オブジェクトを取得します.... 成功
+620:	IDXGIDevice1 を取得します.... 成功
+623:	IDXGIDevice1->SetMaximunFrameLatency( 1 ); を実行しました
+624:	[ウインドウモード 1024x640 ( 448, 207 )-( 1472, 847 )]
+627:	IDXGISwapChain2 を作成します.... 成功
+631:	IDXGIFactory2->CreateSwapChainForHwnd の戻り値：0x00000000
+632:	IDXGIOutput を取得します.... 成功
+636:	Graphics Device:Intel(R) UHD Graphics
+637:	画面のフォーマットは DXGI_FORMAT_R8G8B8A8_UNORM です
+638:	16bit Zバッファフォーマットは DXGI_FORMAT_D16_UNORM です
+640:	24bit Zバッファフォーマットは DXGI_FORMAT_D24_UNORM_S8_UINT です
+641:	32bit Zバッファフォーマットは DXGI_FORMAT_D32_FLOAT です
+642:	16bit カラーフォーマットは DXGI_FORMAT_B5G6R5_UNORM です
+644:	32bit カラーフォーマットは DXGI_FORMAT_B8G8R8X8_UNORM です
+645:	アルファ付き 16bit カラーフォーマットは DXGI_FORMAT_B4G4R4A4_UNORM です
+646:	アルファ付き 32bit カラーフォーマットは DXGI_FORMAT_R8G8B8A8_UNORM です
+647:	アルファテスト用 16bit カラーフォーマットは DXGI_FORMAT_B5G5R5A1_UNORM です
+648:	アルファテスト用 32bit カラーフォーマットは DXGI_FORMAT_R8G8B8A8_UNORM です
+649:	ＤＸＴ１テクスチャフォーマットは DXGI_FORMAT_BC1_UNORM です
+650:	ＤＸＴ２テクスチャフォーマットは使えません
+650:	ＤＸＴ３テクスチャフォーマットは DXGI_FORMAT_BC2_UNORM です
+651:	ＤＸＴ４テクスチャフォーマットは使えません
+652:	ＤＸＴ５テクスチャフォーマットは DXGI_FORMAT_BC3_UNORM です
+653:	BC7_UNORM テクスチャフォーマットは DXGI_FORMAT_BC7_UNORM です
+654:	BC7_UNORM_SRGB テクスチャフォーマットは DXGI_FORMAT_BC7_UNORM_SRGB です
+656:	ABGR 整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16B16A16_UNORM です
+656:	ABGR 浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16B16A16_FLOAT です
+658:	ABGR 浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32G32B32A32_FLOAT です
+659:	１チャンネル整数 8 ビット型カラーフォーマットは DXGI_FORMAT_R8_UNORM です
+660:	１チャンネル整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16_UNORM です
+661:	１チャンネル浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16_FLOAT です
+661:	１チャンネル浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32_FLOAT です
+663:	２チャンネル整数 8 ビット型カラーフォーマットは DXGI_FORMAT_R8G8_UNORM です
+664:	２チャンネル整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16_UNORM です
+665:	２チャンネル浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16_FLOAT です
+666:	２チャンネル浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32G32_FLOAT です
+667:	描画用 16bit カラーフォーマットは DXGI_FORMAT_B5G6R5_UNORM です
+668:	描画用 32bit カラーフォーマットは DXGI_FORMAT_B8G8R8X8_UNORM です
+669:	描画用アルファ付き 32bit カラーフォーマットは DXGI_FORMAT_R8G8B8A8_UNORM です
+671:	描画用 ABGR 整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16B16A16_UNORM です
+672:	描画用 ABGR 浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16B16A16_FLOAT です
+673:	描画用 ABGR 浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32G32B32A32_FLOAT です
+674:	描画用１チャンネル整数 8 ビット型カラーフォーマットは DXGI_FORMAT_R8_UNORM です
+675:	描画用１チャンネル整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16_UNORM です
+676:	描画用１チャンネル浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16_FLOAT です
+677:	描画用１チャンネル浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32_FLOAT です
+678:	描画用２チャンネル整数 8 ビット型カラーフォーマットは DXGI_FORMAT_R8G8_UNORM です
+679:	描画用２チャンネル整数 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16_UNORM です
+680:	描画用２チャンネル浮動小数点 16 ビット型カラーフォーマットは DXGI_FORMAT_R16G16_FLOAT です
+681:	描画用２チャンネル浮動小数点 32 ビット型カラーフォーマットは DXGI_FORMAT_R32G32_FLOAT です
+682:	使用する機能レベル:D3D_FEATURE_LEVEL_11_1
+683:	同時にレンダリングできるバッファの数:8
+685:	最大テクスチャサイズ　幅:16384 高さ:16384
+686:	標準描画用の頂点バッファの作成.... 成功
+688:	シェーダーコード関係の初期化.... 成功
+709:	各種シェーダー用定数バッファの作成.... 成功
+711:	各種 ID3D11InputLayout の作成.... 成功
+725:	画像の単純転送処理の初期化... 成功
+726:	深度バッファを作成します.... 成功
+729:	フォントの初期化を行います
+731:	フォントの初期化は正常に終了しました
+741:	文字コードバッファの初期化を行います... 完了しました
+744:ＤＸライブラリの初期化処理終了
+1159:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Player\Run.mv1
+1159:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Player\Run.mv1
+3073:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
+7163:定数バッファ用の ID3D11Buffer の作成に失敗しました
 
-9384:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
-9384:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
-9387:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
-9389:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
-9390:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack01.mv1
-9392:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack01.mv1
-9394:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack02.mv1
-9396:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack02.mv1
-9398:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack03.mv1
-9399:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack03.mv1
-9401:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack04.mv1
-9404:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack04.mv1
-9406:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Damege.mv1
-9407:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Damege.mv1
-55146:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-62460:定数バッファ用の ID3D11Buffer の作成に失敗しました
-
-64082:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
-64083:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
-64084:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack01.mv1
-64085:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack02.mv1
-64088:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack03.mv1
-64089:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack04.mv1
-64090:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Damege.mv1
-94448:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-99355:定数バッファ用の ID3D11Buffer の作成に失敗しました
-
-100974:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
-100975:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
-100981:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack01.mv1
-100983:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack02.mv1
-100997:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack03.mv1
-100999:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack04.mv1
-101002:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Damege.mv1
-170108:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-178102:定数バッファ用の ID3D11Buffer の作成に失敗しました
-
-179731:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
-179732:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
-179736:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack01.mv1
-179739:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack02.mv1
-179742:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack03.mv1
-179743:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack04.mv1
-179747:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Damege.mv1
-278868:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-283039:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Player\Run.mv1
-300559:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-305382:定数バッファ用の ID3D11Buffer の作成に失敗しました
-
-307016:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
-307016:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
-307019:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack01.mv1
-307038:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack02.mv1
-307042:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack03.mv1
-307046:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack04.mv1
-307053:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Damege.mv1
-412140:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-416843:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Player\Run.mv1
-419486:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-422829:定数バッファ用の ID3D11Buffer の作成に失敗しました
-
-424428:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
-424429:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
-424432:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack01.mv1
-424435:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack02.mv1
-424437:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack03.mv1
-424439:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack04.mv1
-424463:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Damege.mv1
-461188:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Player\Run.mv1
-463799:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-469302:定数バッファ用の ID3D11Buffer の作成に失敗しました
-
-470895:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
-470896:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
-470902:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack01.mv1
-470904:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack02.mv1
-470908:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack03.mv1
-470910:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack04.mv1
-470912:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Damege.mv1
-547386:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-565757:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Player\Run.mv1
-569569:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-572877:定数バッファ用の ID3D11Buffer の作成に失敗しました
-
-574469:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
-574469:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
-574473:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack01.mv1
-574474:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack02.mv1
-574508:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack03.mv1
-574519:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Attack04.mv1
-574521:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Damege.mv1
-728209:画像ファイル C:\2026_WinNomoto\KIKAKU\Data\Image\StageSelect\panel_detail.png がありません
-741289:ジョイパッドの初期化... 
-741289:	XInput 対応コントローラーのチェックを開始します
-741292:		XInput 対応コントローラー No.0 をチェック
-741295:		XInput 対応コントローラー No.0 の接続は確認できませんでした
-741298:		XInput 対応コントローラー No.1 をチェック
-741300:		XInput 対応コントローラー No.1 の接続は確認できませんでした
-741302:		XInput 対応コントローラー No.2 をチェック
-741304:		XInput 対応コントローラー No.2 の接続は確認できませんでした
-741305:		XInput 対応コントローラー No.3 をチェック
-741306:		XInput 対応コントローラー No.3 の接続は確認できませんでした
-741307:	XInput 対応コントローラーのチェック完了
-741309:	DirectInput 対応ジョイパッドの列挙を開始します
-741346:	DirectInput 対応ジョイパッドの列挙終了
-741347:ジョイパッドの初期化は正常に終了しました
-771269:ウインドウを閉じようとしています
-771274:ウインドウが破棄されようとしています
-771279:ソフトを終了する準備が整いました
-771306:フォントの初期化を行います
-771309:フォントの初期化は正常に終了しました
-771359:d3d11.dll の解放 1
-771360:dxgi.dll の解放 1
-771362:Direct3D11 のオブジェクト数を出力
-771365:Direct3D11 のオブジェクト合計数 : 0
-771370:DirectInput 関連の終了処理... 完了
-771374:サウンド関連の終了処理... 完了
-771380:ウィンドウ関連の終了処理... 完了
-771446:ＣＯＭを終了... 完了
-771449:
-771451:Alloc memory dump
-771454:	Total size:0(0.000kb)  Alloc num:0
-771458:
+7359:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7359:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7362:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7363:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7375:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7376:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7391:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7392:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7402:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7403:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7443:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7444:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7454:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7454:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7464:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7464:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7474:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7475:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7487:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7487:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7497:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7498:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7507:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7508:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+7521:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Running.mv1
+7522:Model File Open Error : C:\2026_WinNomoto\KIKAKU\Data\Model\Enemy\Animation\Fast Run.mv1
+213225:フォントの初期化を行います
+213227:フォントの初期化は正常に終了しました
+213347:d3d11.dll の解放 1
+213347:dxgi.dll の解放 1
+213349:Direct3D11 のオブジェクト数を出力
+213352:Direct3D11 のオブジェクト合計数 : 0
+213355:DirectInput 関連の終了処理... 完了
+213356:サウンド関連の終了処理... 完了
+213372:ウィンドウ関連の終了処理... ウインドウを閉じようとしています
+213381:ウインドウが破棄されようとしています
+213388:ソフトを終了する準備が整いました
+213457:完了
+213457:ＣＯＭを終了... 完了
+213460:
+213461:Alloc memory dump
+213464:	Total size:0(0.000kb)  Alloc num:0
+213467:

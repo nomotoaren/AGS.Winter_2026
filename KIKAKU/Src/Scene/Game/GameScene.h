@@ -67,6 +67,7 @@ private:
 	{
 		NONE,
 		RETRY,		// 最初からやり直し
+		STAGE_SELECT,	// ステージ選択へ戻る
 		TITLE,		// タイトルへ戻る
 		QUIT		// ゲーム終了
 	};

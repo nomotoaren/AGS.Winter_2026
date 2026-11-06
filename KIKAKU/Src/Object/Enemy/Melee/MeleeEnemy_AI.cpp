@@ -150,6 +150,12 @@ void MeleeEnemy::StartBeamCharge(void)
 {
 	SetAIState(AI_STATE::BEAM_CHARGE);
 	beamLocked_ = false;
+
+	// 溜めて放つアニメ。放っている間は、終盤の区間をループさせる
+	animationController_->Play((int)ANIM_TYPE::SPECIAL01, true,
+		0.0f, kBeamAnimLoopEnd, false, true);
+	animationController_->SetEndLoop(
+		kBeamAnimLoopStart, kBeamAnimLoopEnd, kBeamAnimLoopSpeed);
 }
 
 // 気弾の連射を始める(HPが半分以下なら弾数が増える)

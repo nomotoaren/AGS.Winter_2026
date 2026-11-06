@@ -74,9 +74,16 @@ void MeleeEnemy::InitAnimation(void)
 	animationController_->Add((int)ANIM_TYPE::ATTACK02, path + "Attack02.mv1", 45.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK03, path + "Attack03.mv1", 45.0f);
 	animationController_->Add((int)ANIM_TYPE::ATTACK04, path + "Attack04.mv1", 45.0f);
-	animationController_->Add((int)ANIM_TYPE::DAMAGE, path + "Damege.mv1", 60.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK05, path + "Attack05.mv1", 45.0f);
+	animationController_->Add((int)ANIM_TYPE::ATTACK06, path + "Attack06.mv1", 45.0f);
+	animationController_->Add((int)ANIM_TYPE::DAMAGE, path + "Damage.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::GUARD, path + "Block.mv1", 60.0f);
 	animationController_->Add((int)ANIM_TYPE::GUARD_BREAK, path + "GuardBreak.mv1", 20.0f);
+	animationController_->Add((int)ANIM_TYPE::SPECIAL01, path + "Special01.mv1", 40.0f);
+
+	// ギャリック砲の出どころにする手のフレーム
+	leftHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:LeftHand");
+	rightHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:RightHand");
 
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
@@ -437,7 +444,6 @@ void MeleeEnemy::OnStunEnd(void)
 //----------------------------------------------------------------------
 // プレイヤーの攻撃への反応(ガード / 回避)
 //----------------------------------------------------------------------
-
 // 気を溜めている間・大技の直前だけ、弱い攻撃で怯まない(スーパーアーマー)
 bool MeleeEnemy::IsSuperArmor(void) const
 {
@@ -485,10 +491,6 @@ VECTOR MeleeEnemy::GetChestPos(void) const
 {
 	return VAdd(transform_.pos, VGet(0.0f, kChestHeight, 0.0f));
 }
-
-//----------------------------------------------------------------------
-// 気弾
-//----------------------------------------------------------------------
 
 //----------------------------------------------------------------------
 // 高速移動の軌跡

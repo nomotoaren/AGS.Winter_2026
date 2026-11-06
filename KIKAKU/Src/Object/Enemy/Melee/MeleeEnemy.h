@@ -34,9 +34,12 @@ public:
 		ATTACK02,
 		ATTACK03,
 		ATTACK04,
+		ATTACK05,
+		ATTACK06,
 		DAMAGE,
 		GUARD,
-		GUARD_BREAK
+		GUARD_BREAK,
+		SPECIAL01,
 	};
 
 	MeleeEnemy(Player& player);
@@ -342,6 +345,8 @@ private:
 	float beamHitCool_ = 0.0f;			// 次にダメージが入るまでの時間(発射中、当たり続けると一定間隔で入る)
 	VECTOR beamOrigin_ = { 0.0f, 0.0f, 0.0f };
 	VECTOR beamDir_ = { 0.0f, 0.0f, 1.0f };
+	int leftHandFrame_ = -1;
+	int rightHandFrame_ = -1;
 
 	// 追撃
 	float chaseCoolTimer_ = 0.0f;

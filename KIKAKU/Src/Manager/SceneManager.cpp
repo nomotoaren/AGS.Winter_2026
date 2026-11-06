@@ -250,9 +250,6 @@ void SceneManager::DoChangeScene(SCENE_ID sceneId)
 		EffekseerEffect::GetInstance()->StopAll();
 	}
 
-	// リソースの解放
-	ResourceManager::GetInstance().Release();
-
 	// シーンを変更する
 	sceneId_ = sceneId;
 
@@ -263,6 +260,8 @@ void SceneManager::DoChangeScene(SCENE_ID sceneId)
 	{
 		scene_.reset();
 	}
+
+	ResourceManager::GetInstance().ReleaseDuplicates();
 
 	switch (sceneId_)
 	{

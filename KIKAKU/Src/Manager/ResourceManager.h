@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include "Resource.h"
+#include <vector>
 
 class ResourceManager
 {
@@ -76,6 +77,9 @@ public:
 	// リソースの複製ロード(モデル用)
 	int LoadModelDuplicate(SRC src);
 
+	// シーンを切り替えるときに、複製したモデルをまとめて削除する
+	void ReleaseDuplicates(void);
+
 private:
 
 	// 静的インスタンス
@@ -98,4 +102,5 @@ private:
 	// 内部ロード
 	Resource& _Load(SRC src);
 
+	std::vector<int> duplicateModelIds_;
 };

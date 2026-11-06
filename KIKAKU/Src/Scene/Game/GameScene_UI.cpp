@@ -160,7 +160,7 @@ void GameScene::UpdateClear(float dt)
 		clearTimer_ >= CLEAR_SKIP_TIME &&
 		(ins.IsTrgDown(KEY_INPUT_SPACE) ||
 			ins.IsTrgDown(KEY_INPUT_RETURN) ||
-			PadInput::IsTrg(PadInput::BTN::CIRCLE));
+			PadInput::IsTrg(PadInput::BTN::CROSS));
 
 	// 何も押さなくても、時間がたてばタイトルへ戻る
 	if (clearTimer_ >= CLEAR_WAIT_TIME || skip)
@@ -289,7 +289,7 @@ void GameScene::EndPause(void)
 void GameScene::OpenPauseMenu(int cursor)
 {
 	confirmAction_ = MENU_ACTION::NONE;
-	menu_->Open({ "再開", "リトライ", "タイトルへ戻る", "ゲーム終了" }, cursor);
+	menu_->Open({ "再開", "リトライ", "ステージ選択へ", "タイトルへ戻る", "ゲーム終了" }, cursor);
 }
 
 void GameScene::UpdatePause(void)
@@ -343,10 +343,15 @@ void GameScene::UpdatePause(void)
 	}
 	else if (result == 2)
 	{
+		action = MENU_ACTION::STAGE_SELECT;
+		caption = "ステージ選択に戻りますか?";
+	}
+	else if (result == 3)
+	{
 		action = MENU_ACTION::TITLE;
 		caption = "タイトルに戻りますか?";
 	}
-	else if (result == 3)
+	else if (result == 4)
 	{
 		action = MENU_ACTION::QUIT;
 		caption = "ゲームを終了しますか?";
@@ -370,6 +375,11 @@ void GameScene::ExecuteAction(MENU_ACTION action)
 		// シーンを作り直す = 最初からやり直し
 		isMenuDecided_ = true;
 		SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::GAME);
+		break;
+
+	case MENU_ACTION::STAGE_SELECT:
+		isMenuDecided_ = true;
+		SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::STAGE_SELECT);
 		break;
 
 	case MENU_ACTION::TITLE:

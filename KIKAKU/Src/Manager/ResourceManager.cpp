@@ -176,6 +176,7 @@ void ResourceManager::Init(void)
 
 void ResourceManager::Release(void)
 {
+	ReleaseDuplicates();
 	for (auto& p : loadedMap_)
 	{
 		p.second.Release();
@@ -209,8 +210,8 @@ int ResourceManager::LoadModelDuplicate(SRC src)
 		return -1;
 	}
 
-	int duId = MV1DuplicateModel(res.handleId_);
-	res.duplicateModelIds_.push_back(duId);
+	const int duId = MV1DuplicateModel(res.handleId_);
+	duplicateModelIds_.push_back(duId);
 
 	return duId;
 }
@@ -245,4 +246,13 @@ Resource& ResourceManager::_Load(SRC src)
 
 	return *rPair->second;
 
+}
+
+void ResourceManager::ReleaseDuplicates(void)
+{
+	for (int id : duplicateModelIds_)
+	{
+		MV1DeleteModel(id);
+	}
+	duplicateModelIds_.clear();
 }

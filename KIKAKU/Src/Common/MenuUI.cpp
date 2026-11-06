@@ -171,7 +171,7 @@ bool MenuUI::IsDecidePressed(void)
 	return
 		ins.IsTrgDown(KEY_INPUT_RETURN) ||
 		ins.IsTrgDown(KEY_INPUT_SPACE) ||
-		PadInput::IsTrg(PadInput::BTN::CIRCLE);
+		PadInput::IsTrg(PadInput::BTN::CROSS);
 }
 
 bool MenuUI::IsCancelPressed(void)
@@ -181,7 +181,7 @@ bool MenuUI::IsCancelPressed(void)
 	return
 		ins.IsTrgDown(KEY_INPUT_ESCAPE) ||
 		ins.IsTrgDown(KEY_INPUT_BACK) ||
-		PadInput::IsTrg(PadInput::BTN::CROSS);
+		PadInput::IsTrg(PadInput::BTN::CIRCLE);
 }
 
 //------------------------------------------------------------

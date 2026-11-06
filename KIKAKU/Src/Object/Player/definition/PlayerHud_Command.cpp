@@ -24,31 +24,31 @@ namespace
 	// コマンド一覧に出すコントローラーのボタンの絵
 	enum class PadIcon
 	{
-		CIRCLE,		// ○
-		CROSS,		// ×
-		SQUARE,		// □
-		TRIANGLE,	// △
-		L1,
-		L2,
-		R2,
-		L3,
-		PLUS		// 「+」(同時押し)
+		B,		// 右(赤)
+		A,		// 下(緑)
+		X,		// 左(青)
+		Y,		// 上(黄)
+		LB,
+		LT,
+		RT,
+		LS,		// 左スティックの押し込み
+		PLUS	// 「+」(同時押し)
 	};
 
 	bool IsFaceButton(PadIcon icon)
 	{
-		return icon == PadIcon::CIRCLE || icon == PadIcon::CROSS ||
-			icon == PadIcon::SQUARE || icon == PadIcon::TRIANGLE;
+		return icon == PadIcon::B || icon == PadIcon::A ||
+			icon == PadIcon::X || icon == PadIcon::Y;
 	}
 
 	const char* PadIconText(PadIcon icon)
 	{
 		switch (icon)
 		{
-		case PadIcon::L1: return "L1";
-		case PadIcon::L2: return "L2";
-		case PadIcon::R2: return "R2";
-		case PadIcon::L3: return "L3";
+		case PadIcon::LB: return "LB";
+		case PadIcon::LT: return "LT";
+		case PadIcon::RT: return "RT";
+		case PadIcon::LS: return "LS";
 		default: return "";
 		}
 	}
@@ -79,41 +79,25 @@ namespace
 		if (IsFaceButton(icon))
 		{
 			unsigned int color = GetColor(255, 255, 255);
+			const char* letter = "";
 
 			switch (icon)
 			{
-			case PadIcon::CIRCLE:   color = GetColor(240, 85, 85);   break;
-			case PadIcon::CROSS:    color = GetColor(100, 150, 255); break;
-			case PadIcon::SQUARE:   color = GetColor(245, 130, 205); break;
-			case PadIcon::TRIANGLE: color = GetColor(95, 215, 145);  break;
+			case PadIcon::B: color = GetColor(235, 70, 60);  letter = "B"; break;
+			case PadIcon::A: color = GetColor(90, 205, 95);  letter = "A"; break;
+			case PadIcon::X: color = GetColor(75, 140, 245); letter = "X"; break;
+			case PadIcon::Y: color = GetColor(250, 205, 50); letter = "Y"; break;
 			default: break;
 			}
 
 			DrawCircleAA(cx, cy, r, 28, GetColor(22, 24, 38), TRUE);
 			DrawCircleAA(cx, cy, r, 28, GetColor(190, 195, 210), FALSE, 1.5f * s);
 
-			const float g = r * 0.48f;
-			const float t = 2.2f * s;
+			// Xbox のボタンと同じ、色付きの文字
+			const int tw = GetDrawStringWidthToHandle(letter, 1, font);
 
-			switch (icon)
-			{
-			case PadIcon::CIRCLE:
-				DrawCircleAA(cx, cy, g, 24, color, FALSE, t);
-				break;
-			case PadIcon::CROSS:
-				DrawLineAA(cx - g, cy - g, cx + g, cy + g, color, t);
-				DrawLineAA(cx - g, cy + g, cx + g, cy - g, color, t);
-				break;
-			case PadIcon::SQUARE:
-				DrawBoxAA(cx - g, cy - g, cx + g, cy + g, color, FALSE, t);
-				break;
-			case PadIcon::TRIANGLE:
-				DrawTriangleAA(cx, cy - g * 1.15f, cx - g * 1.1f, cy + g * 0.85f,
-					cx + g * 1.1f, cy + g * 0.85f, color, FALSE, t);
-				break;
-			default:
-				break;
-			}
+			DrawStringToHandle((int)(cx - tw * 0.5f), (int)(cy - 10.0f * s),
+				letter, color, font, GetColor(22, 24, 38));
 
 			return;
 		}
@@ -126,7 +110,7 @@ namespace
 			return;
 		}
 
-		// L1 / L2 / R2 / L3 は丸い角のボタン + 文字
+		// LB / LT / RT / LS は丸い角のボタン + 文字
 		const float w = PadIconWidth(icon, h, s, font);
 		const float bh = h * 0.86f;
 
@@ -168,29 +152,29 @@ void PlayerHud::DrawCommandPanel(const Player& player) const
 	// 通常
 	const Command pageNormal[] =
 	{
-		{ "F",      { PadIcon::SQUARE },   1, false, "攻撃",     true, player.IsAttack() },
-		{ "U",      { PadIcon::CIRCLE },   1, false, "気弾",     true, false },
-		{ "SPACE",  { PadIcon::L3 },       1, false, "高速接近", true, false },
-		{ "J", { PadIcon::CROSS },    1, false, "回避",     true, player.IsDodging() },
-		{ "T",      { PadIcon::TRIANGLE }, 1, true,  "気溜め",   true, false },
-		{ "L",      { PadIcon::L2 },       1, true,  "ガード",   true, player.IsGuard() },
-		{ "TAB",    { PadIcon::L1 },       1, true,  "必殺技",   true, false },
-		{ "H",      { PadIcon::L2, PadIcon::PLUS, PadIcon::R2 }, 3, true, "フォーム", true, false },
+		{ "F",      { PadIcon::X },   1, false, "攻撃",     true, player.IsAttack() },
+		{ "U",      { PadIcon::B },   1, false, "気弾",     true, false },
+		{ "SPACE",  { PadIcon::LS },       1, false, "高速接近", true, false },
+		{ "J", { PadIcon::A },    1, false, "回避",     true, player.IsDodging() },
+		{ "T",      { PadIcon::Y }, 1, true,  "気溜め",   true, false },
+		{ "L",      { PadIcon::LT },       1, true,  "ガード",   true, player.IsGuard() },
+		{ "TAB",    { PadIcon::LB },       1, true,  "必殺技",   true, false },
+		{ "H",      { PadIcon::LT, PadIcon::PLUS, PadIcon::RT }, 3, true, "フォーム", true, false },
 	};
 
 	// 必殺技パレット
 	const Command pageSpecial[] =
 	{
-		{ "R", { PadIcon::SQUARE }, 1, false, "かめはめ波",
+		{ "R", { PadIcon::X }, 1, false, "かめはめ波",
 			ki >= Player::KAMEHAME_KI_COST, player.IsKamehame() },
-		{ "U", { PadIcon::CIRCLE }, 1, false, "連続気弾",
+		{ "U", { PadIcon::B }, 1, false, "連続気弾",
 			ki >= PlayerConfig::Barrage::KI_COST, player.IsBarrageActive() },
 	};
 
 	// フォームチェンジパレット
 	const Command pageForm[] =
 	{
-		{ "G", { PadIcon::SQUARE }, 1, false,
+		{ "G", { PadIcon::X }, 1, false,
 			isSuper ? "元に戻る" : "変身",
 			isSuper || ki >= PlayerConfig::Transform::KI_COST, player.IsTransforming() },
 	};

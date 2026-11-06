@@ -98,6 +98,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\Manager\Camera\Camera_Internal.h" />
+    <ClInclude Include="Src\Utility\Memlog.h" />
     <ClInclude Include="Src\Object\Enemy\definition\EnemyUtil.h" />
     <ClInclude Include="Src\Object\Enemy\definition\EnemyFactory.h" />
     <ClInclude Include="Src\Object\Enemy\definition\EnemyData.h" />

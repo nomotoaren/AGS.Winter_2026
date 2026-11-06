@@ -100,6 +100,7 @@ void AnimationController::Add(int type, const std::string& path, float speed)
 	{
 		// ’Ç‰Á
 		animations_[type].model = anim.model;
+		animations_[type].speed = anim.speed;
 		animations_[type].animIndex = anim.animIndex;
 		animations_[type].attachNo = anim.attachNo;
 		animations_[type].totalTime = anim.totalTime;

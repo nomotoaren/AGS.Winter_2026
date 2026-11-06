@@ -8,6 +8,7 @@
 #include "../Manager/PadInput.h"
 #include "../Manager/AppFlow.h"
 #include "../Manager/Camera/Camera.h"
+#include "../Manager/GameProgress.h"
 #include "../Common/MenuUI.h"
 #include "../Object/Common/AnimationController.h"
 #include "../Object/SkyDome.h"
@@ -20,6 +21,8 @@ TitleScene::TitleScene(void)
 	animationController_ = nullptr;
 	menu_ = nullptr;
 	isDecided_ = false;
+	hasProgress_ = false;
+	isConfirming_ = false;
 }
 
 TitleScene::~TitleScene(void)
@@ -74,10 +77,27 @@ void TitleScene::Init(void)
 
 	// タイトルメニュー
 	menu_ = std::make_unique<MenuUI>();
-	menu_->Open({ "ゲームスタート", "ゲーム終了" }, 0);
+	hasProgress_ = GameProgress::HasProgress();
+	OpenMainMenu(0);
 
 	isDecided_ = false;
 
+}
+
+void TitleScene::OpenMainMenu(int cursor)
+{
+	isConfirming_ = false;
+
+	if (hasProgress_)
+	{
+		menu_->Open({ "つづきから", "はじめから", "ゲーム終了" }, cursor);
+	}
+	else
+	{
+		menu_->Open({ "ゲームスタート", "ゲーム終了" }, cursor);
+	}
+
+	menu_->SetCaption("");
 }
 
 void TitleScene::Update(void)
@@ -91,16 +111,47 @@ void TitleScene::Update(void)
 	{
 		const int result = menu_->Update(SceneManager::GetInstance().GetDeltaTime());
 
-		if (result == 0)
+		auto startGame = [this]()
+			{
+				isDecided_ = true;
+				SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::STAGE_SELECT);
+			};
+
+		if (isConfirming_)
 		{
-			// ゲームスタート(SPACE / ENTER / ○ でも始まる)
-			isDecided_ = true;
-			SceneManager::GetInstance().ChangeScene(SceneManager::SCENE_ID::STAGE_SELECT);
+			// 「はじめから」の確認(0 = はい / 1 = いいえ)
+			if (result == 0)
+			{
+				GameProgress::Reset();
+				startGame();
+			}
+			else if (result == 1 || result == MenuUI::RESULT_CANCEL)
+			{
+				OpenMainMenu(1);
+			}
 		}
-		else if (result == 1)
+		else
 		{
-			// ゲーム終了(メインループが AppFlow::IsQuitRequested() を見て終わる)
-			AppFlow::RequestQuit();
+			const int newGameIndex = hasProgress_ ? 1 : -1;
+			const int quitIndex = hasProgress_ ? 2 : 1;
+
+			if (result == 0)
+			{
+				// つづきから / ゲームスタート
+				startGame();
+			}
+			else if (hasProgress_ && result == newGameIndex)
+			{
+				// セーブを消すので、間違えて押しても大丈夫なように確認を挟む
+				isConfirming_ = true;
+				menu_->Open({ "はい", "いいえ" }, 1);
+				menu_->SetCaption("セーブデータを消して、最初から始めます。よろしいですか?");
+			}
+			else if (result == quitIndex)
+			{
+				// ゲーム終了(メインループが AppFlow::IsQuitRequested() を見て終わる)
+				AppFlow::RequestQuit();
+			}
 		}
 	}
 

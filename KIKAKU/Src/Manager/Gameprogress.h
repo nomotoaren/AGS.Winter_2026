@@ -12,7 +12,7 @@ namespace GameProgress
 	constexpr int STAGE_MAX = 3;
 
 	// レベルの上限
-	constexpr int LEVEL_MAX = 10;
+	constexpr int LEVEL_MAX = 1000;
 
 	// レベルが1上がるごとに、攻撃力が増える割合(0.10 = 10%)
 	constexpr float ATTACK_RATE_PER_LEVEL = 0.10f;
@@ -113,6 +113,27 @@ namespace GameProgress
 		}
 
 		file << "\n";
+	}
+
+	// 遊んだ形跡があるか(「つづきから」を出すかの判定に使う)
+	inline bool HasProgress(void)
+	{
+		const Data& d = Get();
+
+		if (d.level > 1 || d.exp > 0)
+		{
+			return true;
+		}
+
+		for (int i = 0; i < STAGE_MAX; i++)
+		{
+			if (d.cleared[i])
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	// 読み込み(ファイルがなければ、最初の状態のまま)

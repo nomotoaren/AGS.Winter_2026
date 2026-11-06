@@ -231,7 +231,7 @@ bool StageSelectScene::IsDecidePressed(void) const
 	return
 		ins.IsTrgDown(KEY_INPUT_RETURN) ||
 		ins.IsTrgDown(KEY_INPUT_SPACE) ||
-		PadInput::IsTrg(PadInput::BTN::CIRCLE);
+		PadInput::IsTrg(PadInput::BTN::CROSS);
 }
 
 bool StageSelectScene::IsCancelPressed(void) const
@@ -241,7 +241,7 @@ bool StageSelectScene::IsCancelPressed(void) const
 	return
 		ins.IsTrgDown(KEY_INPUT_ESCAPE) ||
 		ins.IsTrgDown(KEY_INPUT_BACK) ||
-		PadInput::IsTrg(PadInput::BTN::CROSS);
+		PadInput::IsTrg(PadInput::BTN::CIRCLE);
 }
 
 void StageSelectScene::Decide(int index)
@@ -531,5 +531,5 @@ void StageSelectScene::DrawDetailPanel(void) const
 void StageSelectScene::DrawHint(void) const
 {
 	DrawLabel(960.0f, 1030.0f,
-		"ª« ‘I‘ğ     ENTER / › Œˆ’è     ESC / ~ –ß‚é", kGray(), fontSmall_, 1);
+		"ª« ‘I‘ğ     ENTER / A Œˆ’è     ESC / B –ß‚é", kGray(), fontSmall_, 1);
 }
