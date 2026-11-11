@@ -366,3 +366,27 @@
 [MEM] after enemies              1940.0 MB  graph:112
 [MEM] GameScene dtor start       2054.4 MB  graph:100
 [MEM] GameScene dtor end         2054.4 MB  graph:99
+[MEM] Init start                  793.2 MB  graph:19
+[MEM] after player               1046.8 MB  graph:36
+[MEM] after stage                1065.1 MB  graph:38
+[MEM] after skydome              1065.1 MB  graph:38
+[MEM] after posteffect           1069.3 MB  graph:39
+[MEM] after enemies              1939.6 MB  graph:112
+[MEM] GameScene dtor start       2111.9 MB  graph:119
+[MEM] GameScene dtor end         2111.9 MB  graph:118
+[MEM] Init start                  833.6 MB  graph:19
+[MEM] after player               1060.8 MB  graph:36
+[MEM] after stage                1073.4 MB  graph:38
+[MEM] after skydome              1073.4 MB  graph:38
+[MEM] after posteffect           1077.6 MB  graph:39
+[MEM] after enemies              1948.0 MB  graph:112
+[MEM] GameScene dtor start       2074.9 MB  graph:113
+[MEM] GameScene dtor end         2074.9 MB  graph:112
+[MEM] Init start                  833.6 MB  graph:19
+[MEM] after player               1060.8 MB  graph:36
+[MEM] after stage                1073.4 MB  graph:38
+[MEM] after skydome              1073.4 MB  graph:38
+[MEM] after posteffect           1077.6 MB  graph:39
+[MEM] after enemies              1496.8 MB  graph:58
+[MEM] GameScene dtor start       1525.3 MB  graph:46
+[MEM] GameScene dtor end         1525.3 MB  graph:45
