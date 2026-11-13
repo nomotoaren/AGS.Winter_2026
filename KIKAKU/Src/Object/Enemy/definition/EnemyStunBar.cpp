@@ -8,15 +8,15 @@ namespace
 {
 	constexpr float BAR_WIDTH = 300.0f;
 	constexpr float BAR_HEIGHT = 10.0f;
-	constexpr float OFFSET_BELOW_HP = 36.0f;	// HPバーの下端からの距離(HPの数字の下に置く)
+	constexpr float OFFSET_BELOW_HP = 36.0f;	// HPバーの下端からの距離
 
-	// BREAK! 演出の、最後に薄くなっていく時間(秒)
+	// BREAK! 演出の、最後に薄くなっていく時間
 	constexpr float BREAK_FADE_TIME = 0.25f;
 }
 
 void EnemyStunBar::Draw(float rate, bool stunned, float time) const
 {
-	// 満タンのときは出さない(うるさくならないように)
+	// 満タンのときは出さない
 	if (!stunned && rate >= 1.0f)
 	{
 		return;

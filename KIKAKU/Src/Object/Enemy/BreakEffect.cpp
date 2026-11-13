@@ -105,8 +105,6 @@ namespace
 	}
 
 	// 破片1枚(三角形)を描く
-	//   a,b,c    : 三角形の3点(画像上の u,v)
-	//   shardId  : 破片ごとの番号(乱数の種)
 	void DrawShard(
 		int img, const float uv[3][2], int shardId,
 		float cx, float cy, float w, float h,

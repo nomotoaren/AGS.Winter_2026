@@ -189,7 +189,6 @@ bool MenuUI::IsCancelPressed(void)
 //------------------------------------------------------------
 void MenuUI::CreateFonts(void) const
 {
-	// 作成済みなら何もしない
 	if (fontHeading_ != -1)
 	{
 		return;

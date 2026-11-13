@@ -3,10 +3,6 @@
 #include <vector>
 
 // 縦に並んだ選択メニュー(ポーズ / ゲームオーバー / タイトルで共通で使う)
-//   操作: ↑↓ または W/S / パッドのスティック上下 で選択
-//         ENTER・SPACE / パッド○ で決定
-//         ESC・BACKSPACE / パッド× で戻る
-//   ※パッドを使うので、呼ぶ側で PadInput::Update() を毎フレーム1回呼んでおくこと
 class MenuUI
 {
 

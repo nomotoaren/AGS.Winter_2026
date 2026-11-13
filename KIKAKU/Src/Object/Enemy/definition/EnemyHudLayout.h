@@ -1,7 +1,6 @@
 #pragma once
 
-// 敵のHPバーまわり(EnemyHud / EnemyStunBar)で共通の配置
-//   基準解像度(幅1500)でのレイアウト。実際の画面幅に合わせて拡大縮小する
+// 敵のHPバー共通の配置
 namespace EnemyHudLayout
 {
 	constexpr float BASE_WIDTH = 1500.0f;

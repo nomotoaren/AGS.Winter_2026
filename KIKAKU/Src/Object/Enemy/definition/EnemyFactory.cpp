@@ -8,7 +8,6 @@ namespace EnemyFactory
 	{
 		std::unique_ptr<EnemyBase> enemy;
 
-		// 新しい敵クラスは、ここに case を足す
 		switch (type)
 		{
 		case EnemyData::TYPE::MELEE:
@@ -17,7 +16,6 @@ namespace EnemyFactory
 			break;
 		}
 
-		// 種類ごとのデータを反映してから、ステージ用のHPで上書きする(Init の前に決める)
 		enemy->ApplyInfo(EnemyData::Get(type));
 
 		if (hp > 0)

@@ -72,7 +72,7 @@ void Camera::SetBeforeDrawCinematic(void)
     const int last = static_cast<int>(cineKeys_.size()) - 1;
     int i = 0;
 
-    while (i < last && cineKeys_[i + 1].time <= cineTime_)
+    while (i < last && cineKeys_[static_cast<std::vector<Camera::CineKey, std::allocator<Camera::CineKey>>::size_type>(i) + 1].time <= cineTime_)
     {
         i++;
     }
@@ -82,10 +82,10 @@ void Camera::SetBeforeDrawCinematic(void)
     float fov = cineKeys_[i].fovDeg;
 
     // 次のキーへ補間する(次がカットなら、その時刻まで今のまま)
-    if (i < last && !cineKeys_[i + 1].cut)
+    if (i < last && !cineKeys_[static_cast<std::vector<Camera::CineKey, std::allocator<Camera::CineKey>>::size_type>(i) + 1].cut)
     {
         const CineKey& a = cineKeys_[i];
-        const CineKey& b = cineKeys_[i + 1];
+        const CineKey& b = cineKeys_[static_cast<std::vector<Camera::CineKey, std::allocator<Camera::CineKey>>::size_type>(i) + 1];
 
         float u = (cineTime_ - a.time) / (b.time - a.time);
         u = u < 0.0f ? 0.0f : (u > 1.0f ? 1.0f : u);

@@ -82,7 +82,7 @@ void Resource::Load(void)
 
 }
 
-void Resource::Release(void)
+void Resource::Release(void) const
 {
 
 	switch (type_)
@@ -105,7 +105,7 @@ void Resource::Release(void)
 	case Resource::TYPE::MODEL:
 	{
 		MV1DeleteModel(handleId_);
-		auto ids = duplicateModelIds_;
+		auto& ids = duplicateModelIds_;
 		for (auto id : ids)
 		{
 			MV1DeleteModel(id);
@@ -122,7 +122,7 @@ void Resource::Release(void)
 
 }
 
-void Resource::CopyHandle(int* imgs)
+void Resource::CopyHandle(int* imgs) const
 {
 
 	if (handleIds_ == nullptr)

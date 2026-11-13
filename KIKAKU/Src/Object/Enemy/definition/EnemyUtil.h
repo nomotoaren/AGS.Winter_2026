@@ -6,11 +6,9 @@
 
 namespace EnemyUtil
 {
-	// 「ゼロ」とみなす長さ
 	constexpr float kEpsilon = 0.001f;
 
 	// 1フレームあたりの移動量に掛ける倍率
-	//   (吹っ飛びなどの速さは 144fps の1フレーム分で決めてあるので、60fps なら約2.4倍にして同じ速さにする)
 	inline float FrameScale(void)
 	{
 		float s = SceneManager::GetInstance().GetFrameScale();

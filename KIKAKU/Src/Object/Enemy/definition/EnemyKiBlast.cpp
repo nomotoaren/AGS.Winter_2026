@@ -62,7 +62,7 @@ void EnemyKiBlast::Update(float deltaTime)
 
 	time_ += deltaTime;
 
-	// 止められている間は動かず、寿命も減らさない
+	// 時間だけ進める
 	if (isFrozen_)
 	{
 		life_ += deltaTime;
@@ -75,7 +75,7 @@ void EnemyKiBlast::Update(float deltaTime)
 		return;
 	}
 
-	// 追尾: 遅れて始まり、追尾時間のあいだだけ目標へ少しずつ曲がる(固定位置を狙う弾も同じ)
+	// 追尾
 	const bool homing = (homingTarget_ != nullptr || useFixedGoal_);
 
 	if (homing && time_ >= homingDelay_ && time_ < homingTime_)
@@ -99,7 +99,7 @@ void EnemyKiBlast::Update(float deltaTime)
 		}
 	}
 
-	// 速さは「1/60秒あたり」なので、フレーム時間に合わせて直す
+	// 速さはフレーム時間に合わせて直す
 	pos_ = VAdd(pos_, VScale(dir_, speed_ * deltaTime * 60.0f));
 }
 

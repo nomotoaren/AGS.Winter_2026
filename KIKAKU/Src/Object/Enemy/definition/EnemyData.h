@@ -1,10 +1,8 @@
 #pragma once
 
-// 敵の種類ごとの基本データ(新しい敵を作るときは、ここに1行足すところから始める)
-//   ここにあるのは「種類ごとに決まる数字」だけ。ステージごとのHPの上書きなどは StageData 側で行う
 namespace EnemyData
 {
-	// 敵の種類(EnemyFactory がこれを見てクラスを選ぶ)
+	// 敵の種類
 	enum class TYPE
 	{
 		MELEE,		// 格闘・気弾・ビームなどを使う敵(いまの MeleeEnemy)
