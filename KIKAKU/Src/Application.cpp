@@ -4,6 +4,7 @@
 #include "Manager/ResourceManager.h"
 #include "Manager/SceneManager.h"
 #include "Manager/EffekseerEffect.h"
+#include "Audio/AudioManager.h"
 #include "Manager/AppFlow.h"
 #include "Application.h"
 
@@ -54,6 +55,9 @@ void Application::Init(void)
 
 	EffekseerEffect::CreateInstance();
 	EffekseerEffect::GetInstance()->Init();
+
+	AudioManager::CreateInstance();
+	AudioManager::GetInstance()->Init();
 
 	// キー制御初期化
 	SetUseDirectInputFlag(true);
@@ -119,6 +123,8 @@ void Application::Destroy(void)
 	SceneManager::GetInstance().Destroy();
 
 	EffekseerEffect::DeleteInstance();
+	AudioManager::DeleteInstance();
+
 
 	// Effekseerを終了する。
 	Effkseer_End();

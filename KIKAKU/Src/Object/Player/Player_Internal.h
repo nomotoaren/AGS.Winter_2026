@@ -1,6 +1,4 @@
 #pragma once
-// Player の .cpp(Player.cpp / Player_Visual.cpp / Player_Move.cpp / Player_Attack.cpp / Player_Status.cpp)で
-// 共通に使う小さな部品。Player.cpp が長くなりすぎたので、ファイルを分けるときにここへまとめた
 #include <string>
 #include <DxLib.h>
 #include "../../Manager/InputManager.h"

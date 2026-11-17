@@ -16,6 +16,7 @@
 #include "../../Manager/PlayRecord.h"
 #include "../../Manager/GameProgress.h"
 #include "../../Manager/StageData.h"
+#include "../../Audio/AudioManager.h"
 #include "../../Common/MenuUI.h"
 #include "../../Object/Common/Capsule.h"
 #include "../../Object/Common/Collider.h"
@@ -84,11 +85,15 @@ GameScene::~GameScene(void)
 	AppFlow::SetEffectFreeze(false);
 
 	LogMem("GameScene dtor end");
+
+	AudioManager::GetInstance()->DeleteSceneSound(LoadScene::GAME);
 }
 
 void GameScene::Init(void)
 {
 	LogMem("Init start");
+
+	AudioManager::GetInstance()->LoadSceneSound(LoadScene::GAME);
 
 	// HUD(自分・敵のHPバーなど)は、エフェクトや弾より手前に出す
 	SceneManager::GetInstance().SetOverlayDraw([this]()

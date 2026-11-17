@@ -6,6 +6,7 @@
 #include "../../Application.h"
 #include "../../Utility/AsoUtility.h"
 #include "../../Utility/DamageCalc.h"
+#include "../../Audio/AudioManager.h"
 #include "../../Manager/SceneManager.h"
 #include "../../Manager/Camera/Camera.h"
 #include "../../Manager/InputManager.h"
@@ -29,6 +30,19 @@
 #include "GameScene_Internal.h"
 
 using namespace GameSceneInternal;
+
+namespace
+{
+	// 効果音を鳴らす
+	void PlaySe(SoundID id)
+	{
+		AudioManager* audio = AudioManager::GetInstance();
+		if (audio != nullptr)
+		{
+			audio->PlaySE(id);
+		}
+	}
+}
 
 // 敵と体
 void GameScene::UpdateEnemies(float dt)
@@ -194,6 +208,8 @@ void GameScene::UpdateMeleeHit(void)
 
 			EffekseerEffect::GetInstance()->PlayHitEffect(HitEffectPos(*enemy), 0.0f);
 
+			PlaySe(SoundID::SE_GUARD);
+
 			StartHitStop(0.03f);
 
 			player_->SetAttackHit();
@@ -233,6 +249,20 @@ void GameScene::UpdateMeleeHit(void)
 			ApplyHitImpact(0.05f, PlayerConfig::HitShake::MELEE_TIME, PlayerConfig::HitShake::MELEE_POWER);
 		}
 
+		// 当たった音(フィニッシュ / 5段目以降 / それ以外)
+		if (isFinish)
+		{
+			PlaySe(SoundID::SE_HIT_FINISH);
+		}
+		else if (combo >= 5)
+		{
+			PlaySe(SoundID::SE_HIT_MEDIUM);
+		}
+		else
+		{
+			PlaySe(SoundID::SE_HIT_LIGHT);
+		}
+
 		// クリティカルは、少し長く止めて画面を揺らす
 		if (player_->IsLastCritical())
 		{
@@ -270,6 +300,8 @@ void GameScene::UpdateKiBlastHit(void)
 			}
 
 			DealDamage(*enemy, player_->GetAttackDamage(KI_BLAST_DAMAGE_TYPE), KI_BLAST_STUN);
+
+			PlaySe(SoundID::SE_KI_HIT);
 
 			mainCamera.StartShake(PlayerConfig::HitShake::KI_BLAST_TIME, PlayerConfig::HitShake::KI_BLAST_POWER);
 
@@ -314,6 +346,8 @@ void GameScene::UpdateBarrageHit(void)
 
 			DealDamage(*enemy, player_->GetAttackDamage(KI_BLAST_DAMAGE_TYPE),
 				PlayerConfig::Barrage::STUN);
+
+			PlaySe(SoundID::SE_KI_HIT);
 
 			mainCamera.StartShake(PlayerConfig::HitShake::BARRAGE_TIME, PlayerConfig::HitShake::BARRAGE_POWER);
 
@@ -363,6 +397,8 @@ void GameScene::UpdateFinishBlastHit(void)
 				FINISH_BLAST_HIT_STOP,
 				FINISH_BLAST_SHAKE_TIME,
 				FINISH_BLAST_SHAKE_POWER);
+
+			PlaySe(SoundID::SE_HIT_FINISH);
 
 			finish->Kill();
 
@@ -445,6 +481,8 @@ void GameScene::UpdateKamehameHit(float dt)
 		if (kamehameDamageTimer_ >= BEAM_DAMAGE_INTERVAL)
 		{
 			DealDamage(*enemy, player_->GetAttackDamage(BEAM_DAMAGE_TYPE), BEAM_STUN);
+
+			PlaySe(SoundID::SE_BEAM_TICK);
 
 			mainCamera.StartShake(PlayerConfig::HitShake::BEAM_TIME, PlayerConfig::HitShake::BEAM_POWER);
 

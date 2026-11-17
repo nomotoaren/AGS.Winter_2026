@@ -36,7 +36,22 @@ PlayerAttack::Context Player::MakeAttackContext(void) const
 void Player::UpdateAttack(void)
 {
 	auto& ins = InputManager::GetInstance();
-	const bool pushAttack = ins.IsTrgDown(KEY_INPUT_F) || PadInput::IsFightTrg();
+
+	if (ins.IsTrgDown(KEY_INPUT_F) || PadInput::IsFightTrg())
+	{
+		attackBuffer_ = ATTACK_BUFFER_TIME;
+		dbgPress_++;
+	}
+	else if (attackBuffer_ > 0.0f)
+	{
+		attackBuffer_ -= scnMng_.GetDeltaTime();
+		if (attackBuffer_ <= 0.0f)
+		{
+			dbgExpired_++;
+		}
+	}
+
+	const bool pushAttack = attackBuffer_ > 0.0f;
 
 	// 追撃できる間に攻撃ボタン(ヒートアップ中は自動)で追撃する
 	if (pursuitWindow_ > 0.0f &&
@@ -50,6 +65,7 @@ void Player::UpdateAttack(void)
 
 		if (pushAttack || autoChase)
 		{
+			attackBuffer_ = 0.0f;
 			pursuitPending_ = true;
 			pursuitWindow_ = 0.0f;
 			pursuitRecover_ = cfg::Pursuit::HIT_DELAY + cfg::Pursuit::RECOVER_TIME;
@@ -72,6 +88,7 @@ void Player::UpdateAttack(void)
 		!boostChase_.IsActive() &&
 		pushAttack)
 	{
+		attackBuffer_ = 0.0f;
 		attack_.StartChase();
 		canChase_ = false;
 		movePow_ = AsoUtility::VECTOR_ZERO;
@@ -83,6 +100,8 @@ void Player::UpdateAttack(void)
 	// 攻撃を始める / 攻撃中なら次の段の先行入力
 	if (!kamehame_.IsActive() && !attack_.IsChasing() && !boostChase_.IsActive() && pushAttack)
 	{
+		attackBuffer_ = 0.0f;
+
 		if (!attack_.IsAttack())
 		{
 			StartAttack();
@@ -225,6 +244,32 @@ void Player::AdvanceCombo(void)
 	}
 }
 
+void Player::DrawInputDebug(void) const
+{
+	// false にすると、表示しない
+	constexpr bool ENABLE = true;
+	if (!ENABLE)
+	{
+		return;
+	}
+
+	const int x = 20;
+	const int y = 60;
+	const int barW = 200;
+	const int barH = 14;
+
+	// 予約の残り(満タンから減っていく)
+	float rate = attackBuffer_ / ATTACK_BUFFER_TIME;
+	if (rate < 0.0f) { rate = 0.0f; }
+	if (rate > 1.0f) { rate = 1.0f; }
+
+	DrawBox(x, y, x + barW, y + barH, 0x333333, true);
+	DrawBox(x, y, x + (int)(barW * rate), y + barH, 0x00ff66, true);
+	DrawBox(x, y, x + barW, y + barH, 0xffffff, false);
+
+	DrawFormatString(x, y + barH + 4, 0xffffff,
+		"先行入力  押した:%d  期限切れ:%d", dbgPress_, dbgExpired_);
+}
 PlayerKamehameha::Context Player::MakeKamehameContext(void) const
 {
 	PlayerKamehameha::Context ctx{};

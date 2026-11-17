@@ -1,4 +1,3 @@
-// プレイヤーHUD: ガードゲージ(耐久値の表示と、ガードブレイク中の表示)
 #include <cmath>
 #include <algorithm>
 #include <DxLib.h>
@@ -11,8 +10,6 @@
 using HudDraw::DrawStringRight;
 
 // ガードゲージ
-//   ガード中・耐久値が減っている間・ガードブレイク中だけ出す(満タンで構えていない時は出さない)
-//   ブレイク中は、動けるようになるまでの残り時間を、赤いゲージで減らしていく
 void PlayerHud::DrawGuardGauge(const Player& player, float x, float y, float w, float h, float s) const
 {
 	const bool isBreak = player.IsGuardBreak();

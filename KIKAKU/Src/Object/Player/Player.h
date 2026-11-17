@@ -496,6 +496,15 @@ private:
 	void ApplyForm(FORM form);
 
 	float attackEndTimer_;
+	float attackBuffer_;	// 攻撃ボタンの先行入力(残り秒数)
+
+	// 先行入力
+	static constexpr float ATTACK_BUFFER_TIME = 0.2f;	// 覚えておく長さ(秒)
+
+	// 確認用(確認が終わったら消してよい)
+	int dbgPress_ = 0;		// 攻撃ボタンを押した回数
+	int dbgExpired_ = 0;	// 使えないまま期限切れになった回数
+	void DrawInputDebug(void) const;
 
 	// かめはめ波
 	PlayerKamehameha kamehame_;		// かめはめ波

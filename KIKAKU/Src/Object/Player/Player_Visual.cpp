@@ -378,6 +378,7 @@ bool Player::IsBeforeGold(void) const
 void Player::DrawHud(void)
 {
 	hud_.Draw(*this);
+	DrawInputDebug();
 }
 
 void Player::DrawAfterImage(const MATRIX& matrix, float opacity, bool disableLighting)

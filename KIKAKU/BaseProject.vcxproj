@@ -19,6 +19,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Src\Audio\SoundTable.cpp" />
+    <ClCompile Include="Src\Audio\AudioManager.cpp" />
     <ClCompile Include="Src\Manager\Camera\Camera_Cinematic.cpp" />
     <ClCompile Include="Src\Manager\Camera\Camera_Kamehame.cpp" />
     <ClCompile Include="Src\Object\Enemy\Melee\MeleeEnemy_AI.cpp" />
@@ -97,6 +99,8 @@
     <ClCompile Include="Src\Scene\StageSelectScene.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Src\Audio\SoundTable.h" />
+    <ClInclude Include="Src\Audio\AudioManager.h" />
     <ClInclude Include="Src\Manager\Camera\Camera_Internal.h" />
     <ClInclude Include="Src\Utility\Memlog.h" />
     <ClInclude Include="Src\Object\Enemy\definition\EnemyUtil.h" />

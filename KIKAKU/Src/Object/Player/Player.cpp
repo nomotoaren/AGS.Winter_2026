@@ -78,6 +78,7 @@ Player::Player(void)
 	isDead_(false),
 
 	attackEndTimer_(0.0f),
+	attackBuffer_(0.0f),
 	rightHandFrame_(-1),
 
 	capsule_(nullptr),
