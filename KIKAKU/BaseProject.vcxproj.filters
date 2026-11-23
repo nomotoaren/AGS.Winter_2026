@@ -526,5 +526,6 @@
     <FxCompile Include="Src\Shader\Vertex\WaterPS.hlsl" />
     <FxCompile Include="Src\Shader\Vertex\WaterVS.hlsl" />
     <FxCompile Include="Src\Shader\PostEffect\TimeStopPS.hlsl" />
+    <FxCompile Include="Src\Shader\PostEffect\SkyPS.hlsl" />
   </ItemGroup>
 </Project>

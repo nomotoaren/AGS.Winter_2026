@@ -1,19 +1,16 @@
-#include "../Manager/ResourceManager.h"
+#include <DxLib.h>
+#include <cmath>
+#include "../Application.h"
 #include "../Manager/SceneManager.h"
-#include "../Utility/AsoUtility.h"
-#include "Common/Transform.h"
+#include "../Renderer/PixelMaterial.h"
+#include "../Renderer/PixelRenderer.h"
 #include "SkyDome.h"
 
-SkyDome::SkyDome(const Transform& syncTransform) : syncTransform_(syncTransform)
+SkyDome::SkyDome(const Transform& syncTransform)
+	:
+	syncTransform_(syncTransform),
+	time_(0.0f)
 {
-
-	state_ = STATE::NONE;
-	
-	// 状態管理
-	stateChanges_.emplace(STATE::NONE, std::bind(&SkyDome::ChangeStateNone, this));
-	stateChanges_.emplace(STATE::STAY, std::bind(&SkyDome::ChangeStateStay, this));
-	stateChanges_.emplace(STATE::FOLLOW, std::bind(&SkyDome::ChangeStateFollow, this));
-
 }
 
 SkyDome::~SkyDome(void)
@@ -23,91 +20,57 @@ SkyDome::~SkyDome(void)
 void SkyDome::Init(void)
 {
 
-	// モデル制御の基本情報
-	transform_.SetModel(
-		resMng_.LoadModelDuplicate(
-			ResourceManager::SRC::SKY_DOME));
-	transform_.scl = SCALES;
-	transform_.pos = AsoUtility::VECTOR_ZERO;
-	transform_.quaRot = Quaternion::Euler(
-		0.0f, 
-		AsoUtility::Deg2RadF(180.0f),
-		0.0f
-	);
-	transform_.quaRotLocal = Quaternion();
-	transform_.Update();
-
-	// Zバッファ無効(突き抜け対策)
-	MV1SetUseZBuffer(transform_.modelId, false);
-	MV1SetWriteZBuffer(transform_.modelId, false);
-
-	// 状態遷移
-	auto sceneId = scnMng_.GetSceneID();
-	if(sceneId == SceneManager::SCENE_ID::TITLE)
+	// 空のシェーダー(定数はFLOAT4が5個: 右/上/前/パラメータ/太陽)
+	material_ = std::make_unique<PixelMaterial>("SkyPS.cso", CONST_BUF_NUM);
+	for (int i = 0; i < CONST_BUF_NUM; i++)
 	{
-		ChangeState(STATE::STAY);
+		material_->AddConstBuf(FLOAT4{ 0.0f, 0.0f, 0.0f, 0.0f });
 	}
-	else
-	{
-		ChangeState(STATE::FOLLOW);
-	}
+
+	// 画面いっぱいの四角
+	renderer_ = std::make_unique<PixelRenderer>(*material_);
+	renderer_->MakeSquereVertex(
+		Vector2(0, 0),
+		Vector2(Application::SCREEN_SIZE_X, Application::SCREEN_SIZE_Y));
+
+	time_ = 0.0f;
 
 }
 
 void SkyDome::Update(void)
 {
-
-	// 更新ステップ
-	stateUpdate_();
-
+	// 雲を流す
+	time_ += SceneManager::GetInstance().GetDeltaTime() * CLOUD_SPEED;
 }
 
 void SkyDome::Draw(void)
 {
-	MV1DrawModel(transform_.modelId);
-}
 
-void SkyDome::ChangeState(STATE state)
-{
+	if (!renderer_)
+	{
+		return;
+	}
 
-	// 状態変更
-	state_ = state;
+	// 今のカメラの向き(右は、上と前から求める)
+	const VECTOR front = VNorm(GetCameraFrontVector());
+	const VECTOR up0 = GetCameraUpVector();
+	const VECTOR right = VNorm(VCross(up0, front));
+	const VECTOR up = VCross(front, right);
 
-	// 各状態遷移の初期処理
-	stateChanges_[state_]();
+	const float tanHalfFov = std::tan(GetCameraFov() * 0.5f);
+	const float aspect =
+		static_cast<float>(Application::SCREEN_SIZE_X) /
+		static_cast<float>(Application::SCREEN_SIZE_Y);
 
-}
+	const VECTOR sun = VNorm(SUN_DIR);
 
-void SkyDome::ChangeStateNone(void)
-{
-	stateUpdate_ = std::bind(&SkyDome::UpdateNone, this);
-}
+	material_->SetConstBuf(0, FLOAT4{ right.x, right.y, right.z, 0.0f });
+	material_->SetConstBuf(1, FLOAT4{ up.x, up.y, up.z, 0.0f });
+	material_->SetConstBuf(2, FLOAT4{ front.x, front.y, front.z, 0.0f });
+	material_->SetConstBuf(3, FLOAT4{ time_, tanHalfFov, aspect, CLOUD_COVER });
+	material_->SetConstBuf(4, FLOAT4{ sun.x, sun.y, sun.z, 0.0f });
 
-void SkyDome::ChangeStateStay(void)
-{
-	stateUpdate_ = std::bind(&SkyDome::UpdateStay, this);
-}
+	// 空は一番奥なので、他の3D描画より先に呼ぶ
+	renderer_->Draw();
 
-void SkyDome::ChangeStateFollow(void)
-{
-
-	stateUpdate_ = std::bind(&SkyDome::UpdateFollow, this);
-
-	transform_.pos = syncTransform_.pos;
-	transform_.Update();
-
-}
-
-void SkyDome::UpdateNone(void)
-{
-}
-
-void SkyDome::UpdateStay(void)
-{
-}
-
-void SkyDome::UpdateFollow(void)
-{
-	transform_.pos = syncTransform_.pos;
-	transform_.Update();
 }
