@@ -5,6 +5,7 @@
 #include "../definition/EnemyKiBlast.h"
 #include "../definition/EnemyAreaBlast.h"
 #include "../../Common/AnimationController.h"
+#include "../../Common/FloatLegPose.h"
 
 class Player;
 
@@ -171,6 +172,7 @@ private:
 	void UpdateBlasts(float deltaTime);
 	void UpdateAreaBlasts(float deltaTime);
 	void UpdateGuardWatch(float deltaTime, float distance);
+	void UpdateLegPose(float deltaTime);		// 走るアニメの間だけ、脚を浮遊のポーズにする
 
 	// プレイヤーの攻撃への反応(ガード / 回避)
 	bool TryReactToPlayerAttack(float distance);
@@ -244,6 +246,11 @@ private:
 	float hoverTime_ = 0.0f;
 
 	std::unique_ptr<AnimationController> animationController_;
+
+	// 脚のポーズ(プレイヤーと共通の部品)
+	FloatLegPose legPose_;
+	VECTOR prevPos_ = { 0.0f, 0.0f, 0.0f };		// 前のフレームの位置(動いた量を求める)
+	bool hasPrevPos_ = false;
 
 	Quaternion damageRot_;
 

@@ -373,3 +373,30 @@ void MeleeEnemy::DrawAuraColumn(const VECTOR& base, float rate) const
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 	SetUseLighting(TRUE);
 }
+
+// 脚のポーズ: 走るアニメの間だけ、浮遊のポーズへ寄せる(計算は FloatLegPose)
+void MeleeEnemy::UpdateLegPose(float deltaTime)
+{
+	constexpr float kLegRefSpeed = 270.0f;	// 横移動の量 1.0 とみなす速さ(1秒あたり)
+	constexpr float kLegBobSpeed = 2.0f;	// プレイヤーの Float::BOB_SPEED と同じ
+
+	// 実際に動いた量(1秒あたり)を求める
+	VECTOR move = VGet(0.0f, 0.0f, 0.0f);
+	if (hasPrevPos_ && deltaTime > 0.0001f)
+	{
+		move = VScale(VSub(transform_.pos, prevPos_), 1.0f / deltaTime);
+	}
+	prevPos_ = transform_.pos;
+	hasPrevPos_ = true;
+
+	// 自分の右へ動いた量(-1~1)
+	const VECTOR forward = transform_.quaRot.GetForward();
+	const VECTOR right = VGet(forward.z, 0.0f, -forward.x);
+	const float side = VDot(move, right) / kLegRefSpeed;
+
+	const ANIM_TYPE type = (ANIM_TYPE)animationController_->GetPlayType();
+	const bool isRun = (type == ANIM_TYPE::RUN || type == ANIM_TYPE::FAST_RUN);
+
+	legPose_.CancelRootMotion(isRun);
+	legPose_.Update(deltaTime, isRun, side, hoverTime_ * kLegBobSpeed);
+}

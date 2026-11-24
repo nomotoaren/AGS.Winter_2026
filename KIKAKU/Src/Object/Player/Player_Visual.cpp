@@ -23,41 +23,28 @@
 namespace cfg = PlayerConfig;
 using namespace PlayerInternal;
 
-// 脚のボーンを探し、回転軸を求める
+// 脚のポーズの部品を準備する(ボーンを探し、PlayerConfig の角度を渡す)
 void Player::InitLegFrames(void)
 {
-	const int model = transform_.modelId;
+	namespace lp = cfg::LegPose;
 
-	legFrames_[LEG_L_UP] = FindMixamoFrame(model, "LeftUpLeg");
-	legFrames_[LEG_L_KNEE] = FindMixamoFrame(model, "LeftLeg");
-	legFrames_[LEG_L_FOOT] = FindMixamoFrame(model, "LeftFoot");
-	legFrames_[LEG_R_UP] = FindMixamoFrame(model, "RightUpLeg");
-	legFrames_[LEG_R_KNEE] = FindMixamoFrame(model, "RightLeg");
-	legFrames_[LEG_R_FOOT] = FindMixamoFrame(model, "RightFoot");
+	FloatLegPose::Params p;
+	p.blendSpeed = lp::BLEND_SPEED;
+	p.lThigh = lp::L_THIGH;
+	p.lKnee = lp::L_KNEE;
+	p.lOpen = lp::L_OPEN;
+	p.rThigh = lp::R_THIGH;
+	p.rKnee = lp::R_KNEE;
+	p.rOpen = lp::R_OPEN;
+	p.foot = lp::FOOT;
+	p.sideSpread = lp::SIDE_SPREAD;
+	p.sway = lp::SWAY;
+	p.forwardSign = lp::FORWARD_SIGN;
+	p.sideSign = lp::SIDE_SIGN;
+	p.openSign = lp::OPEN_SIGN;
 
-	// ボーンからみた回転軸を求める
-	for (int i = 0; i < LEG_MAX; i++)
-	{
-		const int frame = legFrames_[i];
-		legAxisSide_[i] = VGet(1.0f, 0.0f, 0.0f);
-		legAxisFront_[i] = VGet(0.0f, 0.0f, 1.0f);
-
-		if (frame < 0)
-		{
-			continue;
-		}
-
-		// ボーンからモデルのローカル座標系への変換行列を求める
-		MATRIX toModel = MV1GetFrameBaseLocalMatrix(model, frame);
-		for (int p = MV1GetFrameParent(model, frame); p >= 0; p = MV1GetFrameParent(model, p))
-		{
-			toModel = MMult(toModel, MV1GetFrameBaseLocalMatrix(model, p));
-		}
-
-		const MATRIX toLocal = MInverse(toModel);
-		legAxisSide_[i] = NormalizeSafe(VTransformSR(VGet(1.0f, 0.0f, 0.0f), toLocal));
-		legAxisFront_[i] = NormalizeSafe(VTransformSR(VGet(0.0f, 0.0f, 1.0f), toLocal));
-	}
+	legPose_.SetParams(p);
+	legPose_.Init(transform_.modelId);
 }
 
 void Player::UpdateAfterImages(void)
@@ -156,9 +143,9 @@ bool Player::IsFloatSelfMove(void) const
 
 void Player::CancelRootMotion(void)
 {
-	if (hipsFrame_ < 0) { return; }
-
 	// 移動のアニメだけ、腰の水平移動を打ち消す(それ以外は元に戻す)
+	bool isMoveAnim = false;
+
 	switch ((ANIM_TYPE)animationController_->GetPlayType())
 	{
 	case ANIM_TYPE::RUN:
@@ -169,116 +156,34 @@ void Player::CancelRootMotion(void)
 	case ANIM_TYPE::LOCK_RIGHT_RUN:
 	case ANIM_TYPE::LOCK_BACK:
 	case ANIM_TYPE::LOCK_BACK_RUN:
+		isMoveAnim = true;
 		break;
 	default:
-		MV1ResetFrameUserLocalMatrix(transform_.modelId, hipsFrame_);
-		return;
+		break;
 	}
 
-	const int model = transform_.modelId;
-
-	MV1ResetFrameUserLocalMatrix(model, hipsFrame_);
-	MATRIX m = MV1GetFrameLocalMatrix(model, hipsFrame_);
-	const MATRIX base = MV1GetFrameBaseLocalMatrix(model, hipsFrame_);
-
-	// 水平(X・Z)だけ、元の位置に戻す
-	m.m[3][0] = base.m[3][0];
-	m.m[3][2] = base.m[3][2];
-
-	MV1SetFrameUserLocalMatrix(model, hipsFrame_, m);
+	legPose_.CancelRootMotion(isMoveAnim);
 }
 
-// 浮遊移動中の脚のポーズ
-//   移動アニメの上から、脚のボーンだけポーズへ寄せる
-//   左脚: 太ももを前へ上げて膝を曲げる / 右脚: 少し開いて軽く曲げて垂らす
+// 浮遊移動中の脚のポーズ(ポーズの計算は FloatLegPose)
+//   ここでは「ポーズにするか」と「横移動の量」だけを決めて渡す
 void Player::UpdateLegPose(void)
 {
 	namespace lp = cfg::LegPose;
-
-	const float dt = scnMng_.GetDeltaTime();
-	const int model = transform_.modelId;
 
 	// 動いているか
 	const bool moving =
 		VSize(ToHorizontal(movePow_)) > Constants::Epsilon ||
 		fabsf(movePow_.y) > Constants::Epsilon;
 
-	const float target = (IsFloatSelfMove() && (moving || lp::IN_IDLE)) ? 1.0f : 0.0f;
-
-	float k = lp::BLEND_SPEED * dt;
-	if (k > 1.0f) { k = 1.0f; }
-	legPoseRate_ += (target - legPoseRate_) * k;
-
-	// ほぼポーズなしなら、アニメのままにする
-	if (legPoseRate_ < 0.01f)
-	{
-		legPoseRate_ = 0.0f;
-
-		for (int frame : legFrames_)
-		{
-			if (frame >= 0)
-			{
-				MV1ResetFrameUserLocalMatrix(model, frame);
-			}
-		}
-		return;
-	}
+	const bool wantPose = IsFloatSelfMove() && (moving || lp::IN_IDLE);
 
 	// 横移動の量(脚を進行方向と逆へ流す)
 	const VECTOR forward = GetForward();
 	const VECTOR right = VGet(forward.z, 0.0f, -forward.x);
-	float side = VDot(movePow_, right) / SPEED_RUN;
-	side = std::clamp(side, -1.0f, 1.0f);
+	const float side = VDot(movePow_, right) / SPEED_RUN;
 
-	const float sway = sinf(floatBobTime_ * 0.7f) * lp::SWAY;
-	const float spread = -side * lp::SIDE_SPREAD * lp::SIDE_SIGN;
-
-	// アニメの姿勢とポーズを、legPoseRate_ で混ぜる
-	auto apply = [&](int frame, const MATRIX& rot)
-		{
-			if (frame < 0)
-			{
-				return;
-			}
-
-			// アニメの姿勢
-			MV1ResetFrameUserLocalMatrix(model, frame);
-			const MATRIX anim = MV1GetFrameLocalMatrix(model, frame);
-
-			// ポーズ: 元の姿勢から回したもの
-			const MATRIX base = MV1GetFrameBaseLocalMatrix(model, frame);
-			const MATRIX pose = MMult(rot, base);
-
-			MV1SetFrameUserLocalMatrix(model, frame, BlendMatrix(anim, pose, legPoseRate_));
-		};
-
-	auto rad = [](float deg) { return AsoUtility::Deg2RadF(deg); };
-
-	// swing: 脚を前後に振る(キャラの左右の軸で回す)
-	// spreadRot: 脚を横に開く(キャラの前後の軸で回す)
-	const float fs = lp::FORWARD_SIGN;
-	auto swing = [&](int leg, float deg)
-		{
-			return MGetRotAxis(legAxisSide_[leg], rad(deg) * fs);
-		};
-	auto spreadRot = [&](int leg, float deg)
-		{
-			return MGetRotAxis(legAxisFront_[leg], rad(deg));
-		};
-
-	// 左脚
-	//   太ももを前へ上げ、膝を深く曲げる
-	const float openL = lp::L_OPEN * lp::OPEN_SIGN;
-	const float openR = -lp::R_OPEN * lp::OPEN_SIGN;
-
-	apply(legFrames_[LEG_L_UP], MMult(swing(LEG_L_UP, lp::L_THIGH + sway), spreadRot(LEG_L_UP, spread + openL)));
-	apply(legFrames_[LEG_L_KNEE], swing(LEG_L_KNEE, -(lp::L_KNEE - sway)));
-	apply(legFrames_[LEG_L_FOOT], swing(LEG_L_FOOT, -lp::FOOT));
-
-	// 右脚
-	apply(legFrames_[LEG_R_UP], MMult(swing(LEG_R_UP, lp::R_THIGH - sway), spreadRot(LEG_R_UP, spread + openR)));
-	apply(legFrames_[LEG_R_KNEE], swing(LEG_R_KNEE, -lp::R_KNEE + sway));
-	apply(legFrames_[LEG_R_FOOT], swing(LEG_R_FOOT, -lp::FOOT));
+	legPose_.Update(scnMng_.GetDeltaTime(), wantPose, side, floatBobTime_);
 }
 
 // 見た目の向き・位置を transform_ に反映する

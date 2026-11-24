@@ -8,11 +8,10 @@ cbuffer cbParam : register(b4)
 	float4 g_camFwd;	// xyz : カメラの前方向
 	float4 g_param;		// x : 時間, y : tan(縦FOV/2), z : アスペクト比, w : 雲の量(0.0～1.0)
 	float4 g_sunDir;	// xyz : 太陽の方向(太陽に向かう向き)
+    float4 g_screen; // xy : 画面の幅と高さ(ピクセル)
 }
 
-// ---------------------------------------------------------------
 // ノイズ
-// ---------------------------------------------------------------
 float Hash21(float2 p)
 {
 	p = frac(p * float2(123.34f, 456.21f));
@@ -48,7 +47,7 @@ float Fbm(float2 p)
 	return v;
 }
 
-// 雲の濃さ(0.0～1.0)
+// 雲の濃さ
 float CloudDensity(float2 p, float cover)
 {
 	float n = Fbm(p);
@@ -62,7 +61,8 @@ float4 main(PS_INPUT PSInput) : SV_TARGET
 	float cover = g_param.w;
 
 	// 画面の位置から、カメラが見ている方向を作る
-	float2 ndc = float2(PSInput.uv.x * 2.0f - 1.0f, 1.0f - PSInput.uv.y * 2.0f);
+    float2 uv = PSInput.svPos.xy / g_screen.xy;
+    float2 ndc = float2(uv.x * 2.0f - 1.0f, 1.0f - uv.y * 2.0f);
 	float3 dir = normalize(
 		g_camFwd.xyz
 		+ g_camRight.xyz * (ndc.x * g_param.y * g_param.z)
@@ -71,18 +71,18 @@ float4 main(PS_INPUT PSInput) : SV_TARGET
 	float3 sunDir = normalize(g_sunDir.xyz);
 	float h = dir.y;
 
-	// ---- 空のグラデーション(地平線→天頂)
+	// 空のグラデーション
 	float3 horizonCol = float3(0.78f, 0.88f, 0.98f);
 	float3 zenithCol = float3(0.16f, 0.42f, 0.86f);
 	float t = pow(saturate(h), 0.55f);
 	float3 sky = lerp(horizonCol, zenithCol, t);
 
-	// ---- 太陽
+	// 太陽
 	float sunDot = saturate(dot(dir, sunDir));
 	sky += float3(1.0f, 0.85f, 0.6f) * pow(sunDot, 8.0f) * 0.25f;		// 周りの光
 	sky += float3(1.0f, 0.95f, 0.8f) * pow(sunDot, 400.0f) * 1.5f;	// 太陽本体
 
-	// ---- 雲(高いところの平面に投影して、風で流す)
+	// 雲
 	if (h > 0.0f)
 	{
 		// 地平線に近いほど、遠くの雲が細かく詰まって見える
@@ -106,7 +106,7 @@ float4 main(PS_INPUT PSInput) : SV_TARGET
 		sky = lerp(sky, cloudCol, d * fade * 0.95f);
 	}
 
-	// ---- 地平線のもや / 地平線より下
+	// 地平線のもや / 地平線より下
 	float haze = 1.0f - smoothstep(0.0f, 0.22f, abs(h));
 	sky = lerp(sky, horizonCol, haze * 0.5f);
 	if (h < 0.0f)

@@ -85,6 +85,10 @@ void MeleeEnemy::InitAnimation(void)
 	leftHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:LeftHand");
 	rightHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:RightHand");
 
+	// 脚のポーズ(走るアニメの間だけ使う)
+	legPose_.Init(transform_.modelId);
+	hasPrevPos_ = false;
+
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
 
@@ -108,11 +112,13 @@ void MeleeEnemy::Update(void)
 	{
 		knockBackPow_ = AsoUtility::VECTOR_ZERO;
 		animationController_->Update();
+		UpdateLegPose(deltaTime);
 		transform_.Update();
 		return;
 	}
 
 	animationController_->Update();
+	UpdateLegPose(deltaTime);
 
 	CountDown(guardCoolTimer_, deltaTime);
 	CountDown(attackCoolTimer_, deltaTime);

@@ -6,6 +6,7 @@
 #include <functional>
 #include <DxLib.h>
 #include "../ActorBase.h"
+#include "../Common/FloatLegPose.h"
 #include "../KiBlast.h"
 #include "definition/PlayerHud.h"
 #include "definition/PlayerConfig.h"
@@ -419,7 +420,7 @@ private:
 	void UpdateFloatLean(void);
 	void ApplyVisualTransform(const Quaternion& logicRot);
 	// 自分で移動している状態か
-	bool IsFloatSelfMove(void) const;			
+	bool IsFloatSelfMove(void) const;
 
 	// 浮遊移動中の脚のポーズ
 	void InitLegFrames(void);
@@ -542,19 +543,8 @@ private:
 	float floatRoll_ = 0.0f;		// 左右の傾き
 	float floatBobTime_ = 0.0f;		// 上下ゆれの時間
 
-	// 脚のポーズ
-	enum LEG_FRAME
-	{
-		LEG_L_UP, LEG_L_KNEE, LEG_L_FOOT,
-		LEG_R_UP, LEG_R_KNEE, LEG_R_FOOT,
-		LEG_MAX
-	};
-	int legFrames_[LEG_MAX] = { -1, -1, -1, -1, -1, -1 };
-	float legPoseRate_ = 0.0f;		// 0:アニメのまま ~ 1:完全にポーズ
-	VECTOR legAxisSide_[LEG_MAX] = {};	// 各ボーンから見た「キャラの左右の軸」(脚を前後に振る軸)
-	VECTOR legAxisFront_[LEG_MAX] = {};	// 各ボーンから見た「キャラの前後の軸」(脚を横に開く軸)
-
-	int hipsFrame_ = -1;
+	// 脚のポーズ(敵と共通の部品)
+	FloatLegPose legPose_;
 	void CancelRootMotion(void);	// アニメの腰の水平移動を打ち消す
 
 	float dashHold_ = 0.0f;			// ×を押し続けている時間(パッドのダッシュ用)

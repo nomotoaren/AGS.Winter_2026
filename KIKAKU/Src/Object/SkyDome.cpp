@@ -20,7 +20,7 @@ SkyDome::~SkyDome(void)
 void SkyDome::Init(void)
 {
 
-	// 空のシェーダー(定数はFLOAT4が5個: 右/上/前/パラメータ/太陽)
+	// 空のシェーダー
 	material_ = std::make_unique<PixelMaterial>("SkyPS.cso", CONST_BUF_NUM);
 	for (int i = 0; i < CONST_BUF_NUM; i++)
 	{
@@ -51,7 +51,7 @@ void SkyDome::Draw(void)
 		return;
 	}
 
-	// 今のカメラの向き(右は、上と前から求める)
+	// 今のカメラの向き
 	const VECTOR front = VNorm(GetCameraFrontVector());
 	const VECTOR up0 = GetCameraUpVector();
 	const VECTOR right = VNorm(VCross(up0, front));
@@ -69,6 +69,9 @@ void SkyDome::Draw(void)
 	material_->SetConstBuf(2, FLOAT4{ front.x, front.y, front.z, 0.0f });
 	material_->SetConstBuf(3, FLOAT4{ time_, tanHalfFov, aspect, CLOUD_COVER });
 	material_->SetConstBuf(4, FLOAT4{ sun.x, sun.y, sun.z, 0.0f });
+	material_->SetConstBuf(5, FLOAT4{
+		static_cast<float>(Application::SCREEN_SIZE_X),
+		static_cast<float>(Application::SCREEN_SIZE_Y), 0.0f, 0.0f });
 
 	// 空は一番奥なので、他の3D描画より先に呼ぶ
 	renderer_->Draw();

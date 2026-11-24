@@ -149,7 +149,7 @@ void Player::InitAnimation(const std::string& animDir)
 
 	// 形態のフォルダに無いアニメは、通常形態のものを使う
 	auto add = [&](ANIM_TYPE type, const char* file, float speed)
-	{
+		{
 			std::string full = path + file;
 
 			if (!std::filesystem::exists(full))
@@ -158,7 +158,7 @@ void Player::InitAnimation(const std::string& animDir)
 			}
 
 			animationController_->Add((int)type, full, speed);
-	};
+		};
 
 	// 待機モーション
 	add(ANIM_TYPE::IDLE, "Idle.mv1", 20.0f);
@@ -206,8 +206,6 @@ void Player::InitFrames(void)
 	kamehame_.SetModel(transform_.modelId);
 	rightHandFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:RightHand");
 	barrage_.SetModel(transform_.modelId);
-
-	hipsFrame_ = MV1SearchFrame(transform_.modelId, "mixamorig:Hips");
 
 	InitLegFrames();
 }
