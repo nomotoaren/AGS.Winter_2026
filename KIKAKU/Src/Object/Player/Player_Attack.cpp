@@ -489,10 +489,61 @@ void Player::AddKi(float amount)
 	}
 }
 
+// 気弾の溜めのゲージ(頭の上。満タンで点滅して MAX と出る)
+void Player::DrawKiHoldGauge(void) const
+{
+	if (!isKiHold_)
+	{
+		return;
+	}
+
+	if (KiHoldTime_ < cfg::KiShot::MIN_CHARGE_TIME)
+	{
+		return;
+	}
+
+	float rate = KiHoldTime_ / cfg::KiShot::CHARGE_TIME;
+	if (rate > 1.0f) { rate = 1.0f; }
+
+	const VECTOR sp = ConvWorldPosToScreenPos(VAdd(transform_.pos, VGet(0.0f, 250.0f, 0.0f)));
+
+	// 画面の外(後ろ)なら出さない
+	if (sp.z <= 0.0f || sp.z >= 1.0f)
+	{
+		return;
+	}
+
+	const int w = 120;
+	const int h = 10;
+	const int x = (int)sp.x - w / 2;
+	const int y = (int)sp.y;
+
+	const bool full = rate >= 1.0f;
+
+	unsigned int color = GetColor(255, 210, 60);
+	if (full)
+	{
+		color = ((GetNowCount() / 80) % 2 == 0) ? GetColor(255, 255, 200) : GetColor(255, 170, 30);
+	}
+
+	DrawBox(x - 2, y - 2, x + w + 2, y + h + 2, GetColor(0, 0, 0), TRUE);
+	DrawBox(x, y, x + (int)(w * rate), y + h, color, TRUE);
+	DrawBox(x, y, x + w, y + h, GetColor(255, 255, 255), FALSE);
+
+	if (full)
+	{
+		DrawString(x + w / 2 - 12, y - 18, "MAX", GetColor(255, 240, 120));
+	}
+}
+
 // 気弾(U / パッドの○)
 void Player::UpdateKiBlast(void)
 {
 	auto& ins = InputManager::GetInstance();
+
+	const bool held =
+		(ins.IsNew(KEY_INPUT_U) && !ins.IsNew(KEY_INPUT_TAB)) ||
+		PadInput::IsKiBlastHold();
 
 	// 気弾を撃ち始める
 	if (!isKiBlast_ &&
@@ -506,6 +557,8 @@ void Player::UpdateKiBlast(void)
 		isKiBlast_ = true;
 		isKiBlastShot_ = false;
 		kiBlastTimer_ = 0.0f;
+		kiAnimStarted_ = false;
+		kiPendingRate_ = -1.0f;
 
 		animationController_->Play((int)ANIM_TYPE::KI_BLAST, false);
 	}
@@ -513,25 +566,51 @@ void Player::UpdateKiBlast(void)
 	// 気弾のモーション中
 	if (isKiBlast_ && !barrage_.IsActive())
 	{
-		kiBlastTimer_ += scnMng_.GetDeltaTime();
-
-		// 撃つタイミング
-		if (!isKiBlastShot_ && kiBlastTimer_ >= Constants::KiBlastShotTime)
+		if (isKiHold_)
 		{
-			ShotKiBlast();
+			UpdateKiHold(held);
 		}
-
-		// モーションの終わり
-		if (kiBlastTimer_ >= Constants::KiBlastEndTime)
+		else
 		{
-			isKiBlast_ = false;
-			isKiBlastShot_ = false;
-			kiBlastTimer_ = 0.0f;
+			kiBlastTimer_ += scnMng_.GetDeltaTime();
 
-			// 移動していなければ待機のアニメへ
-			if (!IsMoveKeyDown(ins))
+			// 押した直後: 押し続けていれば溜め、離していれば投げるアニメを始める
+			if (!kiAnimStarted_ && kiBlastTimer_ >= cfg::KiShot::HOLD_DECIDE_TIME)
 			{
-				animationController_->Play((int)ANIM_TYPE::IDLE);
+				if (held)
+				{
+					BeginKiHold();
+				}
+				else
+				{
+					kiAnimStarted_ = true;
+					kiBlastTimer_ = 0.0f;
+					animationController_->Play((int)ANIM_TYPE::KI_BLAST, false);
+				}
+			}
+
+			// 撃つタイミング
+			if (kiAnimStarted_ && !isKiBlastShot_ && kiBlastTimer_ >= Constants::KiBlastShotTime)
+			{
+				ShotKiBlast(kiPendingRate_);
+				kiPendingRate_ = -1.0f;
+			}
+
+			// モーションの終わり(アニメが終わったら。念のため時間でも)
+			if (kiAnimStarted_ &&
+				!isKiHold_ &&
+				kiBlastTimer_ >= Constants::KiBlastShotTime &&
+				(animationController_->IsEnd() || kiBlastTimer_ >= cfg::KiShot::THROW_MAX_TIME))
+			{
+				isKiBlast_ = false;
+				isKiBlastShot_ = false;
+				kiAnimStarted_ = false;
+				kiBlastTimer_ = 0.0f;
+
+				if (!IsMoveKeyDown(ins))
+				{
+					animationController_->Play((int)ANIM_TYPE::IDLE);
+				}
 			}
 		}
 	}
@@ -539,6 +618,9 @@ void Player::UpdateKiBlast(void)
 	// 撃った気弾を動かす
 	for (auto& blast : kiBlasts_)
 	{
+		blast->SetTarget(
+			VAdd(attackTargetPos_, VGet(0.0f, cfg::KiShot::AIM_HEIGHT, 0.0f)),
+			isLockOn_ && hasAttackTarget_);
 		blast->Update();
 	}
 
@@ -627,7 +709,7 @@ void Player::UpdateBarrage(void)
 }
 
 // 気弾を撃つ
-void Player::ShotKiBlast(void)
+void Player::ShotKiBlast(float chargeRate)
 {
 	VECTOR shotPos = transform_.pos;
 
@@ -641,26 +723,104 @@ void Player::ShotKiBlast(void)
 	// ロックオン中は敵へ向けて撃つ
 	if (isLockOn_ && hasAttackTarget_)
 	{
-		shotDir = NormalizeSafe(VSub(attackTargetPos_, shotPos));
+		shotDir = NormalizeSafe(
+			VSub(VAdd(attackTargetPos_, VGet(0.0f, cfg::KiShot::AIM_HEIGHT, 0.0f)), shotPos));
 	}
 
 	isKiBlastShot_ = true;
 
-	// 続けて撃った回数を数える(間が空くと戻る)
-	kiBlastChainTimer_ = cfg::Finish::RESET_TIME;
-	kiBlastCount_++;
-
-	if (kiBlastCount_ >= (heatUp_ ? cfg::Finish::COUNT_HEAT : cfg::Finish::COUNT))
+	// 溜めて離したときは、フィニッシュ気弾
+	if (chargeRate >= 0.0f)
 	{
-		kiBlastCount_ = 0;
-
 		auto finish = std::make_unique<PlayerFinishBlast>();
-		finish->Init(shotPos, shotDir);
+		finish->Init(shotPos, shotDir, chargeRate);
 		finishBlasts_.push_back(std::move(finish));
 		return;
 	}
 
-	kiBlasts_.push_back(std::make_unique<KiBlast>(shotPos, shotDir));
+	kiBlasts_.push_back(std::make_unique<KiBlast>(
+		shotPos, shotDir, isLockOn_ && hasAttackTarget_));
+}
+
+// 気弾を溜め始める(アニメは待機のまま)
+void Player::BeginKiHold(void)
+{
+	isKiHold_ = true;
+	KiHoldTime_ = 0.0f;
+	movePow_ = AsoUtility::VECTOR_ZERO;
+
+	animationController_->Play((int)ANIM_TYPE::IDLE);
+}
+
+void Player::UpdateKiHold(bool held)
+{
+	movePow_ = AsoUtility::VECTOR_ZERO;
+
+	// 被弾したら、溜めをやめる
+	if (isDamage_)
+	{
+		EndKiHold();
+		isKiBlast_ = false;
+		isKiBlastShot_ = false;
+		kiBlastTimer_ = 0.0f;
+		kiAnimStarted_ = false;
+		return;
+	}
+
+	const float prev = KiHoldTime_;
+	KiHoldTime_ += scnMng_.GetDeltaTime();
+
+	// 本当に溜め始めたところで、エフェクトを出す
+	if (prev < cfg::KiShot::MIN_CHARGE_TIME && KiHoldTime_ >= cfg::KiShot::MIN_CHARGE_TIME)
+	{
+		EffekseerEffect::GetInstance()->PlayChargeEffect(transform_.pos, form_ == FORM::SUPER);
+	}
+
+	if (KiHoldTime_ >= cfg::KiShot::MIN_CHARGE_TIME)
+	{
+		EffekseerEffect::GetInstance()->UpdateChargeEffect(transform_.pos);
+	}
+
+	if (isLockOn_ && hasAttackTarget_)
+	{
+		FaceHorizontal(VSub(attackTargetPos_, transform_.pos));
+	}
+
+	if (held)
+	{
+		return;
+	}
+
+	// 離した
+	const float holdTime = KiHoldTime_;   // ← kiHoldTime_ に直す(先頭は小文字の k)
+	EndKiHold();
+
+	// 溜めていれば、溜めた分のフィニッシュ気弾。短ければ小弾
+	if (holdTime < cfg::KiShot::MIN_CHARGE_TIME)
+	{
+		kiPendingRate_ = -1.0f;
+	}
+	else
+	{
+		float rate = holdTime / cfg::KiShot::CHARGE_TIME;
+		if (rate > 1.0f) { rate = 1.0f; }
+
+		kiPendingRate_ = rate;
+	}
+
+	// 投げるアニメを始めて、撃つタイミングで撃つ
+	kiAnimStarted_ = true;
+	isKiBlastShot_ = false;
+	kiBlastTimer_ = 0.0f;
+	animationController_->Play((int)ANIM_TYPE::KI_BLAST, false);
+}
+
+void Player::EndKiHold(void)
+{
+	isKiHold_ = false;
+	KiHoldTime_ = 0.0f;
+
+	EffekseerEffect::GetInstance()->StopChargeEffect();
 }
 
 const std::vector<std::unique_ptr<KiBlast>>& Player::GetKiBlasts(void) const

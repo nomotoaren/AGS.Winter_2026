@@ -13,12 +13,13 @@ PlayerFinishBlast::PlayerFinishBlast(void)
 {
 }
 
-void PlayerFinishBlast::Init(const VECTOR& pos, const VECTOR& dir)
+void PlayerFinishBlast::Init(const VECTOR& pos, const VECTOR& dir, float chargeRate)
 {
 	pos_ = pos;
 	dir_ = (VSize(dir) > 0.001f) ? VNorm(dir) : VGet(0.0f, 0.0f, 1.0f);
 	time_ = 0.0f;
 	isDead_ = false;
+	chargeRate_ = chargeRate;
 }
 
 float PlayerFinishBlast::GetRadius(void) const
@@ -27,7 +28,9 @@ float PlayerFinishBlast::GetRadius(void) const
 	float rate = time_ / 0.2f;
 	if (rate > 1.0f) { rate = 1.0f; }
 
-	return cfg::Finish::RADIUS * (0.4f + 0.6f * rate);
+	const float charge = cfg::KiShot::FINISH_MIN_SCALE + (1.0f - cfg::KiShot::FINISH_MIN_SCALE) * chargeRate_;
+
+	return cfg::Finish::RADIUS * (0.4f + 0.6f * rate) * charge;
 }
 
 void PlayerFinishBlast::Update(float deltaTime, const VECTOR* aimPos)

@@ -10,7 +10,8 @@ public:
 	PlayerFinishBlast(void);
 	~PlayerFinishBlast(void) = default;
 
-	void Init(const VECTOR& pos, const VECTOR& dir);
+	void Init(const VECTOR& pos, const VECTOR& dir, float chargeRate = 1.0f);
+	float GetChargeRate(void) const { return chargeRate_; }
 
 	// aimPos: ‘_‚Á‚Ä‚¢‚éˆÊ’u(‚È‚¯‚ê‚Î nullptr)
 	void Update(float deltaTime, const VECTOR* aimPos);
@@ -28,4 +29,6 @@ private:
 	VECTOR dir_;
 	float time_;
 	bool isDead_;
+
+	float chargeRate_ = 1.0f;
 };

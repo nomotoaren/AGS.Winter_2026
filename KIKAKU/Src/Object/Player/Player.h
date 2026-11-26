@@ -466,10 +466,13 @@ private:
 	bool IsBeforeGold(void) const;		// ヒートアップ発動の演出中で、まだ金色になる前か
 	void UpdateKiBlast(void);
 	void UpdateBarrage(void);
-	void ShotKiBlast(void);
+	void ShotKiBlast(float chargeRate = -1.0f);
+	void BeginKiHold(void);
+	void UpdateKiHold(bool held);
+	void EndKiHold(void);
 	void UpdateKamehame(void);
 
-	// 追撃(攻撃ボタンで敵へ飛びこむ)・高速接近
+	// 追撃・高速接近
 	void UpdateAttackChase(void);
 	void EndChase(bool startAttack);
 	void EndBoostChase(void);
@@ -481,6 +484,7 @@ private:
 	void BeginChargeEnding(void);
 	void PlayChargeLoop(void);			// 気溜めモーションをループ付きで流す
 	void AddKi(float amount);			// 気を増やす(最大で止める)
+	void DrawKiHoldGauge(void) const;
 
 	// 回避
 	void UpdateDodge(void);
@@ -576,6 +580,10 @@ private:
 	// フィニッシュ気弾
 	int kiBlastCount_ = 0;
 	float kiBlastChainTimer_ = 0.0f;
+	bool isKiHold_ = false;
+	bool kiAnimStarted_ = false;
+	float kiPendingRate_ = -1.0f;
+	float KiHoldTime_ = 0.0f;
 	std::vector<std::unique_ptr<PlayerFinishBlast>> finishBlasts_;
 
 	// 相殺勝負

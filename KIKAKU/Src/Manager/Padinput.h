@@ -47,6 +47,7 @@ public:
 	static bool IsVanishTrg(void);		// L2 + ×(バニッシュアタック)
 	static bool IsFightTrg(void);		// □ 格闘攻撃
 	static bool IsKiBlastTrg(void);		// ○ 気弾攻撃
+	static bool IsKiBlastHold(void);	// ○ 長押し(気弾連射)
 	static bool IsStepTrg(void);		// × ステップ
 	static bool IsChargeTrg(void);		// △ 気力溜め(押した瞬間)
 	static bool IsChargeHold(void);		// △ 長押し

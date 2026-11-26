@@ -161,7 +161,7 @@ private:
 	int mouseInput_;
 
 	// パッド情報
-	JOYPAD_IN_STATE padInfos_[5];
+	JOYPAD_IN_STATE padInfos_[5] = {};
 
 	// デフォルトコンストラクタをprivateにして、
 	// 外部から生成できない様にする

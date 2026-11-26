@@ -173,6 +173,19 @@ namespace PlayerConfig
 		inline constexpr float STUN = 4.0f;
 	}
 
+	// 気弾
+	namespace KiShot
+	{
+		inline constexpr float AIM_HEIGHT = 100.0f;
+		inline constexpr float HOMING_DELAY = 0.15f;
+		inline constexpr float HOMING_TURN_SPEED = 6.0f;
+		inline constexpr float CHARGE_TIME = 3.0f;
+		inline constexpr float FINISH_MIN_SCALE = 0.6;
+		inline constexpr float HOLD_DECIDE_TIME = 0.08f;
+		inline constexpr float THROW_MAX_TIME = 1.0f;
+		inline constexpr float MIN_CHARGE_TIME = 0.35f;
+	}
+
 	// 回避ステップ
 	namespace Step
 	{

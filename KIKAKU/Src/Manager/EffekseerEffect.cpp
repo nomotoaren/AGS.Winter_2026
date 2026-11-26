@@ -247,7 +247,7 @@ void EffekseerEffect::Release(void)
     Effkseer_End();
 }
 
-void EffekseerEffect::Delete(void)
+void EffekseerEffect::Delete(void) const
 {
     DeleteEffekseerEffect(playTutorialHandle);
 }
@@ -555,7 +555,7 @@ void EffekseerEffect::PlayChargeEffect(
 
 void EffekseerEffect::UpdateChargeEffect(
     const VECTOR& pos
-)
+) const
 {
     if (playChargeEffectHandle_ == -1)
     {
@@ -685,7 +685,7 @@ void EffekseerEffect::PlayKamehameEffect(
     UpdateKamehameEffect(pos, dir);
 }
 
-void EffekseerEffect::UpdateKamehameEffect(const VECTOR& pos, const VECTOR& dir)
+void EffekseerEffect::UpdateKamehameEffect(const VECTOR& pos, const VECTOR& dir) const
 {
     if (playKamehameEffectHandle_ == -1)
     {
@@ -700,7 +700,7 @@ void EffekseerEffect::UpdateKamehameEffect(const VECTOR& pos, const VECTOR& dir)
     SetRotationPlayingEffekseer3DEffect(playKamehameEffectHandle_, rotX, rotY, 0.0f);
 }
 
-void EffekseerEffect::SetKamehameEffectScale(float x, float y, float z)
+void EffekseerEffect::SetKamehameEffectScale(float x, float y, float z) const
 {
     if (playKamehameEffectHandle_ == -1)
     {
@@ -710,7 +710,7 @@ void EffekseerEffect::SetKamehameEffectScale(float x, float y, float z)
     SetScalePlayingEffekseer3DEffect(playKamehameEffectHandle_, x, y, z);
 }
 
-void EffekseerEffect::SetKamehameEffectSpeed(float speed)
+void EffekseerEffect::SetKamehameEffectSpeed(float speed) const
 {
     if (playKamehameEffectHandle_ == -1)
     {

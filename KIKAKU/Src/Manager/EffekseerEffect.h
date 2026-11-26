@@ -48,7 +48,7 @@ public:
     void Release(void);
 
     // デリート
-    void Delete(void);
+    void Delete(void) const;
 
     // チュートリアルエフェクト
     void PlayTutorialEffect(const VECTOR& pos, float rotY);
@@ -73,7 +73,7 @@ public:
     // 気溜め(useTransformColor = true のときは、変身のエフェクトと同じ色にする)
     void PlayChargeEffect(const VECTOR& pos, bool useTransformColor = false);
 
-    void UpdateChargeEffect(const VECTOR& pos);
+    void UpdateChargeEffect(const VECTOR& pos) const;
 
     void StopChargeEffect(void);
 
@@ -83,9 +83,9 @@ public:
     // かめはめ波(溜め → 発射 が1つのエフェクトになっている)
     //   speed: 再生速度(発射の瞬間を、ゲーム側の発射タイミングに合わせる)
     void PlayKamehameEffect(const VECTOR& pos, const VECTOR& dir, float scale, float speed);
-    void UpdateKamehameEffect(const VECTOR& pos, const VECTOR& dir);	// 溜め中に手元へ追従させる
-    void SetKamehameEffectScale(float x, float y, float z);			// 発射時にビームを長くする
-    void SetKamehameEffectSpeed(float speed);
+    void UpdateKamehameEffect(const VECTOR& pos, const VECTOR& dir) const;	// 溜め中に手元へ追従させる
+    void SetKamehameEffectScale(float x, float y, float z) const;			// 発射時にビームを長くする
+    void SetKamehameEffectSpeed(float speed) const;
     void StopKamehameEffect(void);
 
     // 再生中のエフェクトをすべて止める(シーンを切り替えるときに使う)

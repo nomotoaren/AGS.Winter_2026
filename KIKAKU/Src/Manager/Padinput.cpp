@@ -209,6 +209,11 @@ bool PadInput::IsKiBlastTrg(void)
 	return IsTrg(BTN::CIRCLE) && !IsNew(BTN::L2) && !IsSpecialPalette();
 }
 
+bool PadInput::IsKiBlastHold(void)
+{
+	return IsNew(BTN::CIRCLE) && !IsNew(BTN::L2) && !IsSpecialPalette();
+}
+
 bool PadInput::IsStepTrg(void)
 {
 	return IsTrg(BTN::CROSS);
