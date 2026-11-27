@@ -232,6 +232,12 @@ private:
 	void DecideAction(const AIContext& ctx);
 	void StartAction(int action);			// 行動を始める(DecideAction とデバッグモードから)
 
+	// デバッグモード(F1 で開き、数字キーで技を出す。MeleeEnemy_Draw.cpp)
+	void DrawDebug(void);
+	bool debugOpen_ = false;
+	bool debugAIPaused_ = false;			// 行動の自動選択を止める
+	float debugLastTime_ = -1.0f;			// 入力を、1フレームに1回だけ受け付けるための印
+
 	// AI
 	AI_STATE aiState_ = AI_STATE::WAIT;
 	float aiTimer_ = 0.0f;

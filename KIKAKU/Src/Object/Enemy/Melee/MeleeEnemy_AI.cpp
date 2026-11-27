@@ -38,7 +38,8 @@ void MeleeEnemy::UpdateCounterAndKi(float deltaTime, bool isStunned)
 		enemyKi_ = kEnemyKiMax;
 	}
 
-	if (isStunned || isDead_ || clashLock_ || isKamehameHit_ || IsDoingSpecial())
+	// (デバッグモードでAIを止めている間は、反撃も大技も自動では出さない)
+	if (isStunned || isDead_ || clashLock_ || isKamehameHit_ || IsDoingSpecial() || debugAIPaused_)
 	{
 		return;
 	}
@@ -209,7 +210,8 @@ void MeleeEnemy::UpdateAIWait(const AIContext& ctx)
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 
 	// 隙の間(aiTimer_ がマイナス)は動かない。それ以外は、プレイヤーの周りをゆっくり漂う
-	if (aiTimer_ >= 0.0f)
+	// (デバッグモードでAIを止めている間は、その場で止まる)
+	if (aiTimer_ >= 0.0f && !debugAIPaused_)
 	{
 		float radius = ctx.distance;
 
@@ -221,7 +223,7 @@ void MeleeEnemy::UpdateAIWait(const AIContext& ctx)
 	}
 
 	// 吹き飛ばした直後なら、追撃に入る
-	if (pendingChase_ && aiTimer_ >= kChaseStartDelay)
+	if (pendingChase_ && aiTimer_ >= kChaseStartDelay && !debugAIPaused_)
 	{
 		StartChase();
 		return;
@@ -240,6 +242,12 @@ void MeleeEnemy::UpdateAIWait(const AIContext& ctx)
 //   HPが半分以下になると、気弾と突進を多く使う
 void MeleeEnemy::DecideAction(const AIContext& ctx)
 {
+	// デバッグモード: 自動では行動を選ばない
+	if (debugAIPaused_)
+	{
+		return;
+	}
+
 	const bool enraged = (hp_ * 2 <= maxHp_);
 
 	const bool canAttack = (attackCoolTimer_ <= 0.0f);

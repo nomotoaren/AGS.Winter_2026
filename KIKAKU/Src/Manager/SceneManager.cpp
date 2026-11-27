@@ -6,6 +6,8 @@
 #include "../Scene/TitleScene.h"
 #include "../Scene/StageSelectScene.h"
 #include "../Scene/Game/GameScene.h"
+#include "../Scene/Gameclearscene.h"
+#include "../Scene/GameOverScene.h"
 #include "../Manager/Camera/Camera.h"
 #include "ResourceManager.h"
 #include "EffekseerEffect.h"
@@ -274,6 +276,20 @@ void SceneManager::DoChangeScene(SCENE_ID sceneId)
 	case SCENE_ID::GAME:
 		scene_ = std::make_unique<GameScene>();
 		break;
+	case SCENE_ID::GAME_CLEAR:
+		scene_ = std::make_unique<GameClearScene>();
+		break;
+	case SCENE_ID::GAME_OVER:
+		scene_ = std::make_unique<GameOverScene>();
+		break;
+	default:
+		break;
+	}
+
+	// –¢‘Î‰ž‚ÌƒV[ƒ“ID‚Ì‚Æ‚«‚ÍA—Ž‚Æ‚³‚¸‚É‰½‚à‚µ‚È‚¢
+	if (scene_ == nullptr)
+	{
+		return;
 	}
 
 	scene_->Init();

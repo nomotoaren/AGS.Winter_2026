@@ -8,6 +8,7 @@
 #include "../../../Manager/EffekseerEffect.h"
 #include "../../../Manager/ResourceManager.h"
 #include "../../../Manager/SceneManager.h"
+#include "../../../Manager/InputManager.h"
 #include "../../../Utility/AsoUtility.h"
 #include "MeleeEnemy_Internal.h"
 
@@ -92,6 +93,120 @@ void MeleeEnemy::Draw(void)
 	DrawTelegraph();
 
 	// HPバー・スタンゲージ(2D)は DrawOverlay で、最後にまとめて描く
+
+	// デバッグモード(F1)
+	DrawDebug();
+}
+
+//----------------------------------------------------------------------
+// デバッグモード
+//   F1: 開く / 閉じる
+//   1~9, 0: 対応する技を出す(待機中のときだけ)
+//   F2: 敵の自動の行動選択を止める / 動かす
+//   提出するときは、下の kDebugModeEnabled を false にする
+//----------------------------------------------------------------------
+void MeleeEnemy::DrawDebug(void)
+{
+	constexpr bool kDebugModeEnabled = true;
+
+	if (!kDebugModeEnabled)
+	{
+		return;
+	}
+
+	// 技を出すキー(ACTION の並びと同じ順。1~9, 0)
+	static const int keys[ACT_MAX] =
+	{
+		KEY_INPUT_1, KEY_INPUT_2, KEY_INPUT_3, KEY_INPUT_4, KEY_INPUT_5,
+		KEY_INPUT_6, KEY_INPUT_7, KEY_INPUT_8, KEY_INPUT_9, KEY_INPUT_0
+	};
+
+	static const char* const names[ACT_MAX] =
+	{
+		"近接攻撃",
+		"横移動",
+		"気弾",
+		"突進",
+		"高速接近",
+		"投げ(ガード不能)",
+		"範囲大技",
+		"極太ビーム",
+		"連続気弾 + ビッグバン",
+		"急降下"
+	};
+
+	// 技を出せるのは、待機中(ダウン・スタン中でないとき)だけ
+	const bool idle = !isDead_ && !isDown_ && !IsStunned() && aiState_ == AI_STATE::WAIT;
+
+	// 入力は、敵が1回更新されるごとに1回だけ受け付ける(Draw が複数回呼ばれても二重に反応しない)
+	if (hoverTime_ != debugLastTime_)
+	{
+		debugLastTime_ = hoverTime_;
+
+		InputManager& ins = InputManager::GetInstance();
+
+		if (ins.IsTrgDown(KEY_INPUT_F1))
+		{
+			debugOpen_ = !debugOpen_;
+
+			// 閉じるときは、止めていたAIを必ず動かす
+			if (!debugOpen_)
+			{
+				debugAIPaused_ = false;
+			}
+		}
+
+		if (debugOpen_)
+		{
+			if (ins.IsTrgDown(KEY_INPUT_F2))
+			{
+				debugAIPaused_ = !debugAIPaused_;
+			}
+
+			for (int i = 0; i < ACT_MAX; i++)
+			{
+				if (idle && ins.IsTrgDown(keys[i]))
+				{
+					StartAction(i);
+					break;
+				}
+			}
+		}
+	}
+
+	if (!debugOpen_)
+	{
+		return;
+	}
+
+	// 表示(画面の左側)
+	const int x = 20;
+	const int y = 140;
+	const int panelW = 330;
+	const int lineH = 22;
+	const int panelH = 70 + lineH * ACT_MAX;
+
+	SetDrawBlendMode(DX_BLENDMODE_ALPHA, 170);
+	DrawBox(x, y, x + panelW, y + panelH, GetColor(0, 0, 0), TRUE);
+	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+	DrawBox(x, y, x + panelW, y + panelH, GetColor(255, 220, 80), FALSE);
+
+	DrawFormatString(x + 10, y + 8, GetColor(255, 220, 80), "DEBUG (F1: 閉じる)");
+
+	DrawFormatString(x + 10, y + 30,
+		debugAIPaused_ ? GetColor(255, 120, 120) : GetColor(120, 255, 120),
+		"F2 AI: %s", debugAIPaused_ ? "停止中" : "動作中");
+
+	DrawFormatString(x + 170, y + 30,
+		idle ? GetColor(120, 255, 120) : GetColor(255, 200, 100),
+		"%s", idle ? "待機中(出せる)" : "実行中");
+
+	for (int i = 0; i < ACT_MAX; i++)
+	{
+		DrawFormatString(x + 10, y + 60 + lineH * i,
+			idle ? GetColor(255, 255, 255) : GetColor(150, 150, 150),
+			"%d : %s", (i + 1) % 10, names[i]);
+	}
 }
 
 // 気を溜めている球・突進の構えの光

@@ -16,6 +16,12 @@ using namespace MeleeEnemyInternal;
 // プレイヤーが攻撃を始めたときに、1回だけ「かわす / ガードする / 何もしない」を決める
 bool MeleeEnemy::TryReactToPlayerAttack(float distance)
 {
+	// デバッグモードでAIを止めている間は、回避もガードもしない
+	if (debugAIPaused_)
+	{
+		return false;
+	}
+
 	// 必殺技の最中は、ガードや回避に切り替えない
 	if (IsSuperArmor())
 	{
@@ -527,7 +533,3 @@ void MeleeEnemy::DoSmash(void)
 
 	animationController_->Play((int)ANIM_TYPE::IDLE);
 }
-
-//----------------------------------------------------------------------
-// 極太ビーム
-//----------------------------------------------------------------------
