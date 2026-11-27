@@ -20,6 +20,12 @@ public:
 	// 固定した位置へ曲がる(point: 狙う位置 / startDelay: 曲がり始めるまでの秒 / turnRate / endTime: 曲がるのをやめる時刻(秒))
 	//   プレイヤーを追わないので、動いていれば当たらない
 	void SetFixedGoal(const VECTOR& point, float startDelay, float turnRate, float endTime);
+	// 着弾点で爆発する弾にする(ビッグバン)。goal へ直進し、着く・プレイヤーに近づく・で、撃った敵が大爆発を出す
+	void SetExplodeGoal(const VECTOR& goal) { explodeGoal_ = goal; isExplodeType_ = true; }
+	bool IsExplodeType(void) const { return isExplodeType_; }
+	// 着弾点に着いた(通り過ぎた)か
+	bool HasReachedGoal(void) const;
+
 	// 追尾の開始を遅らせる(秒)
 	void SetHomingDelay(float delay) { homingDelay_ = delay; }
 
@@ -65,6 +71,8 @@ private:
 	float knock_ = 12.0f;
 	bool isBig_ = false;
 	bool isFrozen_ = false;
+	bool isExplodeType_ = false;
+	VECTOR explodeGoal_ = VGet(0.0f, 0.0f, 0.0f);
 
 	// 追尾
 	const VECTOR* homingTarget_ = nullptr;

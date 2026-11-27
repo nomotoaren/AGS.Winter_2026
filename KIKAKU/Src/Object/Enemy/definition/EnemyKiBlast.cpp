@@ -53,6 +53,18 @@ void EnemyKiBlast::SetFixedGoal(const VECTOR& point, float startDelay, float tur
 	homingTime_ = endTime;
 }
 
+bool EnemyKiBlast::HasReachedGoal(void) const
+{
+	if (!isExplodeType_)
+	{
+		return false;
+	}
+
+	const VECTOR toGoal = VSub(explodeGoal_, pos_);
+
+	return VSize(toGoal) <= speed_ * 2.0f || VDot(toGoal, dir_) <= 0.0f;
+}
+
 void EnemyKiBlast::Update(float deltaTime)
 {
 	if (isDead_)

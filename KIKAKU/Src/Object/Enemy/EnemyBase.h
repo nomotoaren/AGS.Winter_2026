@@ -21,7 +21,7 @@ public:
 	static constexpr float STUN_DECAY_DELAY = 3.0f;		// 攻撃されなくなってから、ゲージが減り始めるまでの時間(秒)
 	static constexpr float STUN_DECAY_SPEED = 0.0f;	// ゲージが減る速さ(1秒あたり)
 	static constexpr float STUN_RESIST_TIME = 6.0f;		// スタンが終わったあと、ゲージが溜まらない時間(秒)
-	static constexpr int FLINCH_CHANCE = 100;			// 弱い攻撃でひるむ確率(%)。低いと、殴られても行動を続ける
+	static constexpr int FLINCH_CHANCE = 70;			// 弱い攻撃でひるむ確率(%)。低いと、殴られても行動を続ける
 	static constexpr float HEAVY_KNOCK = 20.0f;		// これ以上の吹き飛ばしは必ずひるむ(フィニッシュ・かめはめ波など)
 	static constexpr float ARMOR_KNOCK_RATE = 0.25f;	// ひるまないときの、飛ばされる強さの倍率
 	static constexpr int STUN_DAMAGE_RATE = 2;			// スタン中に受けるダメージの倍率

@@ -399,7 +399,6 @@ void Player::UpdateKiCharge(void)
 			}
 		}
 
-		// 移動や攻撃の入力があったら、すぐにやめる
 		const bool cancelCharge =
 			IsMoveKeyDown(ins) ||
 			ins.IsNew(KEY_INPUT_RSHIFT) ||
@@ -416,7 +415,6 @@ void Player::UpdateKiCharge(void)
 		}
 		else if (!ins.IsNew(KEY_INPUT_T) && !PadInput::IsChargeHold())
 		{
-			// ボタンを離したら、終了モーションへ
 			BeginChargeEnding();
 			return;
 		}
@@ -426,14 +424,12 @@ void Player::UpdateKiCharge(void)
 		}
 	}
 
-	// 気溜めの終了モーション
 	if (isChargeEnding_)
 	{
 		movePow_ = AsoUtility::VECTOR_ZERO;
 
 		chargeEndTimer_ += scnMng_.GetDeltaTime();
 
-		// モーションが終わったら(念のため時間でも)待機へ
 		if (animationController_->IsEnd() || chargeEndTimer_ >= cfg::Charge::END_MAX_TIME)
 		{
 			isChargeEnding_ = false;
@@ -443,7 +439,6 @@ void Player::UpdateKiCharge(void)
 	}
 }
 
-// 気溜めをすぐにやめる
 void Player::StopCharge(void)
 {
 	isCharging_ = false;
@@ -454,7 +449,6 @@ void Player::StopCharge(void)
 	EffekseerEffect::GetInstance()->StopChargeEffect();
 }
 
-// 気溜めの終了モーションを始める
 void Player::BeginChargeEnding(void)
 {
 	isCharging_ = false;
@@ -465,12 +459,10 @@ void Player::BeginChargeEnding(void)
 
 	animationController_->ClearEndLoop();
 
-	// 溜めモーションの続き(ループの後ろ)を最後まで流す
 	animationController_->Play((int)ANIM_TYPE::CHARGE, false,
 		cfg::Charge::ANIM_LOOP_END, cfg::Charge::ANIM_END_STEP, false, true);
 }
 
-// 気溜めモーションを、ループ付きで最初から流す
 void Player::PlayChargeLoop(void)
 {
 	animationController_->Play((int)ANIM_TYPE::CHARGE, true, 0.0f, cfg::Charge::ANIM_LOOP_END);
@@ -478,7 +470,6 @@ void Player::PlayChargeLoop(void)
 		cfg::Charge::ANIM_LOOP_START, cfg::Charge::ANIM_LOOP_END, cfg::Charge::ANIM_LOOP_SPEED);
 }
 
-// 気を増やす(最大で止める)
 void Player::AddKi(float amount)
 {
 	ki_ += amount;
@@ -489,7 +480,6 @@ void Player::AddKi(float amount)
 	}
 }
 
-// 気弾の溜めのゲージ(頭の上。満タンで点滅して MAX と出る)
 void Player::DrawKiHoldGauge(void) const
 {
 	if (!isKiHold_)
@@ -536,7 +526,6 @@ void Player::DrawKiHoldGauge(void) const
 	}
 }
 
-// 気弾(U / パッドの○)
 void Player::UpdateKiBlast(void)
 {
 	auto& ins = InputManager::GetInstance();
@@ -596,7 +585,7 @@ void Player::UpdateKiBlast(void)
 				kiPendingRate_ = -1.0f;
 			}
 
-			// モーションの終わり(アニメが終わったら。念のため時間でも)
+			// モーションの終わり
 			if (kiAnimStarted_ &&
 				!isKiHold_ &&
 				kiBlastTimer_ >= Constants::KiBlastShotTime &&
@@ -631,7 +620,6 @@ void Player::UpdateKiBlast(void)
 		kiBlasts_.end());
 }
 
-// 連続エネルギー弾(構え・連射・弾の管理は PlayerBarrage が行う)
 void Player::UpdateBarrage(void)
 {
 	auto& ins = InputManager::GetInstance();
@@ -668,9 +656,8 @@ void Player::UpdateBarrage(void)
 	ctx.hasTarget = isLockOn_ && hasAttackTarget_;
 	ctx.targetPos = attackTargetPos_;
 
-	// 枠を動かす: 右スティック、またはキーボードの矢印キー
 	float x = PadInput::RStickX();
-	float y = PadInput::RStickY();	// 上に倒して枠が下がるなら、ここを -PadInput::RStickY() にする
+	float y = PadInput::RStickY();	
 
 	if (ins.IsNew(KEY_INPUT_RIGHT)) { x += 1.0f; }
 	if (ins.IsNew(KEY_INPUT_LEFT)) { x -= 1.0f; }
@@ -742,7 +729,6 @@ void Player::ShotKiBlast(float chargeRate)
 		shotPos, shotDir, isLockOn_ && hasAttackTarget_));
 }
 
-// 気弾を溜め始める(アニメは待機のまま)
 void Player::BeginKiHold(void)
 {
 	isKiHold_ = true;
@@ -792,7 +778,7 @@ void Player::UpdateKiHold(bool held)
 	}
 
 	// 離した
-	const float holdTime = KiHoldTime_;   // ← kiHoldTime_ に直す(先頭は小文字の k)
+	const float holdTime = KiHoldTime_;
 	EndKiHold();
 
 	// 溜めていれば、溜めた分のフィニッシュ気弾。短ければ小弾

@@ -22,7 +22,7 @@ public:
 
 	// 高速接近
 	static constexpr float BOOST_CHASE_DISTANCE = 400.0f;
-	static constexpr float BOOST_CHASE_SPEED = 11.0f;
+	static constexpr float BOOST_CHASE_SPEED = 20.0f;
 	static constexpr float BOOST_CHASE_TIME = 0.6f;
 
 	// アニメーション種別
@@ -126,7 +126,7 @@ private:
 	};
 
 	// 攻撃の時間
-	static constexpr float ATTACK_COOL_TIME = 4.0f;		// 近接攻撃が終わってから、次の近接攻撃までの時間(秒)
+	static constexpr float ATTACK_COOL_TIME = 1.5f;		// 近接攻撃が終わってから、次の近接攻撃までの時間(秒)
 	static constexpr float ATTACK_HIT_START = 0.25f;
 	static constexpr float ATTACK_HIT_END = 0.45f;
 
@@ -230,6 +230,7 @@ private:
 	void UpdateAIBoostAttack(const AIContext& ctx);
 	void UpdateAIAttack(const AIContext& ctx);
 	void DecideAction(const AIContext& ctx);
+	void StartAction(int action);			// 行動を始める(DecideAction とデバッグモードから)
 
 	// AI
 	AI_STATE aiState_ = AI_STATE::WAIT;
@@ -328,6 +329,8 @@ private:
 	float barrageShotTimer_ = 0.0f;
 	bool barrageBigPhase_ = false;		// 連射のあと、大きな気弾を溜めている
 	float barrageBigTimer_ = 0.0f;
+	int bigBangShotsLeft_ = 0;			// ビッグバンの残り発数
+	float bigBangShotTimer_ = 0.0f;
 
 	// 急降下
 	float slamCoolTimer_ = 0.0f;

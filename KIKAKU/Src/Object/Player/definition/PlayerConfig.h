@@ -78,7 +78,7 @@ namespace PlayerConfig
 		inline constexpr float STUCK_TIME = 0.3f;			// 進めない状態がこれ続いたら終了(秒)
 		inline constexpr float STUCK_MIN_MOVE = 1.0f;
 		inline constexpr float ARRIVE_MARGIN = 15.0f;
-		inline constexpr float HEIGHT_TOLERANCE = 150.0f;
+		inline constexpr float HEIGHT_TOLERANCE = 50.0f;
 		inline constexpr float SPEED = 18.0f;				// 1フレームの移動量
 		inline constexpr float STOP_DISTANCE = 80.0f;
 	}

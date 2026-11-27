@@ -23,7 +23,7 @@ namespace EnemyData
 		// TYPE ‚Ì•À‚Ñ‚Æ“¯‚¶‡‚É‘‚­
 		static const Info table[(int)TYPE::MAX] =
 		{
-			{ "ENEMY", 10000, 0.8f, 50.0f, 1.0f },	// MELEE
+			{ "ENEMY", 10000, 0.8f, 50.0f, 1.5f },	// MELEE
 		};
 
 		int index = (int)type;

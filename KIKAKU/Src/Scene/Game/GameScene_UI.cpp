@@ -39,6 +39,14 @@ void GameScene::Draw(void)
 	skyDome_->Draw();
 	stage_->Draw();
 
+	if (lockOnTarget_ != nullptr)
+	{
+		const float py = player_->GetTransform().pos.y;
+		const float ey = lockOnTarget_->GetTransform().pos.y;
+		DrawFormatString(20, 220, GetColor(255, 255, 0),
+			"P.y=%.0f  E.y=%.0f  ·=%.0f", py, ey, ey - py);
+	}
+
 	player_->Draw();
 
 	for (auto& enemy : enemies_)

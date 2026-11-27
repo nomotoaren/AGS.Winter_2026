@@ -224,6 +224,13 @@ void GameScene::UpdateMeleeHit(void)
 
 		VECTOR hitDir = NormalizeOr(toEnemy, toEnemy);
 
+		// 通常の攻撃は水平に飛ばす(斜め下に押して、敵とプレイヤーが一緒に下がるのを防ぐ)
+		if (!isFinish)
+		{
+			hitDir.y = 0.0f;
+			hitDir = NormalizeOr(hitDir, forward);
+		}
+
 		// 8段目は下に叩き落とす
 		if (isFinish)
 		{
@@ -525,7 +532,7 @@ void GameScene::ApplyHitImpact(float stopTime, float shakeTime, float shakePower
 
 bool GameScene::IsAllEnemiesDead(void) const
 {
-	// 敵が1体もいないステージ(作りかけのステージ)は、クリアにしない
+	// 敵が1体もいないステージ
 	if (enemies_.empty())
 	{
 		return false;

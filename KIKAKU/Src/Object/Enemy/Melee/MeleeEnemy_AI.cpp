@@ -168,6 +168,8 @@ void MeleeEnemy::StartBarrage(void)
 	barrageShotTimer_ = 0.0f;
 	barrageBigPhase_ = false;
 	barrageBigTimer_ = 0.0f;
+	bigBangShotsLeft_ = kBigBangCount;
+	bigBangShotTimer_ = 0.0f;
 }
 
 //----------------------------------------------------------------------
@@ -254,6 +256,13 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 		grabCoolTimer_ <= 0.0f &&
 		ctx.distance < kGuardWatchRange + 100.0f;
 
+	// 近距離では、半分の確率でそのまま格闘に入る(離れ続けて技ばかり撃たない)
+	if (ctx.distance < kNearDistance && canAttack && GetRand(99) < 50)
+	{
+		SetAIState(AI_STATE::ATTACK);
+		return;
+	}
+
 	int weights[ACT_MAX] = {};
 
 	if (ctx.distance < kNearDistance)
@@ -301,6 +310,12 @@ void MeleeEnemy::DecideAction(const AIContext& ctx)
 		pick = ACT_SIDE;
 	}
 
+	StartAction(pick);
+}
+
+// 行動を始める(DecideAction とデバッグモードから呼ぶ)
+void MeleeEnemy::StartAction(int pick)
+{
 	switch (pick)
 	{
 	case ACT_ATTACK:

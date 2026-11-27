@@ -26,9 +26,9 @@ namespace GameSceneInternal
 	// 近接攻撃
 	//------------------------------------------------------------
 
-	// 攻撃が届く高さの差(これを超えると当たらない)
-	constexpr float ATTACK_HEIGHT_RANGE = 150.0f;
-	// 水平距離がこれ以下のときは向き判定をしない(真上・真下の敵用)
+	// 攻撃が届く高さの差
+	constexpr float ATTACK_HEIGHT_RANGE = 80.0f;
+	// 水平距離がこれ以下のときは向き判定をしない
 	constexpr float ATTACK_DOT_MIN_DISTANCE = 20.0f;
 	// 8段目(叩き落とし)は上から叩くので広め
 	constexpr int FINISH_COMBO = 8;

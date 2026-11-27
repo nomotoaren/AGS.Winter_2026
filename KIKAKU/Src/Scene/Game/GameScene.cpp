@@ -35,6 +35,19 @@
 
 using namespace GameSceneInternal;
 
+namespace
+{
+	// UŒ‚‚Ì‘_‚¢‚ðA“G‚Ì‘«Œ³‚æ‚è­‚µã(‹¹‚ ‚½‚è)‚É‚·‚é‚‚³B
+	//   ƒvƒŒƒCƒ„[‚ª‘«Œ³‚ð‰£‚Á‚Ä‚µ‚Ü‚¤‚Æ‚«‚Í‘å‚«‚­A‚‚·‚¬‚é‚Æ‚«‚Í¬‚³‚­‚·‚é
+	constexpr float ATTACK_AIM_RAISE = 40.0f;
+
+	// ƒvƒŒƒCƒ„[‚ÌUŒ‚‚ª‘_‚¤ˆÊ’u
+	VECTOR AimPos(const EnemyBase& enemy)
+	{
+		return VAdd(enemy.GetTransform().pos, VGet(0.0f, ATTACK_AIM_RAISE, 0.0f));
+	}
+}
+
 //-----------------------------------------------------------------------------
 // ¶¬ / ”jŠü / ‰Šú‰»
 //-----------------------------------------------------------------------------
@@ -466,7 +479,7 @@ void GameScene::UpdateLockOnTracking(void)
 		return;
 	}
 
-	const VECTOR targetPos = lockOnTarget_->GetTransform().pos;
+	const VECTOR targetPos = AimPos(*lockOnTarget_);
 
 	player_->SetAttackTarget(targetPos);
 
@@ -486,7 +499,7 @@ void GameScene::UpdateFreeTarget(void)
 
 	if (nearest != nullptr)
 	{
-		player_->SetAttackTarget(nearest->GetTransform().pos);
+		player_->SetAttackTarget(AimPos(*nearest));
 	}
 	else
 	{

@@ -41,7 +41,7 @@ void EnemyAreaBlast::Update(float deltaTime)
 		return;
 	}
 
-	if (state_ == State::EXPLODE && timer_ >= EXPLODE_TIME)
+	if (state_ == State::EXPLODE && timer_ >= GetExplodeTime())
 	{
 		state_ = State::DEAD;
 	}
@@ -90,15 +90,47 @@ void EnemyAreaBlast::Draw(void) const
 	else
 	{
 		// îöî≠: çLÇ™ÇËÇ»Ç™ÇÁè¡Ç¶ÇÈ
-		const float t = timer_ / EXPLODE_TIME;
-		const float r = radius_ * (0.5f + 0.6f * t);
-		const int alpha = (int)(210.0f * (1.0f - t));
+		const float t = timer_ / GetExplodeTime();
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
-		DrawSphere3D(pos_, r, 20, GetColor(255, 170, 60), GetColor(255, 170, 60), TRUE);
+		if (isHuge_)
+		{
+			// í¥ãêëÂ: àÍãCÇ…ñcÇÁÇ›(ç≈èâÇÃñÒ3ï™ÇÃ1ÇÃéûä‘Ç≈)ÅAÇªÇÃÇ†Ç∆îñÇÍÇ»Ç™ÇÁè≠ÇµÇ∏Ç¬çLÇ™ÇÈ
+			float g = t * 3.0f;
+			if (g > 1.0f) { g = 1.0f; }
+			const float e = 1.0f - (1.0f - g) * (1.0f - g);
 
-		SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
-		DrawSphere3D(pos_, r * 0.6f, 20, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+			const float r = radius_ * (0.25f + 0.85f * e);
+			const int alpha = (int)(230.0f * (1.0f - t));
+
+			// íxÇÍÇƒçLÇ™ÇÈê‘Ç¢äOäk
+			if (t > 0.15f)
+			{
+				const float t2 = (t - 0.15f) / 0.85f;
+				SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(110.0f * (1.0f - t2)));
+				DrawSphere3D(pos_, radius_ * (0.6f + 0.7f * t2), 24, GetColor(255, 60, 20), GetColor(255, 60, 20), TRUE);
+			}
+
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+			DrawSphere3D(pos_, r, 28, GetColor(255, 140, 40), GetColor(255, 140, 40), TRUE);
+
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+			DrawSphere3D(pos_, r * 0.78f, 28, GetColor(255, 220, 90), GetColor(255, 220, 90), TRUE);
+
+			// íÜêSÇÃîíÇ¢åı(í∑Ç≠écÇÈ)
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, (int)(255.0f * (1.0f - t * 0.8f)));
+			DrawSphere3D(pos_, r * 0.5f, 24, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+		}
+		else
+		{
+			const float r = radius_ * (0.5f + 0.6f * t);
+			const int alpha = (int)(210.0f * (1.0f - t));
+
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+			DrawSphere3D(pos_, r, 20, GetColor(255, 170, 60), GetColor(255, 170, 60), TRUE);
+
+			SetDrawBlendMode(DX_BLENDMODE_ALPHA, alpha);
+			DrawSphere3D(pos_, r * 0.6f, 20, GetColor(255, 255, 255), GetColor(255, 255, 255), TRUE);
+		}
 	}
 
 	SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);

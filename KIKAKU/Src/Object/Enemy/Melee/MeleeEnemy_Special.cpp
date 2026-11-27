@@ -72,6 +72,24 @@ void MeleeEnemy::UpdateBlasts(float deltaTime)
 			continue;
 		}
 
+		// ビッグバン: 着弾点に着くか、プレイヤーに近づくと、広範囲に大爆発する(ダメージは爆発で与える)
+		if (blast.IsExplodeType())
+		{
+			const float toPlayer = VSize(VSub(blast.GetPos(), playerCenter));
+
+			if (blast.HasReachedGoal() || toPlayer <= blast.GetRadius() + kBlastHitMargin)
+			{
+				EnemyAreaBlast boom;
+				boom.Init(blast.GetPos(), kBigBangRadius, 0.01f, kBarrageBigDamage);
+				boom.SetHuge(true);
+				areaBlasts_.push_back(boom);
+
+				blast.Kill();
+			}
+
+			continue;
+		}
+
 		const float distance = VSize(VSub(blast.GetPos(), playerCenter));
 
 		if (distance > blast.GetRadius() + kBlastHitMargin)
@@ -278,13 +296,13 @@ void MeleeEnemy::UpdateAreaBlasts(float deltaTime)
 			continue;
 		}
 
-		mainCamera.StartShake(0.2f, 6.0f);
+		mainCamera.StartShake(blast.IsHuge() ? 0.6f : 0.2f, blast.IsHuge() ? 14.0f : 6.0f);
 
 		const float distance = VSize(VSub(blast.GetPos(), playerCenter));
 
 		if (blast.GetDamage() > 0 && distance <= blast.GetRadius())
 		{
-			ApplyHitToPlayer(blast.GetPos(), blast.GetDamage(), 35.0f, 80.0f, 8.0f);
+			ApplyHitToPlayer(blast.GetPos(), blast.GetDamage(), blast.IsHuge() ? 60.0f : 35.0f, 80.0f, 8.0f);
 		}
 	}
 
@@ -467,15 +485,28 @@ bool MeleeEnemy::UpdateKiBarrage(float deltaTime, const VECTOR& playerPos)
 
 		barrageBigTimer_ += deltaTime;
 
+		// 溜めたあと、間隔を空けて何発も撃つ(それぞれが広範囲に大爆発する)
 		if (barrageBigTimer_ >= kBarrageBigChargeTime)
 		{
-			FireBarrageBig();
+			bigBangShotTimer_ -= deltaTime;
 
-			barrageBigPhase_ = false;
-			barrageCoolTimer_ = kBarrageCoolTime;
+			if (bigBangShotsLeft_ > 0 && bigBangShotTimer_ <= 0.0f)
+			{
+				FireBarrageBig();
 
-			SetAIState(AI_STATE::WAIT);
-			aiTimer_ = -kBarrageRecoverTime;
+				bigBangShotsLeft_--;
+				bigBangShotTimer_ = kBigBangInterval;
+			}
+
+			// 最後の1発を撃って、間隔ぶん待ったら終わり
+			if (bigBangShotsLeft_ <= 0 && bigBangShotTimer_ <= 0.0f)
+			{
+				barrageBigPhase_ = false;
+				barrageCoolTimer_ = kBarrageCoolTime;
+
+				SetAIState(AI_STATE::WAIT);
+				aiTimer_ = -kBarrageRecoverTime;
+			}
 		}
 	}
 
@@ -503,7 +534,8 @@ void MeleeEnemy::FireBarrageShot(void)
 	const VECTOR launchDir = VGet(sinf(yaw), up, cosf(yaw));
 
 	EnemyKiBlast blast;
-	blast.Init(origin, launchDir, kBarrageSpeed, kKiRadius * 1.3f, kKiLife);
+	const float speedRate = 1.0f + ((float)GetRand(200) / 100.0f - 1.0f) * kBarrageSpeedVar;
+	blast.Init(origin, launchDir, kBarrageSpeed * speedRate, kKiRadius * 1.3f, kKiLife);
 	blast.SetDamage(kBarrageDamage);
 	blast.SetKnock(0.0f);	// 連射は押し出さない(数が多く、押されすぎて抜けられなくなるため)
 
@@ -511,7 +543,7 @@ void MeleeEnemy::FireBarrageShot(void)
 	{
 		// プレイヤーを追いかける弾(少しだけ)
 		blast.SetHoming(&player_.GetTransform().pos, kPlayerCenterHeight, kBarrageHomingTurn, kBarrageHomingTime);
-		blast.SetHomingDelay(kBarrageHomingDelay);
+		blast.SetHomingDelay(kBarrageHomingDelay + (float)GetRand(100) / 100.0f * kBarrageHomingDelayRand);
 	}
 	else
 	{
@@ -527,26 +559,30 @@ void MeleeEnemy::FireBarrageShot(void)
 		const float floorY = player_.GetTransform().pos.y + 20.0f;
 		if (goal.y < floorY) { goal.y = floorY; }
 
-		blast.SetFixedGoal(goal, kBarrageHomingDelay, kBarrageHomingTurn, kBarrageHomingTime);
+		blast.SetFixedGoal(goal, kBarrageHomingDelay + (float)GetRand(100) / 100.0f * kBarrageHomingDelayRand,
+			kBarrageHomingTurn, kBarrageHomingTime);
 	}
 
 	blasts_.push_back(blast);
 }
 
-// 大きな気弾を撃つ(遅いが大きく、追尾する)
+// ビッグバンの弾を撃つ(撃った瞬間のプレイヤーの位置へ直進し、着くと広範囲に大爆発する)
+//   追尾しないので、動けば弾は外れる。ただし爆発が広いので、爆発の範囲の外まで逃げる必要がある
 void MeleeEnemy::FireBarrageBig(void)
 {
 	const VECTOR forward = transform_.quaRot.GetForward();
-	const VECTOR origin = VAdd(GetChestPos(), VScale(forward, 80.0f));
+	const VECTOR origin = VAdd(
+		GetChestPos(),
+		VAdd(VScale(forward, 80.0f), VGet(0.0f, kBigBangOriginUp, 0.0f)));
 
-	const VECTOR target = VAdd(player_.GetTransform().pos, VGet(0.0f, kPlayerCenterHeight, 0.0f));
+	const VECTOR goal = VAdd(player_.GetTransform().pos, VGet(0.0f, kPlayerCenterHeight, 0.0f));
 
 	EnemyKiBlast blast;
-	blast.Init(origin, VSub(target, origin), kBarrageBigSpeed, kBarrageBigRadius, kKiLife + 1.0f);
-	blast.SetDamage(kBarrageBigDamage);
-	blast.SetKnock(4.0f);
+	blast.Init(origin, VSub(goal, origin), kBarrageBigSpeed, kBarrageBigRadius, kBigBangLife);
+	blast.SetDamage(kBarrageBigDamage);	// 相殺のときの強さに使う(当たったときのダメージは爆発で与える)
+	blast.SetKnock(0.0f);
 	blast.SetBig(true);
-	blast.SetHoming(&player_.GetTransform().pos, kPlayerCenterHeight, kBarrageBigHomingTurn, kBarrageBigHomingTime);
+	blast.SetExplodeGoal(goal);
 
 	blasts_.push_back(blast);
 }

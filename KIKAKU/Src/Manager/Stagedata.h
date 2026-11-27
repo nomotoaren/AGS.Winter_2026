@@ -30,9 +30,9 @@ namespace StageData
 		static const Info table[GameProgress::STAGE_MAX] =
 		{
 			// ステージ名       推奨Lv  経験値  数   { 種類,					HP,   x,    y,      z }
-			{ "ステージ01",       1,    120,   1, { { EnemyData::TYPE::MELEE,  6000, 0.0f, 1000.0f, 300.0f } } },
-			{ "ステージ02",		  3,    200,   1, { { EnemyData::TYPE::MELEE, 10000, 0.0f, 1000.0f, 300.0f } } },
-			{ "ステージ03",       4,    300,   1, { { EnemyData::TYPE::MELEE, 20000, 0.0f, 1000.0f, 300.0f } } },
+			{ "ステージ01",       1,    120,   1, { { EnemyData::TYPE::MELEE,  20000, 0.0f, 1000.0f, 300.0f } } },
+			{ "ステージ02",		  3,    200,   1, { { EnemyData::TYPE::MELEE, 40000, 0.0f, 1000.0f, 300.0f } } },
+			{ "ステージ03",       4,    300,   1, { { EnemyData::TYPE::MELEE, 60000, 0.0f, 1000.0f, 300.0f } } },
 		};
 
 		if (stage < 0) { stage = 0; }
